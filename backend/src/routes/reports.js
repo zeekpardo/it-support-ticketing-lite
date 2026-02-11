@@ -11,8 +11,6 @@ router.use(requireOrganization);
 // Get summary report
 router.get('/summary', async (req, res) => {
   try {
-    console.log('Report request:', req.query);
-    console.log('User:', req.user?.id, 'Org:', req.organization?.id, 'Role:', req.membership?.role);
     const { startDate, endDate, projectId, userId, groupBy = 'project' } = req.query;
     const canViewAll = ['admin', 'owner'].includes(req.membership.role);
 
@@ -42,8 +40,6 @@ router.get('/summary', async (req, res) => {
       }
     }
 
-    console.log('Query where:', JSON.stringify(where, null, 2));
-
     const entries = await prisma.timeEntry.findMany({
       where,
       include: {
@@ -52,8 +48,6 @@ router.get('/summary', async (req, res) => {
       },
       orderBy: { startTime: 'desc' }
     });
-
-    console.log('Found entries:', entries.length);
 
     // Calculate totals
     const totalMinutes = entries.reduce((sum, e) => sum + (e.durationMins || 0), 0);

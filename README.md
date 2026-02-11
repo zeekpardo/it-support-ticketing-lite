@@ -113,10 +113,15 @@ DATABASE_URL="file:./dev.db"
 BETTER_AUTH_SECRET="your-secret-key-min-32-characters"
 BETTER_AUTH_URL="http://localhost:3001"
 PORT=3001
+FRONTEND_URL="http://localhost:5173"
 ```
 
-### Frontend
-The frontend proxies API requests to the backend automatically via Vite config.
+### Frontend (.env)
+```
+VITE_API_URL="http://localhost:3001"
+```
+
+In development, the frontend proxies API requests to the backend automatically via Vite config.
 
 ## API Endpoints
 
@@ -143,16 +148,78 @@ The frontend proxies API requests to the backend automatically via Vite config.
 - `GET /api/reports/export` - Export to CSV
 - `GET /api/reports/billing` - Billing report
 
-## Deployment
+## Deployment on Railway
 
-### Railway
+This app is configured for deployment on Railway as two separate services.
 
-1. Create a new Railway project
-2. Add your backend service
-3. Add environment variables
-4. Deploy!
+### Option A: Deploy via Railway Dashboard (Recommended)
 
-The SQLite database will be persisted via Railway's volume storage.
+#### 1. Deploy Backend
+
+1. Go to [railway.app](https://railway.app) and create a new project
+2. Click "New Service" → "GitHub Repo" and select this repository
+3. Set the **Root Directory** to `backend`
+4. Add a **Postgres database** (recommended) or use SQLite with a volume
+5. Configure environment variables:
+   ```
+   DATABASE_URL         → (auto-provided if using Railway Postgres)
+   BETTER_AUTH_SECRET   → (generate a secure 32+ char string)
+   BETTER_AUTH_URL      → https://your-backend.up.railway.app
+   FRONTEND_URL         → https://your-frontend.up.railway.app
+   ```
+6. Deploy and note the generated URL
+
+#### 2. Deploy Frontend
+
+1. In the same project, click "New Service" → "GitHub Repo"
+2. Set the **Root Directory** to `frontend`
+3. Configure environment variables:
+   ```
+   VITE_API_URL → https://your-backend.up.railway.app
+   ```
+4. Deploy
+
+### Option B: Deploy via Railway CLI
+
+```bash
+# Install Railway CLI
+npm install -g @railway/cli
+
+# Login
+railway login
+
+# Create project
+railway init
+
+# Deploy backend
+cd backend
+railway link
+railway up
+
+# Deploy frontend (in separate service)
+cd ../frontend
+railway link
+railway up
+```
+
+### Database Options
+
+**PostgreSQL (Recommended for production):**
+- Add a Postgres database in Railway dashboard
+- Railway auto-injects `DATABASE_URL`
+- Update your Prisma schema provider from `sqlite` to `postgresql`
+
+**SQLite with Volume:**
+- Add a volume mounted at `/data`
+- Set `DATABASE_URL="file:/data/prod.db"`
+- Note: SQLite has limitations for concurrent connections
+
+### Post-Deployment
+
+1. Update `BETTER_AUTH_URL` to match your backend's Railway URL
+2. Update `FRONTEND_URL` to match your frontend's Railway URL
+3. Update `VITE_API_URL` in frontend to match backend URL
+4. Redeploy both services after updating URLs
 
 ## Future Enhancements
 

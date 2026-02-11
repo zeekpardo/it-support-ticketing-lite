@@ -13,12 +13,11 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // CORS configuration
-// Note: After loading the Chrome extension, replace YOUR_EXTENSION_ID with the actual ID
-// shown at chrome://extensions (e.g., 'chrome-extension://abcdefghijklmnop...')
 const allowedOrigins = [
   'http://localhost:5173',
-  'http://localhost:3000'
-];
+  'http://localhost:3000',
+  process.env.FRONTEND_URL
+].filter(Boolean);
 
 // Allow Chrome extension origins (matches any extension ID for development)
 app.use(cors({
