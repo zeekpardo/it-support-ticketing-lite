@@ -569,6 +569,55 @@ router.post('/:id/comments', requireStaff, async (req, res) => {
   }
 });
 
+// Get mentionable members for a ticket (staff + ticket client)
+router.get('/:id/mentionable-members', requireStaff, async (req, res) => {
+  try {
+    const ticket = await prisma.supportTicket.findFirst({
+      where: {
+        id: req.params.id,
+        organizationId: req.organization.id
+      },
+      include: {
+        client: {
+          select: {
+            id: true,
+            role: true,
+            user: { select: { id: true, name: true, email: true } }
+          }
+        }
+      }
+    });
+
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+
+    // Get all staff members (owner, manager, member roles)
+    const staffMembers = await prisma.member.findMany({
+      where: {
+        organizationId: req.organization.id,
+        role: { in: ['owner', 'manager', 'member'] }
+      },
+      select: {
+        id: true,
+        role: true,
+        user: { select: { id: true, name: true, email: true } }
+      }
+    });
+
+    // Combine staff + ticket client, ensuring no duplicates and excluding current user
+    const members = staffMembers.filter(m => m.id !== req.membership.id);
+    if (ticket.client && ticket.client.id !== req.membership.id && !members.some(m => m.id === ticket.client.id)) {
+      members.push(ticket.client);
+    }
+
+    res.json(members);
+  } catch (error) {
+    console.error('Error fetching mentionable members:', error);
+    res.status(500).json({ error: 'Failed to fetch mentionable members' });
+  }
+});
+
 // === TIME ENTRIES ===
 
 // Get time entries for ticket

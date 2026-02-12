@@ -492,6 +492,14 @@ class ApiClient {
     })
   }
 
+  async getTicketMentionableMembers(ticketId: string) {
+    return this.request<Array<{
+      id: string
+      role: string
+      user: { id: string; name: string; email: string }
+    }>>(`/tickets/${ticketId}/mentionable-members`)
+  }
+
   // Ticket Time Entries
   async getTicketTimeEntries(ticketId: string) {
     return this.request<any[]>(`/tickets/${ticketId}/time-entries`)
@@ -556,6 +564,14 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ content })
     })
+  }
+
+  async getPortalTicketMentionableMembers(ticketId: string) {
+    return this.request<Array<{
+      id: string
+      role: string
+      user: { id: string; name: string; email: string }
+    }>>(`/portal/tickets/${ticketId}/mentionable-members`)
   }
 
   // === MEMBERS ===

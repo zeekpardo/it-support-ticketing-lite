@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { LockClosedIcon, GlobeAltIcon } from '@heroicons/react/24/outline'
 import { Button } from '../ui/button'
-import { Textarea } from '../ui/textarea'
 import { Badge } from '../ui/badge'
+import { MentionTextarea, renderMentions } from '../ui/mention-textarea'
 
 interface Comment {
   id: string
@@ -19,14 +19,21 @@ interface Comment {
   }
 }
 
+interface MentionMember {
+  id: string
+  role: string
+  user: { id: string; name: string; email: string }
+}
+
 interface TicketCommentsProps {
   comments: Comment[]
   onAddComment: (content: string, isInternal: boolean) => Promise<void>
   isStaff?: boolean
   isLoading?: boolean
+  mentionableMembers?: MentionMember[]
 }
 
-export function TicketComments({ comments, onAddComment, isStaff = true, isLoading }: TicketCommentsProps) {
+export function TicketComments({ comments, onAddComment, isStaff = true, isLoading, mentionableMembers = [] }: TicketCommentsProps) {
   const [content, setContent] = useState('')
   const [isInternal, setIsInternal] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -88,19 +95,20 @@ export function TicketComments({ comments, onAddComment, isStaff = true, isLoadi
                   {new Date(comment.createdAt).toLocaleString()}
                 </span>
               </div>
-              <p className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">
-                {comment.content}
-              </p>
+              <div className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">
+                {renderMentions(comment.content)}
+              </div>
             </div>
           ))
         )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
-        <Textarea
+        <MentionTextarea
           value={content}
-          onChange={e => setContent(e.target.value)}
-          placeholder="Add a comment..."
+          onChange={setContent}
+          members={mentionableMembers}
+          placeholder="Add a comment... Use @ to mention someone"
           rows={3}
           disabled={submitting || isLoading}
         />

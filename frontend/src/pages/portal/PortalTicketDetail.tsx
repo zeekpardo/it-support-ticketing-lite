@@ -34,10 +34,17 @@ interface Ticket {
   attachments: any[]
 }
 
+interface MentionableMember {
+  id: string
+  role: string
+  user: { id: string; name: string; email: string }
+}
+
 export default function PortalTicketDetail() {
   const { id } = useParams<{ id: string }>()
   const { currentOrg } = useOrganization()
   const [ticket, setTicket] = useState<Ticket | null>(null)
+  const [mentionableMembers, setMentionableMembers] = useState<MentionableMember[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -49,8 +56,12 @@ export default function PortalTicketDetail() {
   const loadTicket = async () => {
     setLoading(true)
     try {
-      const ticketData = await api.getPortalTicket(id!)
+      const [ticketData, membersData] = await Promise.all([
+        api.getPortalTicket(id!),
+        api.getPortalTicketMentionableMembers(id!)
+      ])
       setTicket(ticketData)
+      setMentionableMembers(membersData)
     } catch (error) {
       console.error('Failed to load ticket:', error)
     } finally {
@@ -149,6 +160,7 @@ export default function PortalTicketDetail() {
               comments={ticket.comments}
               onAddComment={(content) => handleAddMessage(content)}
               isStaff={false}
+              mentionableMembers={mentionableMembers}
             />
           </div>
         </div>

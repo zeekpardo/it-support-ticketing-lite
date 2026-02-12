@@ -297,6 +297,42 @@ router.post('/tickets/:id/messages', async (req, res) => {
   }
 });
 
+// Get mentionable members for a ticket (staff members that client can mention)
+router.get('/tickets/:id/mentionable-members', async (req, res) => {
+  try {
+    // Verify client owns this ticket
+    const ticket = await prisma.supportTicket.findFirst({
+      where: {
+        id: req.params.id,
+        organizationId: req.organization.id,
+        clientId: req.membership.id
+      }
+    });
+
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+
+    // Get all staff members (owner, manager, member roles) that the client can mention
+    const staffMembers = await prisma.member.findMany({
+      where: {
+        organizationId: req.organization.id,
+        role: { in: ['owner', 'manager', 'member'] }
+      },
+      select: {
+        id: true,
+        role: true,
+        user: { select: { id: true, name: true, email: true } }
+      }
+    });
+
+    res.json(staffMembers);
+  } catch (error) {
+    console.error('Error fetching mentionable members:', error);
+    res.status(500).json({ error: 'Failed to fetch mentionable members' });
+  }
+});
+
 // Get dashboard stats for client
 router.get('/dashboard', async (req, res) => {
   try {

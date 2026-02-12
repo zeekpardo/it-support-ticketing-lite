@@ -50,6 +50,12 @@ interface StaffMember {
   user: { id: string; name: string; email: string }
 }
 
+interface MentionableMember {
+  id: string
+  role: string
+  user: { id: string; name: string; email: string }
+}
+
 export default function TicketDetail() {
   const { projectId, ticketId } = useParams<{ projectId: string; ticketId: string }>()
   const navigate = useNavigate()
@@ -57,6 +63,7 @@ export default function TicketDetail() {
   const { runningTimer, startTimer, stopTimer: stopGlobalTimer, refreshTimer, isLoading: timerLoading } = useTimer()
   const [ticket, setTicket] = useState<Ticket | null>(null)
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
+  const [mentionableMembers, setMentionableMembers] = useState<MentionableMember[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -69,12 +76,14 @@ export default function TicketDetail() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [ticketData, staffData] = await Promise.all([
+      const [ticketData, staffData, mentionableData] = await Promise.all([
         api.getTicket(ticketId!),
-        api.getStaffMembers()
+        api.getStaffMembers(),
+        api.getTicketMentionableMembers(ticketId!)
       ])
       setTicket(ticketData)
       setStaffMembers(staffData)
+      setMentionableMembers(mentionableData)
     } catch (error) {
       console.error('Failed to load ticket:', error)
     } finally {
@@ -284,6 +293,7 @@ export default function TicketDetail() {
               comments={ticket.comments}
               onAddComment={handleAddComment}
               isStaff={true}
+              mentionableMembers={mentionableMembers}
             />
           </div>
         </div>
