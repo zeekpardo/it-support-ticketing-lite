@@ -63,7 +63,7 @@ interface User {
   banReason?: string
   banExpires?: string
   createdAt: string
-  memberships?: Membership[]
+  members?: Membership[]
 }
 
 type TabType = 'users' | 'software' | 'categories'
@@ -310,9 +310,9 @@ function UsersTab() {
                 <TableCell className="font-medium">{user.name}</TableCell>
                 <TableCell className="text-zinc-500">{user.email}</TableCell>
                 <TableCell>
-                  {user.memberships && user.memberships.length > 0 ? (
+                  {user.members && user.members.length > 0 ? (
                     <div className="space-y-1">
-                      {user.memberships.map((membership) => (
+                      {user.members.map((membership) => (
                         <div key={membership.id} className="text-sm">
                           <span className="font-medium text-zinc-700 dark:text-zinc-300">
                             {membership.organization.name}

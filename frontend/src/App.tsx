@@ -29,6 +29,7 @@ import PortalNewTicket from './pages/portal/PortalNewTicket'
 import PortalSettings from './pages/portal/PortalSettings'
 import PortalProjectSoftware from './pages/portal/PortalProjectSoftware'
 import PortalProjectSoftwareDetail from './pages/portal/PortalProjectSoftwareDetail'
+import PortalCatalog from './pages/portal/PortalCatalog'
 import AcceptInvitation from './pages/AcceptInvitation'
 // Project Software pages
 import ProjectSoftwareCatalog from './pages/admin/ProjectSoftwareCatalog'
@@ -270,6 +271,14 @@ function AppRoutes() {
         element={
           <ClientRoute>
             <PortalSettings />
+          </ClientRoute>
+        }
+      />
+      <Route
+        path="/portal/catalog"
+        element={
+          <ClientRoute>
+            <PortalCatalog />
           </ClientRoute>
         }
       />

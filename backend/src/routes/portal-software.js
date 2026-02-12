@@ -278,9 +278,10 @@ router.post('/projects/:projectId/software/:id/request', async (req, res) => {
   try {
     const { projectId, id } = req.params;
 
-    // Verify project belongs to organization
+    // Verify project belongs to organization and get default assignee
     const project = await prisma.project.findFirst({
-      where: { id: projectId, organizationId: req.organization.id }
+      where: { id: projectId, organizationId: req.organization.id },
+      select: { id: true, defaultAssigneeId: true }
     });
 
     if (!project) {
@@ -321,6 +322,7 @@ router.post('/projects/:projectId/software/:id/request', async (req, res) => {
         data: {
           status: 'PENDING',
           reason: req.body.reason || null,
+          assigneeId: project.defaultAssigneeId,
           reviewerId: null,
           reviewNotes: null
         },
@@ -350,7 +352,8 @@ router.post('/projects/:projectId/software/:id/request', async (req, res) => {
       data: {
         projectSoftwareId: id,
         requesterId: req.membership.id,
-        reason
+        reason,
+        assigneeId: project.defaultAssigneeId
       },
       include: {
         projectSoftware: {

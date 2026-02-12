@@ -24,6 +24,7 @@ import {
   ChevronUpIcon,
   BuildingOfficeIcon,
   UserCircleIcon,
+  ComputerDesktopIcon,
 } from '@heroicons/react/24/outline'
 
 interface PortalLayoutProps {
@@ -45,6 +46,7 @@ export function PortalLayout({ children }: PortalLayoutProps) {
     { href: '/portal', label: 'Dashboard', icon: HomeIcon },
     { href: '/portal/tickets', label: 'My Tickets', icon: TicketIcon },
     { href: '/portal/tickets/new', label: 'New Ticket', icon: PlusCircleIcon },
+    { href: '/portal/catalog', label: 'Catalog', icon: ComputerDesktopIcon },
   ]
 
   return (

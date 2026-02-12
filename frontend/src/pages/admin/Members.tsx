@@ -65,6 +65,8 @@ export default function AdminMembers() {
   const [formPhone, setFormPhone] = useState('')
   const [formPassword, setFormPassword] = useState('')
   const [formRole, setFormRole] = useState<'manager' | 'member' | 'client'>('member')
+  const [formProjectIds, setFormProjectIds] = useState<string[]>([])
+  const [formProjects, setFormProjects] = useState<Project[]>([])
   const [formError, setFormError] = useState('')
   const [formLoading, setFormLoading] = useState(false)
 
@@ -118,7 +120,19 @@ export default function AdminMembers() {
     setFormPhone('')
     setFormPassword('')
     setFormRole('member')
+    setFormProjectIds([])
     setFormError('')
+  }
+
+  const handleOpenAddModal = async () => {
+    setShowAddModal(true)
+    // Load projects for client assignment
+    try {
+      const projectsData = await api.getProjects()
+      setFormProjects(projectsData.filter((p: Project) => p.isActive))
+    } catch (error) {
+      console.error('Failed to load projects:', error)
+    }
   }
 
   const handleCloseModal = () => {
@@ -132,6 +146,16 @@ export default function AdminMembers() {
     setFormLoading(true)
 
     try {
+      // Validate project selection for clients (only for direct creation)
+      if (formRole === 'client' && addMode === 'create' && formProjectIds.length === 0) {
+        throw new Error('Please select at least one project for the client')
+      }
+
+      // Clients can only be created directly (not invited) because they need project assignments
+      if (formRole === 'client' && addMode === 'invite') {
+        throw new Error('Clients must be created directly with project assignments. Please use "Create User" mode.')
+      }
+
       if (addMode === 'invite') {
         // Send invitation
         await inviteMember(formEmail, formRole)
@@ -154,6 +178,7 @@ export default function AdminMembers() {
           phone: formPhone,
           password: formPassword,
           role: formRole,
+          projectIds: formRole === 'client' ? formProjectIds : undefined,
         })
       }
 
@@ -284,7 +309,7 @@ export default function AdminMembers() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <Heading>Users</Heading>
-        <Button color="blue" onClick={() => setShowAddModal(true)}>
+        <Button color="blue" onClick={handleOpenAddModal}>
           <PlusIcon className="h-4 w-4" />
           Add User
         </Button>
@@ -507,7 +532,16 @@ export default function AdminMembers() {
                 <Label>Role</Label>
                 <Select
                   value={formRole}
-                  onChange={(e) => setFormRole(e.target.value as 'manager' | 'member' | 'client')}
+                  onChange={(e) => {
+                    const newRole = e.target.value as 'manager' | 'member' | 'client'
+                    setFormRole(newRole)
+                    if (newRole !== 'client') {
+                      setFormProjectIds([])
+                    } else if (isSuperAdmin) {
+                      // Auto-switch to create mode for clients (they need project assignments)
+                      setAddMode('create')
+                    }
+                  }}
                 >
                   <option value="member">Member</option>
                   <option value="manager">Manager</option>
@@ -519,6 +553,48 @@ export default function AdminMembers() {
                   {formRole === 'client' && 'Can submit and view support tickets'}
                 </Description>
               </Field>
+
+              {formRole === 'client' && addMode === 'create' && (
+                <Field>
+                  <Label>Project Access *</Label>
+                  <Description className="mb-2">Select at least one project the client can access.</Description>
+                  {formProjects.length === 0 ? (
+                    <Text className="text-amber-600 dark:text-amber-400">
+                      No active projects available. Create a project first.
+                    </Text>
+                  ) : (
+                    <CheckboxGroup>
+                      {formProjects.map((project) => (
+                        <CheckboxField key={project.id}>
+                          <Checkbox
+                            checked={formProjectIds.includes(project.id)}
+                            onChange={(checked) => {
+                              if (checked) {
+                                setFormProjectIds([...formProjectIds, project.id])
+                              } else {
+                                setFormProjectIds(formProjectIds.filter(id => id !== project.id))
+                              }
+                            }}
+                          />
+                          <Label>
+                            {project.name}
+                            <span className="ml-2 text-zinc-500">({project.projectCode})</span>
+                          </Label>
+                        </CheckboxField>
+                      ))}
+                    </CheckboxGroup>
+                  )}
+                </Field>
+              )}
+
+              {formRole === 'client' && addMode === 'invite' && (
+                <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+                  Clients cannot be invited via email because they require project assignments.
+                  {isSuperAdmin
+                    ? ' Please use "Create User" mode instead.'
+                    : ' Please contact a super admin to create client accounts.'}
+                </div>
+              )}
             </FieldGroup>
           </DialogBody>
 

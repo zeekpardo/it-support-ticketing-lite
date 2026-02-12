@@ -129,6 +129,7 @@ model Member {
   projectSoftwareAdded            ProjectSoftware[]       @relation("ProjectSoftwareAddedBy")
   projectSoftwareAdmins           ProjectSoftwareAdmin[]
   softwareRequestsAsRequester     SoftwareAccessRequest[] @relation("SoftwareRequester")
+  softwareRequestsAsAssignee      SoftwareAccessRequest[] @relation("SoftwareRequestAssignee")
   softwareRequestsAsReviewer      SoftwareAccessRequest[] @relation("SoftwareReviewer")
 
   @@unique([organizationId, userId])
@@ -422,6 +423,8 @@ model SoftwareAccessRequest {
   requester         Member                      @relation("SoftwareRequester", fields: [requesterId], references: [id], onDelete: Cascade)
   reason            String?
   status            SoftwareAccessRequestStatus @default(PENDING)
+  assigneeId        String?                     @map("assignee_id")
+  assignee          Member?                     @relation("SoftwareRequestAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   reviewerId        String?                     @map("reviewer_id")
   reviewer          Member?                     @relation("SoftwareReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
   reviewNotes       String?                     @map("review_notes")

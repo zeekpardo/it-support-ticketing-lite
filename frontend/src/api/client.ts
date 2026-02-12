@@ -71,6 +71,11 @@ export interface SoftwareAccessRequest {
   }
   reason?: string
   status: 'PENDING' | 'APPROVED' | 'DECLINED'
+  assigneeId?: string
+  assignee?: {
+    id: string
+    user: { id: string; name: string; email: string }
+  }
   reviewerId?: string
   reviewer?: {
     id: string
@@ -493,6 +498,7 @@ class ApiClient {
     phone?: string
     password: string
     role: 'manager' | 'member' | 'client'
+    projectIds?: string[]
   }) {
     return this.request<{
       success: boolean
@@ -614,7 +620,7 @@ class ApiClient {
         banReason?: string
         banExpires?: string
         createdAt: string
-        memberships: Array<{
+        members: Array<{
           id: string
           role: string
           organization: {
@@ -847,6 +853,25 @@ class ApiClient {
 
   async getAllProjectRequests(projectId: string) {
     return this.request<SoftwareAccessRequest[]>(`/software/projects/${projectId}/requests`)
+  }
+
+  async getAllPendingAccessRequests(projectId?: string) {
+    const queryParams = new URLSearchParams()
+    if (projectId) queryParams.append('projectId', projectId)
+    const query = queryParams.toString()
+    return this.request<Array<SoftwareAccessRequest & {
+      projectSoftware: {
+        software: { id: string; name: string; iconUrl?: string }
+        project: { id: string; name: string; projectCode: string; defaultAssigneeId?: string }
+      }
+    }>>(`/software/requests/pending${query ? `?${query}` : ''}`)
+  }
+
+  async assignAccessRequest(requestId: string, assigneeId: string | null) {
+    return this.request<SoftwareAccessRequest>(`/software/requests/${requestId}/assign`, {
+      method: 'PUT',
+      body: JSON.stringify({ assigneeId })
+    })
   }
 
   async reviewAccessRequest(projectId: string, softwareId: string, requestId: string, data: {

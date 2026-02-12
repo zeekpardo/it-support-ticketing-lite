@@ -2,16 +2,17 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useOrganization } from '../context/OrganizationContext'
 import { useTimer } from '../context/TimerContext'
-import { api } from '../api/client'
+import { api, SoftwareAccessRequest } from '../api/client'
 import { TicketKanbanBoard } from '../components/tickets/TicketKanbanBoard'
 import { TicketForm, PRIORITY_LEVELS } from '../components/tickets/TicketForm'
-import { Heading } from '@/components/ui/heading'
+import { Heading, Subheading } from '@/components/ui/heading'
 import { Text } from '@/components/ui/text'
 import { Select } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogTitle, DialogBody } from '@/components/ui/dialog'
+import { Dialog, DialogTitle, DialogBody, DialogActions } from '@/components/ui/dialog'
 import { Field, Label } from '@/components/ui/fieldset'
-import { PlusIcon } from '@heroicons/react/24/outline'
+import { Textarea } from '@/components/ui/textarea'
+import { PlusIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
 
 interface Project {
   id: string
@@ -57,6 +58,13 @@ interface Ticket {
   }
 }
 
+interface PendingSoftwareRequest extends SoftwareAccessRequest {
+  projectSoftware: {
+    software: { id: string; name: string; iconUrl?: string }
+    project: { id: string; name: string; projectCode: string; defaultAssigneeId?: string }
+  }
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const { currentOrg, membership, isClient } = useOrganization()
@@ -65,7 +73,14 @@ export default function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([])
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
   const [clients, setClients] = useState<Client[]>([])
+  const [pendingRequests, setPendingRequests] = useState<PendingSoftwareRequest[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Review modal state
+  const [reviewingRequest, setReviewingRequest] = useState<PendingSoftwareRequest | null>(null)
+  const [reviewAction, setReviewAction] = useState<'APPROVED' | 'DECLINED'>('APPROVED')
+  const [reviewNotes, setReviewNotes] = useState('')
+  const [reviewLoading, setReviewLoading] = useState(false)
 
   // Modal state
   const [isNewTicketOpen, setIsNewTicketOpen] = useState(false)
@@ -89,10 +104,16 @@ export default function Dashboard() {
     }
   }, [filterProject, filterAssignee, filterPriority])
 
+  useEffect(() => {
+    if (currentOrg && !isClient) {
+      loadPendingRequests()
+    }
+  }, [currentOrg, isClient, filterProject])
+
   const loadData = async () => {
     setLoading(true)
     try {
-      const [ticketsData, projectsData, staffData, clientsData] = await Promise.all([
+      const [ticketsData, projectsData, staffData, clientsData, requestsData] = await Promise.all([
         api.getTickets({
           projectId: filterProject || undefined,
           ownerId: filterAssignee || undefined,
@@ -100,16 +121,27 @@ export default function Dashboard() {
         }),
         api.getProjects(),
         api.getStaffMembers(),
-        api.getClients()
+        api.getClients(),
+        api.getAllPendingAccessRequests()
       ])
       setTickets(ticketsData)
       setProjects(projectsData)
       setStaffMembers(staffData)
       setClients(clientsData)
+      setPendingRequests(requestsData)
     } catch (error) {
       console.error('Failed to load data:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadPendingRequests = async () => {
+    try {
+      const requestsData = await api.getAllPendingAccessRequests(filterProject || undefined)
+      setPendingRequests(requestsData)
+    } catch (error) {
+      console.error('Failed to load pending requests:', error)
     }
   }
 
@@ -217,6 +249,61 @@ export default function Dashboard() {
     setSelectedClientId('') // Reset client when project changes
   }
 
+  const handleReviewClick = (request: PendingSoftwareRequest, action: 'APPROVED' | 'DECLINED') => {
+    setReviewingRequest(request)
+    setReviewAction(action)
+    setReviewNotes('')
+  }
+
+  const handleSubmitReview = async () => {
+    if (!reviewingRequest) return
+    setReviewLoading(true)
+    try {
+      await api.reviewAccessRequest(
+        reviewingRequest.projectSoftware.project.id,
+        reviewingRequest.projectSoftwareId,
+        reviewingRequest.id,
+        { status: reviewAction, reviewNotes: reviewNotes.trim() || undefined }
+      )
+      setReviewingRequest(null)
+      loadPendingRequests()
+    } catch (error) {
+      console.error('Failed to review request:', error)
+    } finally {
+      setReviewLoading(false)
+    }
+  }
+
+  const handleAssignRequest = async (requestId: string, assigneeId: string | null) => {
+    try {
+      await api.assignAccessRequest(requestId, assigneeId)
+      // Update local state
+      setPendingRequests(prev => prev.map(req => {
+        if (req.id === requestId) {
+          const assignedMember = assigneeId ? staffMembers.find(m => m.id === assigneeId) : null
+          return {
+            ...req,
+            assigneeId: assigneeId || undefined,
+            assignee: assignedMember ? { id: assignedMember.id, user: assignedMember.user } : undefined
+          }
+        }
+        return req
+      }))
+    } catch (error) {
+      console.error('Failed to assign request:', error)
+    }
+  }
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
   // Redirect clients to portal
   if (isClient) {
     navigate('/portal')
@@ -307,6 +394,82 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* Pending Software Requests */}
+      {pendingRequests.length > 0 && (
+        <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
+          <Subheading className="mb-4">Pending Software Requests ({pendingRequests.length})</Subheading>
+          <div className="space-y-3">
+            {pendingRequests.map((request) => (
+              <div
+                key={request.id}
+                className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      {request.projectSoftware.software.iconUrl && (
+                        <img
+                          src={request.projectSoftware.software.iconUrl}
+                          alt=""
+                          className="w-6 h-6 rounded"
+                        />
+                      )}
+                      <p className="text-sm font-medium text-zinc-900 dark:text-white">
+                        {request.projectSoftware.software.name}
+                      </p>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300">
+                        {request.projectSoftware.project.name}
+                      </span>
+                    </div>
+                    <p className="text-sm text-zinc-600 dark:text-zinc-300 mt-1">
+                      <span className="font-medium">{request.requester?.user.name}</span>
+                      <span className="text-zinc-400 dark:text-zinc-500"> ({request.requester?.user.email})</span>
+                    </p>
+                    {request.reason && (
+                      <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                        <span className="font-medium">Reason:</span> {request.reason}
+                      </p>
+                    )}
+                    <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
+                      Requested {formatDate(request.createdAt)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-40">
+                      <Select
+                        value={request.assigneeId || ''}
+                        onChange={(e) => handleAssignRequest(request.id, e.target.value || null)}
+                      >
+                        <option value="">Unassigned</option>
+                        {staffMembers.map((member) => (
+                          <option key={member.id} value={member.id}>
+                            {member.user.name}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                    <Button
+                      color="green"
+                      onClick={() => handleReviewClick(request, 'APPROVED')}
+                    >
+                      <CheckIcon className="w-4 h-4" />
+                      Approve
+                    </Button>
+                    <Button
+                      color="red"
+                      onClick={() => handleReviewClick(request, 'DECLINED')}
+                    >
+                      <XMarkIcon className="w-4 h-4" />
+                      Decline
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Kanban Board */}
       {tickets.length === 0 && !filterProject && !filterAssignee && !filterPriority ? (
         <div className="rounded-xl bg-white p-12 text-center shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
@@ -383,6 +546,49 @@ export default function Dashboard() {
             preselectedProjectId={selectedProjectId}
           />
         </DialogBody>
+      </Dialog>
+
+      {/* Review Access Request Modal */}
+      <Dialog open={!!reviewingRequest} onClose={() => setReviewingRequest(null)}>
+        <DialogTitle>
+          {reviewAction === 'APPROVED' ? 'Approve' : 'Decline'} Access Request
+        </DialogTitle>
+        <DialogBody>
+          {reviewingRequest && (
+            <div className="space-y-4">
+              <p className="text-sm text-zinc-600 dark:text-zinc-300">
+                {reviewAction === 'APPROVED'
+                  ? `Grant ${reviewingRequest.requester?.user.name} access to ${reviewingRequest.projectSoftware.software.name}?`
+                  : `Decline ${reviewingRequest.requester?.user.name}'s request for ${reviewingRequest.projectSoftware.software.name}?`}
+              </p>
+              <Field>
+                <Label>Notes (optional)</Label>
+                <Textarea
+                  value={reviewNotes}
+                  onChange={(e) => setReviewNotes(e.target.value)}
+                  placeholder={
+                    reviewAction === 'APPROVED'
+                      ? 'Any additional instructions or information...'
+                      : 'Reason for declining...'
+                  }
+                  rows={3}
+                />
+              </Field>
+            </div>
+          )}
+        </DialogBody>
+        <DialogActions>
+          <Button plain onClick={() => setReviewingRequest(null)}>
+            Cancel
+          </Button>
+          <Button
+            color={reviewAction === 'APPROVED' ? 'green' : 'red'}
+            onClick={handleSubmitReview}
+            disabled={reviewLoading}
+          >
+            {reviewLoading ? 'Saving...' : reviewAction === 'APPROVED' ? 'Approve' : 'Decline'}
+          </Button>
+        </DialogActions>
       </Dialog>
     </div>
   )

@@ -12,7 +12,7 @@ const generateId = () => crypto.randomBytes(16).toString('hex');
 // POST /api/members/create-user
 router.post('/create-user', authenticate, requireOrganization, requireOwner, async (req, res) => {
   try {
-    const { name, email, phone, password, role } = req.body;
+    const { name, email, phone, password, role, projectIds } = req.body;
 
     // Validate required fields
     if (!name || !email || !password) {
@@ -23,6 +23,11 @@ router.post('/create-user', authenticate, requireOrganization, requireOwner, asy
     const validRoles = ['manager', 'member', 'client'];
     if (role && !validRoles.includes(role)) {
       return res.status(400).json({ error: 'Invalid role. Must be manager, member, or client' });
+    }
+
+    // Require project selection for clients
+    if (role === 'client' && (!projectIds || projectIds.length === 0)) {
+      return res.status(400).json({ error: 'At least one project must be selected for client users' });
     }
 
     // Check if user is a super admin
@@ -68,6 +73,16 @@ router.post('/create-user', authenticate, requireOrganization, requireOwner, asy
           }
         }
       });
+
+      // Create project assignments for clients
+      if (role === 'client' && projectIds && projectIds.length > 0) {
+        await prisma.projectAssignment.createMany({
+          data: projectIds.map(projectId => ({
+            memberId: member.id,
+            projectId
+          }))
+        });
+      }
 
       return res.json({
         success: true,
@@ -122,6 +137,16 @@ router.post('/create-user', authenticate, requireOrganization, requireOwner, asy
         }
       }
     });
+
+    // Create project assignments for clients
+    if (role === 'client' && projectIds && projectIds.length > 0) {
+      await prisma.projectAssignment.createMany({
+        data: projectIds.map(projectId => ({
+          memberId: member.id,
+          projectId
+        }))
+      });
+    }
 
     res.json({
       success: true,

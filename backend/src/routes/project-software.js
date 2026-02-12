@@ -725,6 +725,57 @@ router.get('/projects/:projectId/software/:id/requests', async (req, res) => {
   }
 });
 
+// Get all pending requests across all projects in the organization
+router.get('/requests/pending', requireStaff, async (req, res) => {
+  try {
+    const { projectId } = req.query;
+
+    const where = {
+      status: 'PENDING',
+      projectSoftware: {
+        project: {
+          organizationId: req.organization.id
+        }
+      }
+    };
+
+    // Optionally filter by project
+    if (projectId) {
+      where.projectSoftware.projectId = projectId;
+    }
+
+    const requests = await prisma.softwareAccessRequest.findMany({
+      where,
+      include: {
+        projectSoftware: {
+          include: {
+            software: true,
+            project: {
+              select: { id: true, name: true, projectCode: true, defaultAssigneeId: true }
+            }
+          }
+        },
+        requester: {
+          include: {
+            user: { select: { id: true, name: true, email: true } }
+          }
+        },
+        assignee: {
+          include: {
+            user: { select: { id: true, name: true, email: true } }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json(requests);
+  } catch (error) {
+    console.error('Error fetching all pending requests:', error);
+    res.status(500).json({ error: 'Failed to fetch requests' });
+  }
+});
+
 // Get all pending requests across all software in a project
 router.get('/projects/:projectId/requests', requireAdmin, async (req, res) => {
   try {
@@ -763,6 +814,75 @@ router.get('/projects/:projectId/requests', requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error fetching project requests:', error);
     res.status(500).json({ error: 'Failed to fetch requests' });
+  }
+});
+
+// Assign a request to a staff member
+router.put('/requests/:requestId/assign', requireStaff, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { assigneeId } = req.body;
+
+    // Find the request and verify it belongs to this organization
+    const request = await prisma.softwareAccessRequest.findFirst({
+      where: {
+        id: requestId,
+        projectSoftware: {
+          project: {
+            organizationId: req.organization.id
+          }
+        }
+      }
+    });
+
+    if (!request) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    // If assigneeId provided, verify the member exists and is staff
+    if (assigneeId) {
+      const assignee = await prisma.member.findFirst({
+        where: {
+          id: assigneeId,
+          organizationId: req.organization.id,
+          role: { in: ['owner', 'manager', 'member'] }
+        }
+      });
+
+      if (!assignee) {
+        return res.status(400).json({ error: 'Invalid assignee' });
+      }
+    }
+
+    const updated = await prisma.softwareAccessRequest.update({
+      where: { id: requestId },
+      data: { assigneeId: assigneeId || null },
+      include: {
+        projectSoftware: {
+          include: {
+            software: true,
+            project: {
+              select: { id: true, name: true, projectCode: true }
+            }
+          }
+        },
+        requester: {
+          include: {
+            user: { select: { id: true, name: true, email: true } }
+          }
+        },
+        assignee: {
+          include: {
+            user: { select: { id: true, name: true, email: true } }
+          }
+        }
+      }
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error('Error assigning request:', error);
+    res.status(500).json({ error: 'Failed to assign request' });
   }
 });
 
