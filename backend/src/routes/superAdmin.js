@@ -38,7 +38,7 @@ router.get('/users', authenticate, requireSuperAdmin, async (req, res) => {
           banReason: true,
           banExpires: true,
           createdAt: true,
-          memberships: {
+          members: {
             select: {
               id: true,
               role: true,
