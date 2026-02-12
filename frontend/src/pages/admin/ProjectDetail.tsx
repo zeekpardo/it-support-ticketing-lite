@@ -14,7 +14,9 @@ import {
   TrashIcon,
   FolderIcon,
   UserIcon,
+  ArrowUpTrayIcon,
 } from '@heroicons/react/24/outline'
+import { ClientImportWizard } from '@/components/import/ClientImportWizard'
 
 interface ProjectClient {
   id: string
@@ -56,6 +58,7 @@ export default function ProjectDetail() {
   const [loading, setLoading] = useState(true)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [showImportWizard, setShowImportWizard] = useState(false)
 
   useEffect(() => {
     if (currentOrg && id) {
@@ -212,7 +215,13 @@ export default function ProjectDetail() {
 
           {/* Clients */}
           <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
-            <Subheading>Clients</Subheading>
+            <div className="flex items-center justify-between">
+              <Subheading>Clients</Subheading>
+              <Button outline onClick={() => setShowImportWizard(true)}>
+                <ArrowUpTrayIcon className="h-4 w-4" />
+                Import Clients
+              </Button>
+            </div>
             {project.clients && project.clients.length > 0 ? (
               <div className="mt-4">
                 <Table>
@@ -334,6 +343,15 @@ export default function ProjectDetail() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Client Import Wizard */}
+      <ClientImportWizard
+        projectId={project.id}
+        projectName={project.name}
+        isOpen={showImportWizard}
+        onClose={() => setShowImportWizard(false)}
+        onComplete={loadProject}
+      />
     </div>
   )
 }
