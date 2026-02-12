@@ -1,13 +1,14 @@
 import { Badge } from '../ui/badge'
 
 interface AccessRequestStatusBadgeProps {
-  status: 'PENDING' | 'APPROVED' | 'DECLINED'
+  status: 'PENDING' | 'APPROVED' | 'DECLINED' | 'REVOKED'
 }
 
 const statusConfig = {
   PENDING: { color: 'amber' as const, label: 'Pending' },
   APPROVED: { color: 'green' as const, label: 'Approved' },
-  DECLINED: { color: 'red' as const, label: 'Declined' }
+  DECLINED: { color: 'red' as const, label: 'Declined' },
+  REVOKED: { color: 'zinc' as const, label: 'Revoked' }
 }
 
 export function AccessRequestStatusBadge({ status }: AccessRequestStatusBadgeProps) {
@@ -19,5 +20,6 @@ export function AccessRequestStatusBadge({ status }: AccessRequestStatusBadgePro
 export const ACCESS_REQUEST_STATUSES = [
   { value: 'PENDING', label: 'Pending' },
   { value: 'APPROVED', label: 'Approved' },
-  { value: 'DECLINED', label: 'Declined' }
+  { value: 'DECLINED', label: 'Declined' },
+  { value: 'REVOKED', label: 'Revoked' }
 ] as const

@@ -56,9 +56,14 @@ export default function ProjectSoftwareDetail() {
   // Review request modal
   const [showReviewModal, setShowReviewModal] = useState(false)
   const [reviewingRequest, setReviewingRequest] = useState<SoftwareAccessRequest | null>(null)
-  const [reviewStatus, setReviewStatus] = useState<'APPROVED' | 'DECLINED'>('APPROVED')
+  const [reviewStatus, setReviewStatus] = useState<'APPROVED' | 'DECLINED' | 'REVOKED' | 'PENDING'>('APPROVED')
   const [reviewNotes, setReviewNotes] = useState('')
   const [reviewing, setReviewing] = useState(false)
+
+  // Delete request modal
+  const [showDeleteRequestModal, setShowDeleteRequestModal] = useState(false)
+  const [deletingRequest, setDeletingRequest] = useState<SoftwareAccessRequest | null>(null)
+  const [deletingRequestLoading, setDeletingRequestLoading] = useState(false)
 
   useEffect(() => {
     if (projectId && id) {
@@ -164,9 +169,9 @@ export default function ProjectSoftwareDetail() {
     }
   }
 
-  const openReviewModal = (request: SoftwareAccessRequest) => {
+  const openReviewModal = (request: SoftwareAccessRequest, defaultStatus?: 'APPROVED' | 'DECLINED' | 'REVOKED' | 'PENDING') => {
     setReviewingRequest(request)
-    setReviewStatus('APPROVED')
+    setReviewStatus(defaultStatus || 'APPROVED')
     setReviewNotes('')
     setShowReviewModal(true)
   }
@@ -189,6 +194,26 @@ export default function ProjectSoftwareDetail() {
     }
   }
 
+  const openDeleteRequestModal = (request: SoftwareAccessRequest) => {
+    setDeletingRequest(request)
+    setShowDeleteRequestModal(true)
+  }
+
+  const handleDeleteRequest = async () => {
+    if (!projectId || !id || !deletingRequest) return
+    setDeletingRequestLoading(true)
+    try {
+      await api.deleteAccessRequest(projectId, id, deletingRequest.id)
+      setShowDeleteRequestModal(false)
+      setDeletingRequest(null)
+      loadSoftware()
+    } catch (error) {
+      console.error('Failed to delete request:', error)
+    } finally {
+      setDeletingRequestLoading(false)
+    }
+  }
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'APPROVED':
@@ -197,6 +222,8 @@ export default function ProjectSoftwareDetail() {
         return <Badge color="amber">Pending</Badge>
       case 'DECLINED':
         return <Badge color="red">Declined</Badge>
+      case 'REVOKED':
+        return <Badge color="zinc">Revoked</Badge>
       default:
         return <Badge>{status}</Badge>
     }
@@ -383,34 +410,50 @@ export default function ProjectSoftwareDetail() {
                     {new Date(request.createdAt).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
-                    {request.status === 'PENDING' && (
-                      <div className="flex gap-1">
-                        <Button
-                          color="green"
-                          className="px-2 py-1 text-xs"
-                          onClick={() => {
-                            setReviewingRequest(request)
-                            setReviewStatus('APPROVED')
-                            setReviewNotes('')
-                            handleReviewRequest()
-                          }}
-                        >
-                          <CheckIcon className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          color="red"
-                          className="px-2 py-1 text-xs"
-                          onClick={() => openReviewModal(request)}
-                        >
-                          <XMarkIcon className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    )}
-                    {request.status !== 'PENDING' && request.reviewer && (
-                      <Text className="text-xs text-zinc-500">
-                        by {request.reviewer.user.name}
-                      </Text>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {request.status === 'PENDING' && (
+                        <div className="flex gap-1">
+                          <Button
+                            color="green"
+                            className="px-2 py-1 text-xs"
+                            onClick={() => {
+                              setReviewingRequest(request)
+                              setReviewStatus('APPROVED')
+                              setReviewNotes('')
+                              handleReviewRequest()
+                            }}
+                          >
+                            <CheckIcon className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            color="red"
+                            className="px-2 py-1 text-xs"
+                            onClick={() => openReviewModal(request, 'DECLINED')}
+                          >
+                            <XMarkIcon className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                      <Select
+                        value=""
+                        onChange={(e) => {
+                          const action = e.target.value
+                          if (action === 'delete') {
+                            openDeleteRequestModal(request)
+                          } else if (action) {
+                            openReviewModal(request, action as 'APPROVED' | 'DECLINED' | 'REVOKED' | 'PENDING')
+                          }
+                        }}
+                        className="w-28 text-xs"
+                      >
+                        <option value="">Actions</option>
+                        {request.status !== 'APPROVED' && <option value="APPROVED">Approve</option>}
+                        {request.status !== 'DECLINED' && <option value="DECLINED">Decline</option>}
+                        {request.status !== 'REVOKED' && <option value="REVOKED">Revoke</option>}
+                        {request.status !== 'PENDING' && <option value="PENDING">Set Pending</option>}
+                        <option value="delete">Delete</option>
+                      </Select>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -524,9 +567,13 @@ export default function ProjectSoftwareDetail() {
       {/* Review Request Modal */}
       {showReviewModal && reviewingRequest && (
         <Dialog open={true} onClose={() => setShowReviewModal(false)} size="md">
-          <DialogTitle>Review Access Request</DialogTitle>
+          <DialogTitle>
+            {reviewingRequest.status === 'PENDING' ? 'Review Access Request' : 'Update Access Status'}
+          </DialogTitle>
           <DialogDescription>
-            Review the access request from {reviewingRequest.requester.user.name}
+            {reviewingRequest.status === 'PENDING'
+              ? `Review the access request from ${reviewingRequest.requester.user.name}`
+              : `Change the access status for ${reviewingRequest.requester.user.name}`}
           </DialogDescription>
 
           <DialogBody>
@@ -538,13 +585,15 @@ export default function ProjectSoftwareDetail() {
             )}
             <FieldGroup>
               <Field>
-                <Label>Decision</Label>
+                <Label>Status</Label>
                 <Select
                   value={reviewStatus}
-                  onChange={(e) => setReviewStatus(e.target.value as 'APPROVED' | 'DECLINED')}
+                  onChange={(e) => setReviewStatus(e.target.value as 'APPROVED' | 'DECLINED' | 'REVOKED' | 'PENDING')}
                 >
-                  <option value="APPROVED">Approve</option>
-                  <option value="DECLINED">Decline</option>
+                  <option value="APPROVED">Approved</option>
+                  <option value="DECLINED">Declined</option>
+                  <option value="REVOKED">Revoked</option>
+                  <option value="PENDING">Pending</option>
                 </Select>
               </Field>
               <Field>
@@ -552,7 +601,7 @@ export default function ProjectSoftwareDetail() {
                 <Textarea
                   value={reviewNotes}
                   onChange={(e) => setReviewNotes(e.target.value)}
-                  placeholder="Add a note for the requester..."
+                  placeholder="Add a note..."
                   rows={3}
                 />
               </Field>
@@ -564,11 +613,30 @@ export default function ProjectSoftwareDetail() {
               Cancel
             </Button>
             <Button
-              color={reviewStatus === 'APPROVED' ? 'green' : 'red'}
+              color={reviewStatus === 'APPROVED' ? 'green' : reviewStatus === 'PENDING' ? 'amber' : 'red'}
               onClick={handleReviewRequest}
               disabled={reviewing}
             >
-              {reviewing ? 'Submitting...' : reviewStatus === 'APPROVED' ? 'Approve' : 'Decline'}
+              {reviewing ? 'Saving...' : 'Save'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {/* Delete Request Modal */}
+      {showDeleteRequestModal && deletingRequest && (
+        <Dialog open={true} onClose={() => setShowDeleteRequestModal(false)} size="sm">
+          <DialogTitle>Delete Access Request</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete this access request from {deletingRequest.requester.user.name}? This action cannot be undone.
+          </DialogDescription>
+
+          <DialogActions>
+            <Button plain onClick={() => setShowDeleteRequestModal(false)} disabled={deletingRequestLoading}>
+              Cancel
+            </Button>
+            <Button color="red" onClick={handleDeleteRequest} disabled={deletingRequestLoading}>
+              {deletingRequestLoading ? 'Deleting...' : 'Delete'}
             </Button>
           </DialogActions>
         </Dialog>

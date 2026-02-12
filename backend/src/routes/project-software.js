@@ -886,14 +886,14 @@ router.put('/requests/:requestId/assign', requireStaff, async (req, res) => {
   }
 });
 
-// Review access request (approve/decline)
+// Review/update access request status (approve/decline/revoke)
 router.put('/projects/:projectId/software/:id/requests/:requestId', async (req, res) => {
   try {
     const { projectId, id, requestId } = req.params;
     const { status, reviewNotes } = req.body;
 
-    if (!status || !['APPROVED', 'DECLINED'].includes(status)) {
-      return res.status(400).json({ error: 'Valid status is required (APPROVED or DECLINED)' });
+    if (!status || !['APPROVED', 'DECLINED', 'REVOKED', 'PENDING'].includes(status)) {
+      return res.status(400).json({ error: 'Valid status is required (APPROVED, DECLINED, REVOKED, or PENDING)' });
     }
 
     // Verify project belongs to organization
@@ -927,10 +927,6 @@ router.put('/projects/:projectId/software/:id/requests/:requestId', async (req, 
       return res.status(404).json({ error: 'Request not found' });
     }
 
-    if (request.status !== 'PENDING') {
-      return res.status(400).json({ error: 'Request has already been reviewed' });
-    }
-
     const updated = await prisma.softwareAccessRequest.update({
       where: { id: requestId },
       data: {
@@ -956,6 +952,53 @@ router.put('/projects/:projectId/software/:id/requests/:requestId', async (req, 
   } catch (error) {
     console.error('Error reviewing request:', error);
     res.status(500).json({ error: 'Failed to review request' });
+  }
+});
+
+// Delete access request
+router.delete('/projects/:projectId/software/:id/requests/:requestId', async (req, res) => {
+  try {
+    const { projectId, id, requestId } = req.params;
+
+    // Verify project belongs to organization
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, organizationId: req.organization.id }
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const software = await prisma.projectSoftware.findFirst({
+      where: { id, projectId }
+    });
+
+    if (!software) {
+      return res.status(404).json({ error: 'Software not found in project' });
+    }
+
+    // Only admins or software admins can delete
+    const isAdmin = await isSoftwareAdmin(id, req.membership.id);
+    if (!isAdmin && req.membership.role !== 'owner' && req.membership.role !== 'manager') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const request = await prisma.softwareAccessRequest.findUnique({
+      where: { id: requestId }
+    });
+
+    if (!request || request.projectSoftwareId !== id) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    await prisma.softwareAccessRequest.delete({
+      where: { id: requestId }
+    });
+
+    res.json({ message: 'Access request deleted' });
+  } catch (error) {
+    console.error('Error deleting request:', error);
+    res.status(500).json({ error: 'Failed to delete request' });
   }
 });
 

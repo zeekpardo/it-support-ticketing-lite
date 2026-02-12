@@ -70,7 +70,7 @@ export interface SoftwareAccessRequest {
     user: { id: string; name: string; email: string }
   }
   reason?: string
-  status: 'PENDING' | 'APPROVED' | 'DECLINED'
+  status: 'PENDING' | 'APPROVED' | 'DECLINED' | 'REVOKED'
   assigneeId?: string
   assignee?: {
     id: string
@@ -103,14 +103,14 @@ export interface PortalSoftware {
   notes?: string
   myAccessRequest?: {
     id: string
-    status: 'PENDING' | 'APPROVED' | 'DECLINED'
+    status: 'PENDING' | 'APPROVED' | 'DECLINED' | 'REVOKED'
     createdAt: string
   } | null
 }
 
 export interface PortalAccessRequest {
   id: string
-  status: 'PENDING' | 'APPROVED' | 'DECLINED'
+  status: 'PENDING' | 'APPROVED' | 'DECLINED' | 'REVOKED'
   reason?: string
   reviewNotes?: string
   createdAt: string
@@ -979,7 +979,7 @@ class ApiClient {
   }
 
   async reviewAccessRequest(projectId: string, softwareId: string, requestId: string, data: {
-    status: 'APPROVED' | 'DECLINED'
+    status: 'APPROVED' | 'DECLINED' | 'REVOKED' | 'PENDING'
     reviewNotes?: string
   }) {
     return this.request<SoftwareAccessRequest>(
@@ -987,6 +987,15 @@ class ApiClient {
       {
         method: 'PUT',
         body: JSON.stringify(data)
+      }
+    )
+  }
+
+  async deleteAccessRequest(projectId: string, softwareId: string, requestId: string) {
+    return this.request<{ message: string }>(
+      `/software/projects/${projectId}/software/${softwareId}/requests/${requestId}`,
+      {
+        method: 'DELETE'
       }
     )
   }

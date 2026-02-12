@@ -369,6 +369,7 @@ enum SoftwareAccessRequestStatus {
   PENDING
   APPROVED
   DECLINED
+  REVOKED
 }
 
 // Global catalog managed by super-admin
