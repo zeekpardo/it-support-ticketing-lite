@@ -4,10 +4,14 @@ import { useOrganization } from '../context/OrganizationContext'
 import { useTimer } from '../context/TimerContext'
 import { api } from '../api/client'
 import { TicketKanbanBoard } from '../components/tickets/TicketKanbanBoard'
+import { TicketForm, PRIORITY_LEVELS } from '../components/tickets/TicketForm'
 import { Heading } from '@/components/ui/heading'
 import { Text } from '@/components/ui/text'
 import { Select } from '@/components/ui/select'
-import { PRIORITY_LEVELS } from '@/components/tickets/TicketForm'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogTitle, DialogBody } from '@/components/ui/dialog'
+import { Field, Label } from '@/components/ui/fieldset'
+import { PlusIcon } from '@heroicons/react/24/outline'
 
 interface Project {
   id: string
@@ -18,6 +22,11 @@ interface Project {
 interface StaffMember {
   id: string
   role: string
+  user: { id: string; name: string; email: string }
+}
+
+interface Client {
+  id: string
   user: { id: string; name: string; email: string }
 }
 
@@ -47,11 +56,16 @@ interface Ticket {
 export default function Dashboard() {
   const navigate = useNavigate()
   const { currentOrg, membership, isClient } = useOrganization()
-  const { runningTimer, startTimer, stopTimer, refreshTimer } = useTimer()
+  const { runningTimer, startTimer, stopTimer } = useTimer()
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
+  const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Modal state
+  const [isNewTicketOpen, setIsNewTicketOpen] = useState(false)
+  const [selectedClientId, setSelectedClientId] = useState('')
 
   // Filters
   const [filterProject, setFilterProject] = useState('')
@@ -73,18 +87,20 @@ export default function Dashboard() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [ticketsData, projectsData, staffData] = await Promise.all([
+      const [ticketsData, projectsData, staffData, clientsData] = await Promise.all([
         api.getTickets({
           projectId: filterProject || undefined,
           ownerId: filterAssignee || undefined,
           priorityLevel: filterPriority || undefined
         }),
         api.getProjects(),
-        api.getStaffMembers()
+        api.getStaffMembers(),
+        api.getClients()
       ])
       setTickets(ticketsData)
       setProjects(projectsData)
       setStaffMembers(staffData)
+      setClients(clientsData)
     } catch (error) {
       console.error('Failed to load data:', error)
     } finally {
@@ -158,6 +174,26 @@ export default function Dashboard() {
     }
   }
 
+  const handleCreateTicket = async (data: any) => {
+    if (!selectedClientId) {
+      throw new Error('Please select a client')
+    }
+
+    try {
+      const ticket = await api.createTicket({
+        ...data,
+        clientId: selectedClientId
+      })
+      setIsNewTicketOpen(false)
+      setSelectedClientId('')
+      // Navigate to the new ticket
+      navigate(`/projects/${ticket.projectId}/tickets/${ticket.id}`)
+    } catch (error) {
+      console.error('Failed to create ticket:', error)
+      throw error
+    }
+  }
+
   // Redirect clients to portal
   if (isClient) {
     navigate('/portal')
@@ -184,6 +220,10 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <Heading>Ticket Dashboard</Heading>
+        <Button onClick={() => setIsNewTicketOpen(true)}>
+          <PlusIcon className="w-4 h-4" />
+          New Ticket
+        </Button>
       </div>
 
       {/* Filter Bar */}
@@ -265,6 +305,40 @@ export default function Dashboard() {
           onStopTimer={handleStopTimer}
         />
       )}
+
+      {/* New Ticket Modal */}
+      <Dialog open={isNewTicketOpen} onClose={() => setIsNewTicketOpen(false)} size="2xl">
+        <DialogTitle>Create New Ticket</DialogTitle>
+        <DialogBody>
+          <Field className="mb-6">
+            <Label>Client *</Label>
+            <Select
+              value={selectedClientId}
+              onChange={e => setSelectedClientId(e.target.value)}
+              required
+            >
+              <option value="">Select a client</option>
+              {clients.map(client => (
+                <option key={client.id} value={client.id}>
+                  {client.user.name} ({client.user.email})
+                </option>
+              ))}
+            </Select>
+            {clients.length === 0 && (
+              <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">
+                No clients found. Invite a client first from the Users page.
+              </p>
+            )}
+          </Field>
+
+          <TicketForm
+            projects={projects}
+            onSubmit={handleCreateTicket}
+            showPriority={true}
+            showContactFields={true}
+          />
+        </DialogBody>
+      </Dialog>
     </div>
   )
 }
