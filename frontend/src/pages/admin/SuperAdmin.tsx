@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { admin } from '../../lib/auth-client'
+import { api } from '../../api/client'
 import { Heading } from '@/components/ui/heading'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,6 +27,23 @@ import {
   ArrowPathIcon,
 } from '@heroicons/react/24/outline'
 
+interface Membership {
+  id: string
+  role: string
+  organization: {
+    id: string
+    name: string
+    slug: string
+  }
+  projectAssignments: Array<{
+    project: {
+      id: string
+      name: string
+      projectCode: string
+    }
+  }>
+}
+
 interface User {
   id: string
   name: string
@@ -35,11 +53,7 @@ interface User {
   banReason?: string
   banExpires?: string
   createdAt: string
-}
-
-interface ListUsersResponse {
-  users: User[]
-  total: number
+  memberships?: Membership[]
 }
 
 export default function SuperAdmin() {
@@ -76,25 +90,14 @@ export default function SuperAdmin() {
   const loadUsers = async () => {
     setLoading(true)
     try {
-      const result = await admin.listUsers({
-        query: {
-          limit,
-          offset,
-          ...(searchValue && {
-            searchValue,
-            searchField: 'email' as const,
-            searchOperator: 'contains' as const,
-          }),
-          sortBy: 'createdAt',
-          sortDirection: 'desc' as const,
-        },
+      const result = await api.getSuperAdminUsers({
+        limit,
+        offset,
+        search: searchValue || undefined
       })
 
-      if (result.data) {
-        const data = result.data as ListUsersResponse
-        setUsers(data.users || [])
-        setTotal(data.total || 0)
-      }
+      setUsers(result.users || [])
+      setTotal(result.total || 0)
     } catch (error) {
       console.error('Failed to load users:', error)
     } finally {
@@ -255,6 +258,7 @@ export default function SuperAdmin() {
             <TableRow>
               <TableHeader>Name</TableHeader>
               <TableHeader>Email</TableHeader>
+              <TableHeader>Organizations / Projects</TableHeader>
               <TableHeader>Role</TableHeader>
               <TableHeader>Status</TableHeader>
               <TableHeader>Created</TableHeader>
@@ -266,6 +270,27 @@ export default function SuperAdmin() {
               <TableRow key={user.id}>
                 <TableCell className="font-medium">{user.name}</TableCell>
                 <TableCell className="text-zinc-500">{user.email}</TableCell>
+                <TableCell>
+                  {user.memberships && user.memberships.length > 0 ? (
+                    <div className="space-y-1">
+                      {user.memberships.map((membership) => (
+                        <div key={membership.id} className="text-sm">
+                          <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                            {membership.organization.name}
+                          </span>
+                          <span className="text-zinc-400 ml-1">({membership.role})</span>
+                          {membership.projectAssignments.length > 0 && (
+                            <div className="ml-3 text-xs text-zinc-500">
+                              {membership.projectAssignments.map(pa => pa.project.name).join(', ')}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-zinc-400 text-sm">No organizations</span>
+                  )}
+                </TableCell>
                 <TableCell>
                   <Select
                     value={user.role || 'user'}

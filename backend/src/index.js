@@ -9,6 +9,7 @@ import reportsRoutes from './routes/reports.js';
 import ticketsRoutes from './routes/tickets.js';
 import portalRoutes from './routes/portal.js';
 import membersRoutes from './routes/members.js';
+import superAdminRoutes from './routes/superAdmin.js';
 
 dotenv.config();
 
@@ -56,6 +57,7 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/tickets', ticketsRoutes);
 app.use('/api/portal', portalRoutes);
 app.use('/api/members', membersRoutes);
+app.use('/api/super-admin', superAdminRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

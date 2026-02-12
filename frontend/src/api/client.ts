@@ -221,6 +221,7 @@ class ApiClient {
     status?: string
     ownerId?: string
     clientId?: string
+    priorityLevel?: string
   } = {}) {
     const params = new URLSearchParams()
     Object.entries(filters).forEach(([key, value]) => {
@@ -479,6 +480,47 @@ class ApiClient {
       method: 'PUT',
       body: JSON.stringify(data)
     })
+  }
+
+  // === SUPER ADMIN ===
+
+  // Get all users with their organization memberships and project assignments
+  async getSuperAdminUsers(params: { limit?: number; offset?: number; search?: string } = {}) {
+    const queryParams = new URLSearchParams()
+    if (params.limit) queryParams.append('limit', params.limit.toString())
+    if (params.offset) queryParams.append('offset', params.offset.toString())
+    if (params.search) queryParams.append('search', params.search)
+
+    const query = queryParams.toString()
+    return this.request<{
+      users: Array<{
+        id: string
+        name: string
+        email: string
+        role?: string
+        banned?: boolean
+        banReason?: string
+        banExpires?: string
+        createdAt: string
+        memberships: Array<{
+          id: string
+          role: string
+          organization: {
+            id: string
+            name: string
+            slug: string
+          }
+          projectAssignments: Array<{
+            project: {
+              id: string
+              name: string
+              projectCode: string
+            }
+          }>
+        }>
+      }>
+      total: number
+    }>(`/super-admin/users${query ? `?${query}` : ''}`)
   }
 }
 
