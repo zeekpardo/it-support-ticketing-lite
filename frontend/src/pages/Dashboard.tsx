@@ -28,6 +28,10 @@ interface StaffMember {
 interface Client {
   id: string
   user: { id: string; name: string; email: string }
+  projectAssignments: Array<{
+    id: string
+    project: { id: string; name: string; projectCode: string; isActive: boolean }
+  }>
 }
 
 interface Ticket {
@@ -65,6 +69,7 @@ export default function Dashboard() {
 
   // Modal state
   const [isNewTicketOpen, setIsNewTicketOpen] = useState(false)
+  const [selectedProjectId, setSelectedProjectId] = useState('')
   const [selectedClientId, setSelectedClientId] = useState('')
 
   // Filters
@@ -175,6 +180,9 @@ export default function Dashboard() {
   }
 
   const handleCreateTicket = async (data: any) => {
+    if (!selectedProjectId) {
+      throw new Error('Please select a project')
+    }
     if (!selectedClientId) {
       throw new Error('Please select a client')
     }
@@ -182,9 +190,11 @@ export default function Dashboard() {
     try {
       const ticket = await api.createTicket({
         ...data,
+        projectId: selectedProjectId,
         clientId: selectedClientId
       })
       setIsNewTicketOpen(false)
+      setSelectedProjectId('')
       setSelectedClientId('')
       // Navigate to the new ticket
       navigate(`/projects/${ticket.projectId}/tickets/${ticket.id}`)
@@ -192,6 +202,19 @@ export default function Dashboard() {
       console.error('Failed to create ticket:', error)
       throw error
     }
+  }
+
+  // Get clients that have access to the selected project
+  const availableClients = selectedProjectId
+    ? clients.filter(client =>
+        client.projectAssignments.some(pa => pa.project.id === selectedProjectId)
+      )
+    : []
+
+  // Reset client when project changes
+  const handleProjectChange = (projectId: string) => {
+    setSelectedProjectId(projectId)
+    setSelectedClientId('') // Reset client when project changes
   }
 
   // Redirect clients to portal
@@ -310,32 +333,54 @@ export default function Dashboard() {
       <Dialog open={isNewTicketOpen} onClose={() => setIsNewTicketOpen(false)} size="2xl">
         <DialogTitle>Create New Ticket</DialogTitle>
         <DialogBody>
-          <Field className="mb-6">
-            <Label>Client *</Label>
-            <Select
-              value={selectedClientId}
-              onChange={e => setSelectedClientId(e.target.value)}
-              required
-            >
-              <option value="">Select a client</option>
-              {clients.map(client => (
-                <option key={client.id} value={client.id}>
-                  {client.user.name} ({client.user.email})
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <Field>
+              <Label>Project *</Label>
+              <Select
+                value={selectedProjectId}
+                onChange={e => handleProjectChange(e.target.value)}
+                required
+              >
+                <option value="">Select a project</option>
+                {projects.map(project => (
+                  <option key={project.id} value={project.id}>
+                    {project.name} ({project.projectCode})
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            <Field>
+              <Label>Client *</Label>
+              <Select
+                value={selectedClientId}
+                onChange={e => setSelectedClientId(e.target.value)}
+                disabled={!selectedProjectId}
+                required
+              >
+                <option value="">
+                  {selectedProjectId ? 'Select a client' : 'Select a project first'}
                 </option>
-              ))}
-            </Select>
-            {clients.length === 0 && (
-              <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">
-                No clients found. Invite a client first from the Users page.
-              </p>
-            )}
-          </Field>
+                {availableClients.map(client => (
+                  <option key={client.id} value={client.id}>
+                    {client.user.name} ({client.user.email})
+                  </option>
+                ))}
+              </Select>
+              {selectedProjectId && availableClients.length === 0 && (
+                <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">
+                  No clients assigned to this project. Assign a client first from the Users page.
+                </p>
+              )}
+            </Field>
+          </div>
 
           <TicketForm
-            projects={projects}
+            projects={projects.filter(p => p.id === selectedProjectId)}
             onSubmit={handleCreateTicket}
             showPriority={true}
             showContactFields={true}
+            preselectedProjectId={selectedProjectId}
           />
         </DialogBody>
       </Dialog>
