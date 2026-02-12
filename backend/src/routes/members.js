@@ -468,6 +468,140 @@ router.put('/:memberId/projects', authenticate, requireOrganization, requireAdmi
 });
 
 // ==========================================
+// Client Detail Endpoint
+// ==========================================
+
+// Get a single client with their tickets and software access
+// GET /api/members/clients/:memberId
+router.get('/clients/:memberId', authenticate, requireOrganization, requireAdmin, async (req, res) => {
+  try {
+    const { memberId } = req.params;
+
+    // Get client with user info and project assignments
+    const client = await prisma.member.findFirst({
+      where: {
+        id: memberId,
+        organizationId: req.organization.id,
+        role: 'client'
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true
+          }
+        },
+        projectAssignments: {
+          include: {
+            project: {
+              select: {
+                id: true,
+                name: true,
+                projectCode: true,
+                isActive: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!client) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+
+    // Get all tickets for this client
+    const tickets = await prisma.supportTicket.findMany({
+      where: {
+        clientId: memberId,
+        organizationId: req.organization.id
+      },
+      include: {
+        project: {
+          select: {
+            id: true,
+            name: true,
+            projectCode: true
+          }
+        },
+        owner: {
+          select: {
+            id: true,
+            user: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    // Get all software access requests for this client
+    const softwareAccess = await prisma.softwareAccessRequest.findMany({
+      where: {
+        requesterId: memberId,
+        projectSoftware: {
+          project: {
+            organizationId: req.organization.id
+          }
+        }
+      },
+      include: {
+        projectSoftware: {
+          include: {
+            software: {
+              select: {
+                id: true,
+                name: true,
+                iconUrl: true,
+                vendor: true
+              }
+            },
+            project: {
+              select: {
+                id: true,
+                name: true,
+                projectCode: true
+              }
+            }
+          }
+        },
+        reviewer: {
+          select: {
+            id: true,
+            user: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    res.json({
+      ...client,
+      tickets,
+      softwareAccess
+    });
+  } catch (error) {
+    console.error('Error fetching client details:', error);
+    res.status(500).json({ error: 'Failed to fetch client details' });
+  }
+});
+
+// ==========================================
 // User Profile Endpoints
 // ==========================================
 

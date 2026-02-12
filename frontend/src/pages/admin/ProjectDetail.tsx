@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useOrganization } from '../../context/OrganizationContext'
 import { api } from '../../api/client'
 import { Heading, Subheading } from '@/components/ui/heading'
+import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Text } from '@/components/ui/text'
@@ -12,7 +13,15 @@ import {
   PencilIcon,
   TrashIcon,
   FolderIcon,
+  UserIcon,
 } from '@heroicons/react/24/outline'
+
+interface ProjectClient {
+  id: string
+  userId: string
+  name: string
+  email: string
+}
 
 interface Project {
   id: string
@@ -35,6 +44,7 @@ interface Project {
     timeEntries: number
     tickets: number
   }
+  clients?: ProjectClient[]
   createdAt?: string
 }
 
@@ -199,6 +209,40 @@ export default function ProjectDetail() {
               </div>
             </div>
           )}
+
+          {/* Clients */}
+          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
+            <Subheading>Clients</Subheading>
+            {project.clients && project.clients.length > 0 ? (
+              <div className="mt-4">
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableHeader>Name</TableHeader>
+                      <TableHeader>Email</TableHeader>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {project.clients.map((client) => (
+                      <TableRow key={client.id} href={`/admin/clients/${client.id}`}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-700 flex items-center justify-center">
+                              <UserIcon className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                            </div>
+                            <span className="font-medium">{client.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-zinc-500">{client.email}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <Text className="mt-2 text-zinc-500">No clients assigned to this project</Text>
+            )}
+          </div>
         </div>
 
         {/* Sidebar */}

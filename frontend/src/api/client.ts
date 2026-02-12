@@ -540,6 +540,42 @@ class ApiClient {
     }>>('/members/clients')
   }
 
+  // Get a single client with their tickets and software access
+  async getClientDetail(memberId: string) {
+    return this.request<{
+      id: string
+      role: string
+      user: { id: string; name: string; email: string; phone?: string }
+      projectAssignments: Array<{
+        id: string
+        project: { id: string; name: string; projectCode: string; isActive: boolean }
+      }>
+      tickets: Array<{
+        id: string
+        subject: string
+        status: string
+        priorityLevel: string
+        requestType: string
+        createdAt: string
+        project: { id: string; name: string; projectCode: string }
+        owner?: { id: string; user: { id: string; name: string } }
+      }>
+      softwareAccess: Array<{
+        id: string
+        status: string
+        reason?: string
+        reviewNotes?: string
+        createdAt: string
+        projectSoftware: {
+          id: string
+          software: { id: string; name: string; iconUrl?: string; vendor?: string }
+          project: { id: string; name: string; projectCode: string }
+        }
+        reviewer?: { id: string; user: { id: string; name: string } }
+      }>
+    }>(`/members/clients/${memberId}`)
+  }
+
   // Get project assignments for a specific member
   async getMemberProjects(memberId: string) {
     return this.request<Array<{

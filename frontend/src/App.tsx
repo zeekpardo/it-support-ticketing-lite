@@ -15,6 +15,7 @@ import AdminProjects from './pages/admin/Projects'
 import AdminProjectNew from './pages/admin/ProjectNew'
 import AdminProjectEdit from './pages/admin/ProjectEdit'
 import AdminProjectDetail from './pages/admin/ProjectDetail'
+import AdminClientDetail from './pages/admin/ClientDetail'
 import SuperAdmin from './pages/admin/SuperAdmin'
 import Settings from './pages/Settings'
 // Ticket pages
@@ -366,6 +367,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <AdminRoute>
               <AdminProjectEdit />
+            </AdminRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/clients/:memberId"
+        element={
+          <ProtectedRoute>
+            <AdminRoute>
+              <AdminClientDetail />
             </AdminRoute>
           </ProtectedRoute>
         }

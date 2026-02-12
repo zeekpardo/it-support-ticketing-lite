@@ -338,7 +338,10 @@ export default function AdminMembers() {
             </TableHead>
             <TableBody>
               {members.map((member) => (
-                <TableRow key={member.id}>
+                <TableRow
+                  key={member.id}
+                  href={member.role === 'client' ? `/admin/clients/${member.id}` : undefined}
+                >
                   <TableCell className="font-medium">{member.user.name}</TableCell>
                   <TableCell className="text-zinc-500">{member.user.email}</TableCell>
                   <TableCell>

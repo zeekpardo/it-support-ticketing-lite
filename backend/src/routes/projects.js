@@ -57,13 +57,35 @@ router.get('/:id', async (req, res) => {
       },
       include: {
         _count: {
-          select: { timeEntries: true }
+          select: { timeEntries: true, tickets: true }
         },
         defaultAssignee: {
           select: {
             id: true,
             role: true,
             user: { select: { id: true, name: true } }
+          }
+        },
+        projectAssignments: {
+          where: {
+            member: {
+              role: 'client'
+            }
+          },
+          include: {
+            member: {
+              select: {
+                id: true,
+                role: true,
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -73,7 +95,19 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    res.json(project);
+    // Transform projectAssignments to a cleaner clients array
+    const clients = project.projectAssignments.map(pa => ({
+      id: pa.member.id,
+      userId: pa.member.user.id,
+      name: pa.member.user.name,
+      email: pa.member.user.email
+    }));
+
+    res.json({
+      ...project,
+      clients,
+      projectAssignments: undefined // Remove raw assignments from response
+    });
   } catch (error) {
     console.error('Error fetching project:', error);
     res.status(500).json({ error: 'Failed to fetch project' });
