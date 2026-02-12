@@ -4,6 +4,118 @@ interface RequestOptions extends RequestInit {
   headers?: Record<string, string>
 }
 
+// ==========================================
+// Software Catalog Types
+// ==========================================
+
+export interface SoftwareCategory {
+  id: string
+  name: string
+  description?: string
+  createdAt: string
+  updatedAt: string
+  _count?: { software: number }
+}
+
+export interface GlobalSoftware {
+  id: string
+  name: string
+  description?: string
+  iconUrl?: string
+  vendor?: string
+  websiteUrl?: string
+  categoryId?: string
+  category?: SoftwareCategory
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  submittedById?: string
+  submittedBy?: { id: string; name: string; email: string }
+  createdAt: string
+  updatedAt: string
+  _count?: { projectSoftware: number }
+}
+
+export interface ProjectSoftware {
+  id: string
+  projectId: string
+  softwareId: string
+  software: GlobalSoftware
+  notes?: string
+  addedBy: {
+    id: string
+    user: { id: string; name: string; email: string }
+  }
+  createdAt: string
+  updatedAt: string
+  _count?: { admins: number; accessRequests: number }
+}
+
+export interface ProjectSoftwareAdmin {
+  id: string
+  projectSoftwareId: string
+  memberId: string
+  member: {
+    id: string
+    user: { id: string; name: string; email: string }
+  }
+  role: 'OWNER' | 'ADMIN'
+  createdAt: string
+}
+
+export interface SoftwareAccessRequest {
+  id: string
+  projectSoftwareId: string
+  requesterId: string
+  requester: {
+    id: string
+    user: { id: string; name: string; email: string }
+  }
+  reason?: string
+  status: 'PENDING' | 'APPROVED' | 'DECLINED'
+  reviewerId?: string
+  reviewer?: {
+    id: string
+    user: { id: string; name: string; email: string }
+  }
+  reviewNotes?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ProjectSoftwareDetail extends ProjectSoftware {
+  admins: ProjectSoftwareAdmin[]
+  accessRequests: SoftwareAccessRequest[]
+}
+
+export interface PortalSoftware {
+  id: string
+  softwareId: string
+  name: string
+  description?: string
+  iconUrl?: string
+  vendor?: string
+  websiteUrl?: string
+  category?: { id: string; name: string }
+  notes?: string
+  myAccessRequest?: {
+    id: string
+    status: 'PENDING' | 'APPROVED' | 'DECLINED'
+    createdAt: string
+  } | null
+}
+
+export interface PortalAccessRequest {
+  id: string
+  status: 'PENDING' | 'APPROVED' | 'DECLINED'
+  reason?: string
+  reviewNotes?: string
+  createdAt: string
+  updatedAt: string
+  projectSoftwareId: string
+  project: { id: string; name: string; projectCode: string }
+  software: { id: string; name: string; iconUrl?: string; vendor?: string }
+  reviewer?: { id: string; user: { name: string } }
+}
+
 class ApiClient {
   private organizationId: string | null = null
 
@@ -521,6 +633,285 @@ class ApiClient {
       }>
       total: number
     }>(`/super-admin/users${query ? `?${query}` : ''}`)
+  }
+
+  // ==========================================
+  // SUPER ADMIN - Software Catalog
+  // ==========================================
+
+  async getSuperAdminSoftware(params: {
+    limit?: number
+    offset?: number
+    status?: string
+    categoryId?: string
+    search?: string
+  } = {}) {
+    const queryParams = new URLSearchParams()
+    if (params.limit) queryParams.append('limit', params.limit.toString())
+    if (params.offset) queryParams.append('offset', params.offset.toString())
+    if (params.status) queryParams.append('status', params.status)
+    if (params.categoryId) queryParams.append('categoryId', params.categoryId)
+    if (params.search) queryParams.append('search', params.search)
+
+    const query = queryParams.toString()
+    return this.request<{ software: GlobalSoftware[]; total: number }>(
+      `/super-admin/software${query ? `?${query}` : ''}`
+    )
+  }
+
+  async getSuperAdminSoftwareById(id: string) {
+    return this.request<GlobalSoftware>(`/super-admin/software/${id}`)
+  }
+
+  async createSuperAdminSoftware(data: {
+    name: string
+    description?: string
+    iconUrl?: string
+    vendor?: string
+    websiteUrl?: string
+    categoryId?: string
+  }) {
+    return this.request<GlobalSoftware>('/super-admin/software', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async updateSuperAdminSoftware(id: string, data: {
+    name?: string
+    description?: string
+    iconUrl?: string
+    vendor?: string
+    websiteUrl?: string
+    categoryId?: string
+  }) {
+    return this.request<GlobalSoftware>(`/super-admin/software/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async deleteSuperAdminSoftware(id: string) {
+    return this.request<{ message: string }>(`/super-admin/software/${id}`, {
+      method: 'DELETE'
+    })
+  }
+
+  async approveSoftware(id: string) {
+    return this.request<GlobalSoftware>(`/super-admin/software/${id}/approve`, {
+      method: 'PUT'
+    })
+  }
+
+  async rejectSoftware(id: string) {
+    return this.request<GlobalSoftware>(`/super-admin/software/${id}/reject`, {
+      method: 'PUT'
+    })
+  }
+
+  // Super Admin Categories
+  async getSuperAdminCategories() {
+    return this.request<SoftwareCategory[]>('/super-admin/software/categories')
+  }
+
+  async createSuperAdminCategory(data: { name: string; description?: string }) {
+    return this.request<SoftwareCategory>('/super-admin/software/categories', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async updateSuperAdminCategory(id: string, data: { name?: string; description?: string }) {
+    return this.request<SoftwareCategory>(`/super-admin/software/categories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async deleteSuperAdminCategory(id: string) {
+    return this.request<{ message: string }>(`/super-admin/software/categories/${id}`, {
+      method: 'DELETE'
+    })
+  }
+
+  // ==========================================
+  // PROJECT SOFTWARE (Admin)
+  // ==========================================
+
+  // Global catalog (read-only for org users)
+  async getGlobalCatalog(params: { categoryId?: string; search?: string } = {}) {
+    const queryParams = new URLSearchParams()
+    if (params.categoryId) queryParams.append('categoryId', params.categoryId)
+    if (params.search) queryParams.append('search', params.search)
+
+    const query = queryParams.toString()
+    return this.request<GlobalSoftware[]>(`/software/catalog${query ? `?${query}` : ''}`)
+  }
+
+  async getGlobalCatalogCategories() {
+    return this.request<SoftwareCategory[]>('/software/catalog/categories')
+  }
+
+  async submitNewSoftware(data: {
+    name: string
+    description?: string
+    iconUrl?: string
+    vendor?: string
+    websiteUrl?: string
+    categoryId?: string
+  }) {
+    return this.request<GlobalSoftware>('/software/submit', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  // Project software management
+  async getProjectSoftware(projectId: string) {
+    return this.request<ProjectSoftware[]>(`/software/projects/${projectId}/software`)
+  }
+
+  async getProjectSoftwareById(projectId: string, id: string) {
+    return this.request<ProjectSoftwareDetail>(`/software/projects/${projectId}/software/${id}`)
+  }
+
+  async addSoftwareToProject(projectId: string, softwareId: string, notes?: string) {
+    return this.request<ProjectSoftware>(`/software/projects/${projectId}/software/${softwareId}`, {
+      method: 'POST',
+      body: JSON.stringify({ notes })
+    })
+  }
+
+  async updateProjectSoftware(projectId: string, id: string, data: { notes?: string }) {
+    return this.request<ProjectSoftware>(`/software/projects/${projectId}/software/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async removeProjectSoftware(projectId: string, id: string) {
+    return this.request<{ message: string }>(`/software/projects/${projectId}/software/${id}`, {
+      method: 'DELETE'
+    })
+  }
+
+  // Project software admins
+  async getProjectSoftwareAdmins(projectId: string, softwareId: string) {
+    return this.request<ProjectSoftwareAdmin[]>(
+      `/software/projects/${projectId}/software/${softwareId}/admins`
+    )
+  }
+
+  async addProjectSoftwareAdmin(projectId: string, softwareId: string, data: {
+    memberId: string
+    role?: 'OWNER' | 'ADMIN'
+  }) {
+    return this.request<ProjectSoftwareAdmin>(
+      `/software/projects/${projectId}/software/${softwareId}/admins`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data)
+      }
+    )
+  }
+
+  async updateProjectSoftwareAdmin(projectId: string, softwareId: string, adminId: string, data: {
+    role: 'OWNER' | 'ADMIN'
+  }) {
+    return this.request<ProjectSoftwareAdmin>(
+      `/software/projects/${projectId}/software/${softwareId}/admins/${adminId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      }
+    )
+  }
+
+  async removeProjectSoftwareAdmin(projectId: string, softwareId: string, adminId: string) {
+    return this.request<{ message: string }>(
+      `/software/projects/${projectId}/software/${softwareId}/admins/${adminId}`,
+      { method: 'DELETE' }
+    )
+  }
+
+  // Project software access requests
+  async getProjectSoftwareRequests(projectId: string, softwareId: string, status?: string) {
+    const queryParams = new URLSearchParams()
+    if (status) queryParams.append('status', status)
+    const query = queryParams.toString()
+
+    return this.request<SoftwareAccessRequest[]>(
+      `/software/projects/${projectId}/software/${softwareId}/requests${query ? `?${query}` : ''}`
+    )
+  }
+
+  async getAllProjectRequests(projectId: string) {
+    return this.request<SoftwareAccessRequest[]>(`/software/projects/${projectId}/requests`)
+  }
+
+  async reviewAccessRequest(projectId: string, softwareId: string, requestId: string, data: {
+    status: 'APPROVED' | 'DECLINED'
+    reviewNotes?: string
+  }) {
+    return this.request<SoftwareAccessRequest>(
+      `/software/projects/${projectId}/software/${softwareId}/requests/${requestId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      }
+    )
+  }
+
+  // ==========================================
+  // PORTAL SOFTWARE
+  // ==========================================
+
+  async getPortalProjectSoftware(projectId: string, params: {
+    categoryId?: string
+    filter?: 'my-software'
+  } = {}) {
+    const queryParams = new URLSearchParams()
+    if (params.categoryId) queryParams.append('categoryId', params.categoryId)
+    if (params.filter) queryParams.append('filter', params.filter)
+
+    const query = queryParams.toString()
+    return this.request<PortalSoftware[]>(
+      `/portal/software/projects/${projectId}/software${query ? `?${query}` : ''}`
+    )
+  }
+
+  async getPortalProjectSoftwareById(projectId: string, id: string) {
+    return this.request<PortalSoftware>(`/portal/software/projects/${projectId}/software/${id}`)
+  }
+
+  async getPortalSoftwareCategories(projectId: string) {
+    return this.request<SoftwareCategory[]>(
+      `/portal/software/projects/${projectId}/software/categories`
+    )
+  }
+
+  async submitPortalAccessRequest(projectId: string, softwareId: string, reason?: string) {
+    return this.request<{
+      id: string
+      status: string
+      reason?: string
+      createdAt: string
+      software: { id: string; name: string }
+    }>(`/portal/software/projects/${projectId}/software/${softwareId}/request`, {
+      method: 'POST',
+      body: JSON.stringify({ reason })
+    })
+  }
+
+  async getPortalMyRequests(params: { status?: string; projectId?: string } = {}) {
+    const queryParams = new URLSearchParams()
+    if (params.status) queryParams.append('status', params.status)
+    if (params.projectId) queryParams.append('projectId', params.projectId)
+
+    const query = queryParams.toString()
+    return this.request<PortalAccessRequest[]>(
+      `/portal/software/my-requests${query ? `?${query}` : ''}`
+    )
   }
 }
 

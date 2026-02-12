@@ -1,23 +1,51 @@
 import express from 'express';
 import { prisma } from '../lib/auth.js';
-import { authenticate, requireOrganization, requireClient } from '../middleware/auth.js';
+import { authenticate, requireOrganization } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// All routes require authentication, organization context, and client role
+// All routes require authentication and organization context
 router.use(authenticate);
 router.use(requireOrganization);
-router.use(requireClient);
 
-// Get organization's software catalog (for clients)
-router.get('/', async (req, res) => {
+// Helper to check if user has access to a project (assigned or is a client in the org)
+const hasProjectAccess = async (projectId, memberId, memberRole) => {
+  // Clients can access projects they're assigned to
+  if (memberRole === 'client') {
+    const assignment = await prisma.projectAssignment.findUnique({
+      where: {
+        memberId_projectId: { memberId, projectId }
+      }
+    });
+    return !!assignment;
+  }
+  // Staff can access all projects in the org
+  return true;
+};
+
+// Get project's software catalog (for portal users)
+router.get('/projects/:projectId/software', async (req, res) => {
   try {
+    const { projectId } = req.params;
     const { categoryId, filter } = req.query;
 
-    // Build where clause for organization software
-    const where = {
-      organizationId: req.organization.id
-    };
+    // Verify project belongs to organization
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, organizationId: req.organization.id }
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Check access
+    const hasAccess = await hasProjectAccess(projectId, req.membership.id, req.membership.role);
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied to this project' });
+    }
+
+    // Build where clause for project software
+    const where = { projectId };
 
     // Filter by category if provided
     if (categoryId) {
@@ -36,7 +64,7 @@ router.get('/', async (req, res) => {
       };
     }
 
-    const orgSoftware = await prisma.organizationSoftware.findMany({
+    const projectSoftware = await prisma.projectSoftware.findMany({
       where,
       orderBy: { software: { name: 'asc' } },
       include: {
@@ -54,17 +82,17 @@ router.get('/', async (req, res) => {
     });
 
     // Transform to flatten structure and include user's request status
-    const result = orgSoftware.map(os => ({
-      id: os.id,
-      softwareId: os.software.id,
-      name: os.software.name,
-      description: os.software.description,
-      iconUrl: os.software.iconUrl,
-      vendor: os.software.vendor,
-      websiteUrl: os.software.websiteUrl,
-      category: os.software.category,
-      notes: os.notes, // Organization-specific notes
-      myAccessRequest: os.accessRequests[0] || null
+    const result = projectSoftware.map(ps => ({
+      id: ps.id,
+      softwareId: ps.software.id,
+      name: ps.software.name,
+      description: ps.software.description,
+      iconUrl: ps.software.iconUrl,
+      vendor: ps.software.vendor,
+      websiteUrl: ps.software.websiteUrl,
+      category: ps.software.category,
+      notes: ps.notes, // Project-specific notes
+      myAccessRequest: ps.accessRequests[0] || null
     }));
 
     res.json(result);
@@ -74,38 +102,37 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get categories (global categories used by org's software)
-router.get('/categories', async (req, res) => {
+// Get categories (global categories used by project's software)
+router.get('/projects/:projectId/software/categories', async (req, res) => {
   try {
-    // Get categories that have software added by this organization
+    const { projectId } = req.params;
+
+    // Verify project belongs to organization
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, organizationId: req.organization.id }
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const hasAccess = await hasProjectAccess(projectId, req.membership.id, req.membership.role);
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied to this project' });
+    }
+
+    // Get categories that have software added to this project
     const categories = await prisma.softwareCategory.findMany({
       where: {
         software: {
           some: {
-            organizationSoftware: {
-              some: {
-                organizationId: req.organization.id
-              }
+            projectSoftware: {
+              some: { projectId }
             }
           }
         }
       },
-      orderBy: { name: 'asc' },
-      include: {
-        _count: {
-          select: {
-            software: {
-              where: {
-                organizationSoftware: {
-                  some: {
-                    organizationId: req.organization.id
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
+      orderBy: { name: 'asc' }
     });
 
     res.json(categories);
@@ -115,15 +142,17 @@ router.get('/categories', async (req, res) => {
   }
 });
 
-// Get own access request history
+// Get own access request history across all projects
 router.get('/my-requests', async (req, res) => {
   try {
-    const { status } = req.query;
+    const { status, projectId } = req.query;
 
     const where = {
       requesterId: req.membership.id,
-      organizationSoftware: {
-        organizationId: req.organization.id
+      projectSoftware: {
+        project: {
+          organizationId: req.organization.id
+        }
       }
     };
 
@@ -131,11 +160,18 @@ router.get('/my-requests', async (req, res) => {
       where.status = status;
     }
 
+    if (projectId) {
+      where.projectSoftware.projectId = projectId;
+    }
+
     const requests = await prisma.softwareAccessRequest.findMany({
       where,
       include: {
-        organizationSoftware: {
+        projectSoftware: {
           include: {
+            project: {
+              select: { id: true, name: true, projectCode: true }
+            },
             software: {
               select: {
                 id: true,
@@ -164,8 +200,9 @@ router.get('/my-requests', async (req, res) => {
       reviewNotes: r.reviewNotes,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
-      organizationSoftwareId: r.organizationSoftwareId,
-      software: r.organizationSoftware.software,
+      projectSoftwareId: r.projectSoftwareId,
+      project: r.projectSoftware.project,
+      software: r.projectSoftware.software,
       reviewer: r.reviewer
     }));
 
@@ -176,14 +213,27 @@ router.get('/my-requests', async (req, res) => {
   }
 });
 
-// Get single organization software detail
-router.get('/:id', async (req, res) => {
+// Get single project software detail
+router.get('/projects/:projectId/software/:id', async (req, res) => {
   try {
-    const orgSoftware = await prisma.organizationSoftware.findFirst({
-      where: {
-        id: req.params.id,
-        organizationId: req.organization.id
-      },
+    const { projectId, id } = req.params;
+
+    // Verify project belongs to organization
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, organizationId: req.organization.id }
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const hasAccess = await hasProjectAccess(projectId, req.membership.id, req.membership.role);
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied to this project' });
+    }
+
+    const projectSoftware = await prisma.projectSoftware.findFirst({
+      where: { id, projectId },
       include: {
         software: {
           include: {
@@ -198,22 +248,22 @@ router.get('/:id', async (req, res) => {
       }
     });
 
-    if (!orgSoftware) {
+    if (!projectSoftware) {
       return res.status(404).json({ error: 'Software not found' });
     }
 
     // Transform to flatten structure
     const result = {
-      id: orgSoftware.id,
-      softwareId: orgSoftware.software.id,
-      name: orgSoftware.software.name,
-      description: orgSoftware.software.description,
-      iconUrl: orgSoftware.software.iconUrl,
-      vendor: orgSoftware.software.vendor,
-      websiteUrl: orgSoftware.software.websiteUrl,
-      category: orgSoftware.software.category,
-      notes: orgSoftware.notes,
-      myAccessRequest: orgSoftware.accessRequests[0] || null
+      id: projectSoftware.id,
+      softwareId: projectSoftware.software.id,
+      name: projectSoftware.software.name,
+      description: projectSoftware.software.description,
+      iconUrl: projectSoftware.software.iconUrl,
+      vendor: projectSoftware.software.vendor,
+      websiteUrl: projectSoftware.software.websiteUrl,
+      category: projectSoftware.software.category,
+      notes: projectSoftware.notes,
+      myAccessRequest: projectSoftware.accessRequests[0] || null
     };
 
     res.json(result);
@@ -224,23 +274,36 @@ router.get('/:id', async (req, res) => {
 });
 
 // Submit access request
-router.post('/:id/request', async (req, res) => {
+router.post('/projects/:projectId/software/:id/request', async (req, res) => {
   try {
-    const orgSoftware = await prisma.organizationSoftware.findFirst({
-      where: {
-        id: req.params.id,
-        organizationId: req.organization.id
-      }
+    const { projectId, id } = req.params;
+
+    // Verify project belongs to organization
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, organizationId: req.organization.id }
     });
 
-    if (!orgSoftware) {
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const hasAccess = await hasProjectAccess(projectId, req.membership.id, req.membership.role);
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied to this project' });
+    }
+
+    const projectSoftware = await prisma.projectSoftware.findFirst({
+      where: { id, projectId }
+    });
+
+    if (!projectSoftware) {
       return res.status(404).json({ error: 'Software not found' });
     }
 
     // Check if already has a request
     const existingRequest = await prisma.softwareAccessRequest.findFirst({
       where: {
-        organizationSoftwareId: req.params.id,
+        projectSoftwareId: id,
         requesterId: req.membership.id
       }
     });
@@ -262,7 +325,7 @@ router.post('/:id/request', async (req, res) => {
           reviewNotes: null
         },
         include: {
-          organizationSoftware: {
+          projectSoftware: {
             include: {
               software: {
                 select: { id: true, name: true }
@@ -277,7 +340,7 @@ router.post('/:id/request', async (req, res) => {
         status: updated.status,
         reason: updated.reason,
         createdAt: updated.createdAt,
-        software: updated.organizationSoftware.software
+        software: updated.projectSoftware.software
       });
     }
 
@@ -285,12 +348,12 @@ router.post('/:id/request', async (req, res) => {
 
     const request = await prisma.softwareAccessRequest.create({
       data: {
-        organizationSoftwareId: req.params.id,
+        projectSoftwareId: id,
         requesterId: req.membership.id,
         reason
       },
       include: {
-        organizationSoftware: {
+        projectSoftware: {
           include: {
             software: {
               select: { id: true, name: true }
@@ -305,7 +368,7 @@ router.post('/:id/request', async (req, res) => {
       status: request.status,
       reason: request.reason,
       createdAt: request.createdAt,
-      software: request.organizationSoftware.software
+      software: request.projectSoftware.software
     });
   } catch (error) {
     console.error('Error creating request:', error);

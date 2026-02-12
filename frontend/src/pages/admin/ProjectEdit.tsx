@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Field, FieldGroup, Label, Description } from '@/components/ui/fieldset'
-import { ArrowLeftIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, TrashIcon } from '@heroicons/react/24/outline'
 
 interface Project {
   id: string
@@ -24,6 +24,9 @@ interface Project {
   dueDateMediumDays?: number | null
   dueDateHighDays?: number | null
   dueDateUrgentDays?: number | null
+  _count?: {
+    timeEntries: number
+  }
 }
 
 interface StaffMember {
@@ -53,6 +56,7 @@ export default function ProjectEdit() {
   const [isActive, setIsActive] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     if (currentOrg && id) {
@@ -112,6 +116,26 @@ export default function ProjectEdit() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update project')
       setSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!project) return
+
+    const hasEntries = project._count?.timeEntries && project._count.timeEntries > 0
+    const message = hasEntries
+      ? 'This project has time entries. It will be archived instead of deleted. Continue?'
+      : 'Are you sure you want to delete this project? This action cannot be undone.'
+
+    if (!confirm(message)) return
+
+    setDeleting(true)
+    try {
+      await api.deleteProject(project.id)
+      navigate('/admin/projects')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete project')
+      setDeleting(false)
     }
   }
 
@@ -294,6 +318,28 @@ export default function ProjectEdit() {
             </Button>
           </div>
         </form>
+      </div>
+
+      {/* Danger Zone */}
+      <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-red-200 dark:ring-red-900/50">
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-red-600 dark:text-red-400">Danger Zone</h3>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+              {project._count?.timeEntries && project._count.timeEntries > 0
+                ? 'This project has time entries and will be archived instead of deleted.'
+                : 'Permanently delete this project. This action cannot be undone.'}
+            </p>
+          </div>
+          <Button
+            color="red"
+            onClick={handleDelete}
+            disabled={deleting || saving}
+          >
+            <TrashIcon className="h-4 w-4" />
+            {deleting ? 'Deleting...' : 'Delete Project'}
+          </Button>
+        </div>
       </div>
     </div>
   )

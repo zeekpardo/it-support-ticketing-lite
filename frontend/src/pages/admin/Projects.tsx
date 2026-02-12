@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { PlusIcon, PencilIcon, TrashIcon, FolderIcon, EyeIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, FolderIcon, EyeIcon, ComputerDesktopIcon } from '@heroicons/react/24/outline'
 
 interface Project {
   id: string
@@ -62,21 +62,6 @@ export default function AdminProjects() {
     }
   }
 
-  const handleDelete = async (project: Project) => {
-    const message = project._count?.timeEntries
-      ? 'This project has time entries. It will be archived instead of deleted. Continue?'
-      : 'Are you sure you want to delete this project?'
-
-    if (!confirm(message)) return
-
-    try {
-      await api.deleteProject(project.id)
-      loadProjects()
-    } catch (error) {
-      console.error('Failed to delete project:', error)
-    }
-  }
-
   if (!currentOrg) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -120,22 +105,25 @@ export default function AdminProjects() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableHeader>Code</TableHeader>
                 <TableHeader>Name</TableHeader>
                 <TableHeader>Client</TableHeader>
                 <TableHeader>Default Assignee</TableHeader>
                 <TableHeader>Entries</TableHeader>
                 <TableHeader>Status</TableHeader>
-                <TableHeader className="w-[120px]">Actions</TableHeader>
+                <TableHeader className="w-[150px]">Actions</TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
               {projects.map((project) => (
                 <TableRow key={project.id}>
                   <TableCell>
-                    <Badge color="blue">{project.projectCode}</Badge>
+                    <button
+                      onClick={() => navigate(`/admin/projects/${project.id}/edit`)}
+                      className="font-medium text-zinc-950 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline text-left"
+                    >
+                      {project.name}
+                    </button>
                   </TableCell>
-                  <TableCell className="font-medium">{project.name}</TableCell>
                   <TableCell className="text-zinc-500">
                     {project.clientName || '-'}
                   </TableCell>
@@ -157,11 +145,8 @@ export default function AdminProjects() {
                       <Button plain onClick={() => navigate(`/admin/projects/${project.id}`)}>
                         <EyeIcon className="h-4 w-4 text-zinc-400 hover:text-blue-500" />
                       </Button>
-                      <Button plain onClick={() => navigate(`/admin/projects/${project.id}/edit`)}>
-                        <PencilIcon className="h-4 w-4 text-zinc-400 hover:text-blue-500" />
-                      </Button>
-                      <Button plain onClick={() => handleDelete(project)}>
-                        <TrashIcon className="h-4 w-4 text-zinc-400 hover:text-red-500" />
+                      <Button plain onClick={() => navigate(`/admin/projects/${project.id}/software`)}>
+                        <ComputerDesktopIcon className="h-4 w-4 text-zinc-400 hover:text-blue-500" />
                       </Button>
                     </div>
                   </TableCell>

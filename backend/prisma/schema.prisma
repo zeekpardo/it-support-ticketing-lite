@@ -32,6 +32,9 @@ model User {
   invitations   Invitation[]
   timeEntries   TimeEntry[]
 
+  // Software catalog submissions
+  submittedSoftware SoftwareCatalog[]
+
   @@map("users")
 }
 
@@ -122,6 +125,12 @@ model Member {
   projectAssignments      ProjectAssignment[]
   defaultAssigneeProjects Project[]           @relation("ProjectDefaultAssignee")
 
+  // Software catalog relations
+  projectSoftwareAdded            ProjectSoftware[]       @relation("ProjectSoftwareAddedBy")
+  projectSoftwareAdmins           ProjectSoftwareAdmin[]
+  softwareRequestsAsRequester     SoftwareAccessRequest[] @relation("SoftwareRequester")
+  softwareRequestsAsReviewer      SoftwareAccessRequest[] @relation("SoftwareReviewer")
+
   @@unique([organizationId, userId])
   @@map("members")
 }
@@ -181,6 +190,9 @@ model Project {
   timeEntries        TimeEntry[]
   tickets            SupportTicket[]
   projectAssignments ProjectAssignment[]
+
+  // Software catalog
+  projectSoftware    ProjectSoftware[]
 
   @@unique([organizationId, projectCode])
   @@map("projects")
@@ -310,5 +322,113 @@ model TicketComment {
 
   @@index([ticketId, isInternal])
   @@map("ticket_comments")
+}
+
+// ==========================================
+// Software Catalog Tables (Global + Project-scoped)
+// ==========================================
+
+enum SoftwareCatalogStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum SoftwareAdminRole {
+  OWNER
+  ADMIN
+}
+
+enum SoftwareAccessRequestStatus {
+  PENDING
+  APPROVED
+  DECLINED
+}
+
+// Global catalog managed by super-admin
+model SoftwareCatalog {
+  id            String                @id @default(cuid())
+  name          String                @unique
+  description   String?
+  iconUrl       String?               @map("icon_url")
+  vendor        String?
+  websiteUrl    String?               @map("website_url")
+  categoryId    String?               @map("category_id")
+  category      SoftwareCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  status        SoftwareCatalogStatus @default(PENDING)
+  submittedById String?               @map("submitted_by_id")
+  submittedBy   User?                 @relation(fields: [submittedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+
+  projectSoftware ProjectSoftware[]
+
+  @@map("software_catalog")
+}
+
+model SoftwareCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  software SoftwareCatalog[]
+
+  @@map("software_categories")
+}
+
+// Software added to a PROJECT
+model ProjectSoftware {
+  id         String          @id @default(cuid())
+  projectId  String          @map("project_id")
+  project    Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  softwareId String          @map("software_id")
+  software   SoftwareCatalog @relation(fields: [softwareId], references: [id], onDelete: Cascade)
+  notes      String?
+  addedById  String          @map("added_by_id")
+  addedBy    Member          @relation("ProjectSoftwareAddedBy", fields: [addedById], references: [id], onDelete: Cascade)
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
+
+  admins         ProjectSoftwareAdmin[]
+  accessRequests SoftwareAccessRequest[]
+
+  @@unique([projectId, softwareId])
+  @@index([projectId])
+  @@map("project_software")
+}
+
+// Admins for project software (can approve/decline requests)
+model ProjectSoftwareAdmin {
+  id                String            @id @default(cuid())
+  projectSoftwareId String            @map("project_software_id")
+  projectSoftware   ProjectSoftware   @relation(fields: [projectSoftwareId], references: [id], onDelete: Cascade)
+  memberId          String            @map("member_id")
+  member            Member            @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  role              SoftwareAdminRole @default(ADMIN)
+  createdAt         DateTime          @default(now()) @map("created_at")
+
+  @@unique([projectSoftwareId, memberId])
+  @@map("project_software_admins")
+}
+
+// Access requests from clients for project software
+model SoftwareAccessRequest {
+  id                String                      @id @default(cuid())
+  projectSoftwareId String                      @map("project_software_id")
+  projectSoftware   ProjectSoftware             @relation(fields: [projectSoftwareId], references: [id], onDelete: Cascade)
+  requesterId       String                      @map("requester_id")
+  requester         Member                      @relation("SoftwareRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  reason            String?
+  status            SoftwareAccessRequestStatus @default(PENDING)
+  reviewerId        String?                     @map("reviewer_id")
+  reviewer          Member?                     @relation("SoftwareReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  reviewNotes       String?                     @map("review_notes")
+  createdAt         DateTime                    @default(now()) @map("created_at")
+  updatedAt         DateTime                    @updatedAt @map("updated_at")
+
+  @@index([projectSoftwareId])
+  @@map("software_access_requests")
 }
 

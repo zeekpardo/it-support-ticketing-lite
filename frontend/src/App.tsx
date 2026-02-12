@@ -27,7 +27,12 @@ import PortalTickets from './pages/portal/PortalTickets'
 import PortalTicketDetail from './pages/portal/PortalTicketDetail'
 import PortalNewTicket from './pages/portal/PortalNewTicket'
 import PortalSettings from './pages/portal/PortalSettings'
+import PortalProjectSoftware from './pages/portal/PortalProjectSoftware'
+import PortalProjectSoftwareDetail from './pages/portal/PortalProjectSoftwareDetail'
 import AcceptInvitation from './pages/AcceptInvitation'
+// Project Software pages
+import ProjectSoftwareCatalog from './pages/admin/ProjectSoftwareCatalog'
+import ProjectSoftwareDetail from './pages/admin/ProjectSoftwareDetail'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth()
@@ -268,6 +273,22 @@ function AppRoutes() {
           </ClientRoute>
         }
       />
+      <Route
+        path="/portal/projects/:projectId/software"
+        element={
+          <ClientRoute>
+            <PortalProjectSoftware />
+          </ClientRoute>
+        }
+      />
+      <Route
+        path="/portal/projects/:projectId/software/:id"
+        element={
+          <ClientRoute>
+            <PortalProjectSoftwareDetail />
+          </ClientRoute>
+        }
+      />
 
       {/* Admin routes */}
       <Route
@@ -276,6 +297,26 @@ function AppRoutes() {
           <ProtectedRoute>
             <AdminRoute>
               <AdminMembers />
+            </AdminRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/projects/:projectId/software"
+        element={
+          <ProtectedRoute>
+            <AdminRoute>
+              <ProjectSoftwareCatalog />
+            </AdminRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/projects/:projectId/software/:id"
+        element={
+          <ProtectedRoute>
+            <AdminRoute>
+              <ProjectSoftwareDetail />
             </AdminRoute>
           </ProtectedRoute>
         }
