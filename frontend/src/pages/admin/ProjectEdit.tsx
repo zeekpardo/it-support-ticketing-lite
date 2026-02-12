@@ -1,7 +1,7 @@
 import { useState, useEffect, FormEvent } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useOrganization } from '../../context/OrganizationContext'
-import { api } from '../../api/client'
+import { api, TicketStage } from '../../api/client'
 import { Heading } from '@/components/ui/heading'
 import { Text } from '@/components/ui/text'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,25 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Field, FieldGroup, Label, Description } from '@/components/ui/fieldset'
-import { ArrowLeftIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, TrashIcon, PlusIcon, Bars3Icon, CheckCircleIcon, StarIcon } from '@heroicons/react/24/outline'
+import { CheckCircleIcon as CheckCircleSolid, StarIcon as StarSolid } from '@heroicons/react/24/solid'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 interface Project {
   id: string
@@ -35,12 +53,153 @@ interface StaffMember {
   user: { id: string; name: string; email: string }
 }
 
+const STAGE_COLORS = [
+  { name: 'purple', class: 'bg-purple-600' },
+  { name: 'blue', class: 'bg-blue-600' },
+  { name: 'cyan', class: 'bg-cyan-600' },
+  { name: 'teal', class: 'bg-teal-600' },
+  { name: 'green', class: 'bg-green-600' },
+  { name: 'amber', class: 'bg-amber-500' },
+  { name: 'orange', class: 'bg-orange-500' },
+  { name: 'red', class: 'bg-red-600' },
+  { name: 'pink', class: 'bg-pink-600' },
+  { name: 'indigo', class: 'bg-indigo-600' },
+  { name: 'gray', class: 'bg-gray-600' }
+]
+
+function SortableStageItem({
+  stage,
+  onUpdate,
+  onDelete,
+  onSetDefault,
+  onToggleResolved,
+  canDelete
+}: {
+  stage: TicketStage
+  onUpdate: (stageId: string, data: { name?: string; color?: string }) => void
+  onDelete: (stage: TicketStage) => void
+  onSetDefault: (stageId: string) => void
+  onToggleResolved: (stageId: string) => void
+  canDelete: boolean
+}) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editName, setEditName] = useState(stage.name)
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: stage.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1
+  }
+
+  const handleSave = () => {
+    if (editName.trim() && editName !== stage.name) {
+      onUpdate(stage.id, { name: editName.trim() })
+    }
+    setIsEditing(false)
+  }
+
+  const colorClass = STAGE_COLORS.find(c => c.name === stage.color)?.class || 'bg-gray-600'
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-3 p-3 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700"
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+      >
+        <Bars3Icon className="w-5 h-5" />
+      </button>
+
+      <div className={`w-4 h-4 rounded ${colorClass}`} />
+
+      {isEditing ? (
+        <input
+          type="text"
+          value={editName}
+          onChange={(e) => setEditName(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+          className="flex-1 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white"
+          autoFocus
+        />
+      ) : (
+        <span
+          className="flex-1 text-sm font-medium text-zinc-900 dark:text-white cursor-pointer"
+          onClick={() => setIsEditing(true)}
+        >
+          {stage.name}
+        </span>
+      )}
+
+      <div className="flex items-center gap-1">
+        <Select
+          value={stage.color}
+          onChange={(e) => onUpdate(stage.id, { color: e.target.value })}
+          className="text-xs w-24"
+        >
+          {STAGE_COLORS.map(color => (
+            <option key={color.name} value={color.name}>
+              {color.name.charAt(0).toUpperCase() + color.name.slice(1)}
+            </option>
+          ))}
+        </Select>
+
+        <button
+          onClick={() => onSetDefault(stage.id)}
+          className={`p-1.5 rounded ${stage.isDefault ? 'text-amber-500' : 'text-zinc-400 hover:text-amber-500'}`}
+          title={stage.isDefault ? 'Default stage' : 'Set as default'}
+        >
+          {stage.isDefault ? <StarSolid className="w-4 h-4" /> : <StarIcon className="w-4 h-4" />}
+        </button>
+
+        <button
+          onClick={() => onToggleResolved(stage.id)}
+          className={`p-1.5 rounded ${stage.isResolved ? 'text-green-500' : 'text-zinc-400 hover:text-green-500'}`}
+          title={stage.isResolved ? 'Resolved stage' : 'Mark as resolved stage'}
+        >
+          {stage.isResolved ? <CheckCircleSolid className="w-4 h-4" /> : <CheckCircleIcon className="w-4 h-4" />}
+        </button>
+
+        {canDelete && (
+          <button
+            onClick={() => onDelete(stage)}
+            className="p-1.5 rounded text-zinc-400 hover:text-red-500"
+            title="Delete stage"
+          >
+            <TrashIcon className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {stage._count && stage._count.tickets > 0 && (
+        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+          {stage._count.tickets} ticket{stage._count.tickets !== 1 ? 's' : ''}
+        </span>
+      )}
+    </div>
+  )
+}
+
 export default function ProjectEdit() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { currentOrg } = useOrganization()
   const [project, setProject] = useState<Project | null>(null)
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
+  const [stages, setStages] = useState<TicketStage[]>([])
   const [loading, setLoading] = useState(true)
 
   // Form state
@@ -58,6 +217,20 @@ export default function ProjectEdit() {
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
+  // Stage management state
+  const [newStageName, setNewStageName] = useState('')
+  const [newStageColor, setNewStageColor] = useState('gray')
+  const [stageToDelete, setStageToDelete] = useState<TicketStage | null>(null)
+  const [moveTicketsToStageId, setMoveTicketsToStageId] = useState('')
+  const [stageError, setStageError] = useState('')
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates
+    })
+  )
+
   useEffect(() => {
     if (currentOrg && id) {
       loadData()
@@ -67,12 +240,14 @@ export default function ProjectEdit() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [projectData, staffData] = await Promise.all([
+      const [projectData, staffData, stagesData] = await Promise.all([
         api.getProject(id!),
-        api.getStaffMembers()
+        api.getStaffMembers(),
+        api.getProjectStages(id!)
       ])
       setProject(projectData)
       setStaffMembers(staffData)
+      setStages(stagesData.sort((a, b) => a.position - b.position))
 
       // Populate form with project data
       setName(projectData.name)
@@ -89,6 +264,100 @@ export default function ProjectEdit() {
       console.error('Failed to load data:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Stage management handlers
+  const handleAddStage = async () => {
+    if (!newStageName.trim()) return
+    setStageError('')
+
+    try {
+      const newStage = await api.createStage(id!, {
+        name: newStageName.trim(),
+        color: newStageColor
+      })
+      setStages([...stages, newStage])
+      setNewStageName('')
+      setNewStageColor('gray')
+    } catch (err) {
+      setStageError(err instanceof Error ? err.message : 'Failed to create stage')
+    }
+  }
+
+  const handleUpdateStage = async (stageId: string, data: { name?: string; color?: string }) => {
+    setStageError('')
+    try {
+      const updated = await api.updateStage(id!, stageId, data)
+      setStages(stages.map(s => s.id === stageId ? updated : s))
+    } catch (err) {
+      setStageError(err instanceof Error ? err.message : 'Failed to update stage')
+    }
+  }
+
+  const handleSetDefault = async (stageId: string) => {
+    setStageError('')
+    try {
+      await api.updateStage(id!, stageId, { isDefault: true })
+      setStages(stages.map(s => ({
+        ...s,
+        isDefault: s.id === stageId
+      })))
+    } catch (err) {
+      setStageError(err instanceof Error ? err.message : 'Failed to set default stage')
+    }
+  }
+
+  const handleToggleResolved = async (stageId: string) => {
+    const stage = stages.find(s => s.id === stageId)
+    if (!stage) return
+    setStageError('')
+
+    try {
+      const updated = await api.updateStage(id!, stageId, { isResolved: !stage.isResolved })
+      setStages(stages.map(s => s.id === stageId ? updated : s))
+    } catch (err) {
+      setStageError(err instanceof Error ? err.message : 'Failed to update stage')
+    }
+  }
+
+  const handleDeleteStage = async () => {
+    if (!stageToDelete) return
+    setStageError('')
+
+    // If stage has tickets, require destination
+    if (stageToDelete._count?.tickets && stageToDelete._count.tickets > 0 && !moveTicketsToStageId) {
+      setStageError('Please select a stage to move tickets to')
+      return
+    }
+
+    try {
+      await api.deleteStage(id!, stageToDelete.id, moveTicketsToStageId)
+      setStages(stages.filter(s => s.id !== stageToDelete.id))
+      setStageToDelete(null)
+      setMoveTicketsToStageId('')
+    } catch (err) {
+      setStageError(err instanceof Error ? err.message : 'Failed to delete stage')
+    }
+  }
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const oldIndex = stages.findIndex(s => s.id === active.id)
+    const newIndex = stages.findIndex(s => s.id === over.id)
+
+    const newStages = arrayMove(stages, oldIndex, newIndex)
+    setStages(newStages)
+
+    // Save new order to backend
+    try {
+      await api.reorderStages(id!, newStages.map(s => s.id))
+    } catch (err) {
+      // Revert on error
+      setStages(stages)
+      setStageError(err instanceof Error ? err.message : 'Failed to reorder stages')
     }
   }
 
@@ -319,6 +588,122 @@ export default function ProjectEdit() {
           </div>
         </form>
       </div>
+
+      {/* Ticket Stages */}
+      <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10">
+        <h3 className="text-sm font-medium text-zinc-950 dark:text-white mb-4">Ticket Stages</h3>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+          Customize the workflow stages for your Kanban board. Drag to reorder.
+        </p>
+
+        {stageError && (
+          <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+            {stageError}
+          </div>
+        )}
+
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={stages.map(s => s.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2 mb-4">
+              {stages.map(stage => (
+                <SortableStageItem
+                  key={stage.id}
+                  stage={stage}
+                  onUpdate={handleUpdateStage}
+                  onDelete={setStageToDelete}
+                  onSetDefault={handleSetDefault}
+                  onToggleResolved={handleToggleResolved}
+                  canDelete={stages.length > 1}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+
+        <div className="flex items-center gap-3 mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+          <Input
+            type="text"
+            value={newStageName}
+            onChange={(e) => setNewStageName(e.target.value)}
+            placeholder="New stage name"
+            className="flex-1 min-w-0"
+            onKeyDown={(e) => e.key === 'Enter' && handleAddStage()}
+          />
+          <div className="flex items-center gap-1 shrink-0">
+            <Select
+              value={newStageColor}
+              onChange={(e) => setNewStageColor(e.target.value)}
+              className="text-xs w-24"
+            >
+              {STAGE_COLORS.map(color => (
+                <option key={color.name} value={color.name}>
+                  {color.name.charAt(0).toUpperCase() + color.name.slice(1)}
+                </option>
+              ))}
+            </Select>
+            <Button onClick={handleAddStage} disabled={!newStageName.trim()}>
+              <PlusIcon className="w-4 h-4" />
+              Add
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-4 flex items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400">
+          <span className="flex items-center gap-1">
+            <StarSolid className="w-3 h-3 text-amber-500" /> Default stage for new tickets
+          </span>
+          <span className="flex items-center gap-1">
+            <CheckCircleSolid className="w-3 h-3 text-green-500" /> Resolved/closed stage
+          </span>
+        </div>
+      </div>
+
+      {/* Delete Stage Modal */}
+      {stageToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-medium text-zinc-950 dark:text-white mb-2">
+              Delete Stage: {stageToDelete.name}
+            </h3>
+
+            {stageToDelete._count?.tickets && stageToDelete._count.tickets > 0 ? (
+              <>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
+                  This stage has {stageToDelete._count.tickets} ticket{stageToDelete._count.tickets !== 1 ? 's' : ''}.
+                  Select a stage to move them to:
+                </p>
+                <Select
+                  value={moveTicketsToStageId}
+                  onChange={(e) => setMoveTicketsToStageId(e.target.value)}
+                  className="w-full mb-4"
+                >
+                  <option value="">Select a stage...</option>
+                  {stages.filter(s => s.id !== stageToDelete.id).map(stage => (
+                    <option key={stage.id} value={stage.id}>{stage.name}</option>
+                  ))}
+                </Select>
+              </>
+            ) : (
+              <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
+                This stage has no tickets and can be safely deleted.
+              </p>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <Button plain onClick={() => { setStageToDelete(null); setMoveTicketsToStageId('') }}>
+                Cancel
+              </Button>
+              <Button color="red" onClick={handleDeleteStage}>
+                Delete Stage
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Danger Zone */}
       <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-red-200 dark:ring-red-900/50">
