@@ -1,9 +1,9 @@
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
-import { organization, admin, openAPI } from 'better-auth/plugins';
+import { organization, admin, openAPI, magicLink } from 'better-auth/plugins';
 import { createAccessControl } from 'better-auth/plugins/access';
 import { PrismaClient } from '@prisma/client';
-import { sendVerificationEmail, sendPasswordResetEmail, sendInvitationEmail } from './email.js';
+import { sendVerificationEmail, sendPasswordResetEmail, sendInvitationEmail, sendMagicLinkEmail } from './email.js';
 
 // Environment configuration
 const isDev = process.env.NODE_ENV !== 'production';
@@ -125,6 +125,14 @@ export const auth = betterAuth({
 
   // Plugins
   plugins: [
+    // Magic link for passwordless client onboarding
+    magicLink({
+      sendMagicLink: async ({ email, url }) => {
+        void sendMagicLinkEmail({ email, url });
+      },
+      expiresIn: 300 // 5 minutes
+    }),
+
     // Admin plugin for super admin features
     admin({
       defaultRole: 'user',

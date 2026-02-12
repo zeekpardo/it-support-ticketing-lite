@@ -120,3 +120,31 @@ export async function sendInvitationEmail({ email, inviterName, organizationName
     text: `You've been invited!\n\nHi there,\n\n${inviterName} has invited you to join ${organizationName} on ${APP_NAME}.\n\nAccept the invitation:\n${inviteUrl}`
   });
 }
+
+/**
+ * Send magic link email for passwordless authentication
+ */
+export async function sendMagicLinkEmail({ email, url }) {
+  return sendEmail({
+    to: email,
+    subject: `Sign in to ${APP_NAME}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Sign in to ${APP_NAME}</h2>
+        <p>Hi there,</p>
+        <p>Click the button below to sign in to your account. This link will expire in 5 minutes.</p>
+        <p style="margin: 30px 0;">
+          <a href="${url}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+            Sign In
+          </a>
+        </p>
+        <p>Or copy and paste this link into your browser:</p>
+        <p style="color: #6b7280; word-break: break-all;">${url}</p>
+        <p>If you didn't request this link, you can safely ignore this email.</p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;" />
+        <p style="color: #9ca3af; font-size: 12px;">${APP_NAME}</p>
+      </div>
+    `,
+    text: `Sign in to ${APP_NAME}\n\nHi there,\n\nClick the link below to sign in to your account. This link will expire in 5 minutes.\n\n${url}\n\nIf you didn't request this link, you can safely ignore this email.`
+  });
+}
