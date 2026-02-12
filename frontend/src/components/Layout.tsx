@@ -2,6 +2,7 @@ import { ReactNode } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useOrganization } from '../context/OrganizationContext'
+import { TimerBanner } from './TimerBanner'
 import {
   Sidebar,
   SidebarBody,
@@ -48,7 +49,7 @@ export function Layout({ children }: LayoutProps) {
   }
 
   const navItems = [
-    { href: '/', label: 'Timer', icon: ClockIcon },
+    { href: '/', label: 'Dashboard', icon: ClockIcon },
     { href: '/projects', label: 'Projects', icon: FolderIcon },
     { href: '/reports', label: 'Reports', icon: ChartBarIcon },
   ]
@@ -225,6 +226,7 @@ export function Layout({ children }: LayoutProps) {
           </Button>
         </div>
       )}
+      <TimerBanner />
       <div className="p-6">
         {children}
       </div>

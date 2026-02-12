@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useOrganization } from '../context/OrganizationContext'
+import { useTimer } from '../context/TimerContext'
 import { api } from '../api/client'
 import { TicketComments, TicketTimeEntries, TICKET_STATUSES, PRIORITY_LEVELS } from '../components/tickets'
 import { Heading, Subheading } from '@/components/ui/heading'
@@ -53,6 +54,7 @@ export default function TicketDetail() {
   const { projectId, ticketId } = useParams<{ projectId: string; ticketId: string }>()
   const navigate = useNavigate()
   const { currentOrg, isAdmin } = useOrganization()
+  const { runningTimer, startTimer, stopTimer: stopGlobalTimer, refreshTimer, isLoading: timerLoading } = useTimer()
   const [ticket, setTicket] = useState<Ticket | null>(null)
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
   const [loading, setLoading] = useState(true)
@@ -146,13 +148,25 @@ export default function TicketDetail() {
   const handleStartTimer = async () => {
     if (!ticket) return
     try {
-      const timeEntry = await api.startTicketTimer(ticket.id)
-      setTicket({
-        ...ticket,
-        timeEntries: [timeEntry, ...ticket.timeEntries]
-      })
+      await startTimer(ticket.id)
+      // Reload ticket to get updated time entries
+      const ticketData = await api.getTicket(ticket.id)
+      setTicket(ticketData)
     } catch (error) {
       console.error('Failed to start timer:', error)
+    }
+  }
+
+  const handleStopTimer = async () => {
+    if (!ticket) return
+    try {
+      await stopGlobalTimer()
+      await refreshTimer()
+      // Reload ticket to get updated time entries and total
+      const ticketData = await api.getTicket(ticket.id)
+      setTicket(ticketData)
+    } catch (error) {
+      console.error('Failed to stop timer:', error)
     }
   }
 
@@ -190,7 +204,10 @@ export default function TicketDetail() {
     )
   }
 
-  const hasRunningTimer = ticket.timeEntries.some((t: any) => t.isRunning)
+  // Check if this ticket has the running timer
+  const hasRunningTimerOnThisTicket = runningTimer?.ticketId === ticket.id
+  // Check if any timer is running (to disable start button)
+  const anyTimerRunning = !!runningTimer
 
   return (
     <div className="space-y-6">
@@ -254,7 +271,10 @@ export default function TicketDetail() {
               timeEntries={ticket.timeEntries}
               totalMinutes={ticket.totalTimeMinutes}
               onStartTimer={handleStartTimer}
-              hasRunningTimer={hasRunningTimer}
+              onStopTimer={handleStopTimer}
+              hasRunningTimer={hasRunningTimerOnThisTicket}
+              isLoading={timerLoading}
+              disableStart={anyTimerRunning && !hasRunningTimerOnThisTicket}
             />
           </div>
 

@@ -294,6 +294,15 @@ router.get('/running/current', async (req, res) => {
       include: {
         project: {
           select: { id: true, name: true, projectCode: true }
+        },
+        ticket: {
+          select: {
+            id: true,
+            subject: true,
+            project: {
+              select: { id: true, name: true, projectCode: true }
+            }
+          }
         }
       }
     });

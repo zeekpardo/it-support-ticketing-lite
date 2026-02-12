@@ -1,4 +1,4 @@
-import { ClockIcon, PlayIcon } from '@heroicons/react/24/outline'
+import { ClockIcon, PlayIcon, StopIcon } from '@heroicons/react/24/outline'
 import { Button } from '../ui/button'
 
 interface TimeEntry {
@@ -18,8 +18,10 @@ interface TicketTimeEntriesProps {
   timeEntries: TimeEntry[]
   totalMinutes: number
   onStartTimer: () => Promise<void>
+  onStopTimer?: () => Promise<void>
   hasRunningTimer?: boolean
   isLoading?: boolean
+  disableStart?: boolean
 }
 
 function formatDuration(minutes: number): string {
@@ -33,8 +35,10 @@ export function TicketTimeEntries({
   timeEntries,
   totalMinutes,
   onStartTimer,
+  onStopTimer,
   hasRunningTimer,
-  isLoading
+  isLoading,
+  disableStart
 }: TicketTimeEntriesProps) {
   return (
     <div className="space-y-4">
@@ -47,15 +51,28 @@ export function TicketTimeEntries({
           <span className="text-sm text-zinc-600 dark:text-zinc-400">
             Total: <strong>{formatDuration(totalMinutes)}</strong>
           </span>
-          <Button
-            onClick={onStartTimer}
-            disabled={hasRunningTimer || isLoading}
-            outline
-            className="flex items-center gap-1"
-          >
-            <PlayIcon className="w-4 h-4" />
-            Start Timer
-          </Button>
+          {hasRunningTimer && onStopTimer ? (
+            <Button
+              onClick={onStopTimer}
+              disabled={isLoading}
+              color="red"
+              className="flex items-center gap-1"
+            >
+              <StopIcon className="w-4 h-4" />
+              Stop Timer
+            </Button>
+          ) : (
+            <Button
+              onClick={onStartTimer}
+              disabled={hasRunningTimer || isLoading || disableStart}
+              outline
+              className="flex items-center gap-1"
+              title={disableStart ? 'Another timer is running' : undefined}
+            >
+              <PlayIcon className="w-4 h-4" />
+              Start Timer
+            </Button>
+          )}
         </div>
       </div>
 

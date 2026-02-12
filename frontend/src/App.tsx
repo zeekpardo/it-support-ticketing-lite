@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { OrganizationProvider, useOrganization } from './context/OrganizationContext'
+import { TimerProvider } from './context/TimerContext'
 import { Layout } from './components/Layout'
 import { PortalLayout } from './components/PortalLayout'
 import Login from './pages/Login'
@@ -309,7 +310,9 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <OrganizationProvider>
-          <AppRoutes />
+          <TimerProvider>
+            <AppRoutes />
+          </TimerProvider>
         </OrganizationProvider>
       </AuthProvider>
     </BrowserRouter>

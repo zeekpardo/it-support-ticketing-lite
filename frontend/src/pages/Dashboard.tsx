@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useOrganization } from '../context/OrganizationContext'
+import { useTimer } from '../context/TimerContext'
 import { api } from '../api/client'
-import { Timer } from '../components/Timer'
-import { TimeEntryList } from '../components/TimeEntryList'
-import { ManualEntryModal } from '../components/ManualEntryModal'
-import { Heading, Subheading } from '@/components/ui/heading'
-import { Button } from '@/components/ui/button'
+import { TicketKanbanBoard } from '../components/tickets/TicketKanbanBoard'
+import { Heading } from '@/components/ui/heading'
 import { Text } from '@/components/ui/text'
-import { PlusIcon } from '@heroicons/react/24/outline'
+import { Select } from '@/components/ui/select'
+import { PRIORITY_LEVELS } from '@/components/tickets/TicketForm'
 
 interface Project {
   id: string
@@ -15,52 +15,76 @@ interface Project {
   projectCode: string
 }
 
-interface TimeEntry {
+interface StaffMember {
   id: string
-  taskName: string
-  startTime: string
-  endTime?: string
-  durationMins?: number
-  isRunning: boolean
-  project: {
+  role: string
+  user: { id: string; name: string; email: string }
+}
+
+interface Ticket {
+  id: string
+  subject: string
+  firstName: string
+  lastName: string
+  status: 'NEW_REQUEST' | 'IN_PROGRESS' | 'WAITING_FOR_INFO' | 'REVIEW' | 'RESOLVED'
+  priorityLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+  dueDate?: string | null
+  project?: {
     id: string
     name: string
     projectCode: string
-  }
-  user: {
+  } | null
+  owner?: {
     id: string
-    name: string
-    email: string
+    user: { name: string }
+  } | null
+  _count?: {
+    comments: number
+    timeEntries: number
   }
 }
 
 export default function Dashboard() {
-  const { currentOrg, isAdmin } = useOrganization()
+  const navigate = useNavigate()
+  const { currentOrg, membership, isClient } = useOrganization()
+  const { runningTimer, startTimer, stopTimer, refreshTimer } = useTimer()
+  const [tickets, setTickets] = useState<Ticket[]>([])
   const [projects, setProjects] = useState<Project[]>([])
-  const [entries, setEntries] = useState<TimeEntry[]>([])
-  const [runningEntry, setRunningEntry] = useState<TimeEntry | null>(null)
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
   const [loading, setLoading] = useState(true)
-  const [showManualEntry, setShowManualEntry] = useState(false)
+
+  // Filters
+  const [filterProject, setFilterProject] = useState('')
+  const [filterAssignee, setFilterAssignee] = useState('')
+  const [filterPriority, setFilterPriority] = useState('')
 
   useEffect(() => {
-    if (currentOrg) {
+    if (currentOrg && !isClient) {
       loadData()
     }
-  }, [currentOrg])
+  }, [currentOrg, isClient])
+
+  useEffect(() => {
+    if (currentOrg && !isClient) {
+      loadTickets()
+    }
+  }, [filterProject, filterAssignee, filterPriority])
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const [projectsData, entriesData] = await Promise.all([
+      const [ticketsData, projectsData, staffData] = await Promise.all([
+        api.getTickets({
+          projectId: filterProject || undefined,
+          ownerId: filterAssignee || undefined,
+          priorityLevel: filterPriority || undefined
+        }),
         api.getProjects(),
-        api.getTimeEntries()
+        api.getStaffMembers()
       ])
+      setTickets(ticketsData)
       setProjects(projectsData)
-      setEntries(entriesData)
-
-      // Find running entry
-      const running = entriesData.find((e: TimeEntry) => e.isRunning)
-      setRunningEntry(running || null)
+      setStaffMembers(staffData)
     } catch (error) {
       console.error('Failed to load data:', error)
     } finally {
@@ -68,67 +92,82 @@ export default function Dashboard() {
     }
   }
 
-  const handleStartTimer = async (projectId: string, taskName: string) => {
+  const loadTickets = async () => {
     try {
-      const entry = await api.createTimeEntry({
-        projectId,
-        taskName,
-        isRunning: true
+      const ticketsData = await api.getTickets({
+        projectId: filterProject || undefined,
+        ownerId: filterAssignee || undefined,
+        priorityLevel: filterPriority || undefined
       })
-      setRunningEntry(entry)
-      setEntries([entry, ...entries])
+      setTickets(ticketsData)
+    } catch (error) {
+      console.error('Failed to load tickets:', error)
+    }
+  }
+
+  const handleStatusChange = async (ticketId: string, newStatus: string) => {
+    try {
+      await api.updateTicketStatus(ticketId, newStatus)
+      setTickets(tickets.map(t =>
+        t.id === ticketId ? { ...t, status: newStatus as Ticket['status'] } : t
+      ))
+    } catch (error) {
+      console.error('Failed to update ticket status:', error)
+    }
+  }
+
+  const handleTicketClick = (ticket: Ticket) => {
+    if (ticket.project) {
+      navigate(`/projects/${ticket.project.id}/tickets/${ticket.id}`)
+    }
+  }
+
+  const handleAssign = async (ticketId: string, ownerId: string | null) => {
+    try {
+      await api.assignTicket(ticketId, ownerId)
+      // Update local state
+      const assignedMember = ownerId ? staffMembers.find(m => m.id === ownerId) : null
+      setTickets(tickets.map(t =>
+        t.id === ticketId
+          ? {
+              ...t,
+              owner: assignedMember
+                ? { id: assignedMember.id, user: { name: assignedMember.user.name } }
+                : null
+            }
+          : t
+      ))
+    } catch (error) {
+      console.error('Failed to assign ticket:', error)
+    }
+  }
+
+  const handleStartTimer = async (ticketId: string) => {
+    try {
+      await startTimer(ticketId)
     } catch (error) {
       console.error('Failed to start timer:', error)
     }
   }
 
   const handleStopTimer = async () => {
-    if (!runningEntry) return
-
     try {
-      const updated = await api.stopTimer(runningEntry.id)
-      setRunningEntry(null)
-      setEntries(entries.map(e => e.id === updated.id ? updated : e))
+      await stopTimer()
     } catch (error) {
       console.error('Failed to stop timer:', error)
     }
   }
 
-  const handleDeleteEntry = async (id: string) => {
-    try {
-      await api.deleteTimeEntry(id)
-      setEntries(entries.filter(e => e.id !== id))
-      if (runningEntry?.id === id) {
-        setRunningEntry(null)
-      }
-    } catch (error) {
-      console.error('Failed to delete entry:', error)
-    }
-  }
-
-  const handleManualEntry = async (data: {
-    projectId: string
-    taskName: string
-    startTime: string
-    endTime: string
-    notes?: string
-  }) => {
-    try {
-      const entry = await api.createTimeEntry({
-        ...data,
-        isRunning: false
-      })
-      setEntries([entry, ...entries])
-      setShowManualEntry(false)
-    } catch (error) {
-      console.error('Failed to create manual entry:', error)
-    }
+  // Redirect clients to portal
+  if (isClient) {
+    navigate('/portal')
+    return null
   }
 
   if (!currentOrg) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Text>Select an organization to view your time entries</Text>
+        <Text>Select an organization to view tickets</Text>
       </div>
     )
   }
@@ -142,46 +181,88 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Timer Section */}
-      <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
-        <Timer
-          projects={projects}
-          runningEntry={runningEntry}
-          onStart={handleStartTimer}
-          onStop={handleStopTimer}
-        />
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <Heading>Ticket Dashboard</Heading>
       </div>
 
-      {/* Time Entries Section */}
-      <div>
-        <div className="flex items-center justify-between">
-          <Subheading>Recent Time Entries</Subheading>
-          <Button
-            outline
-            onClick={() => setShowManualEntry(true)}
+      {/* Filter Bar */}
+      <div className="flex flex-wrap gap-4 rounded-lg bg-white p-4 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
+        <div className="w-48">
+          <Select
+            value={filterProject}
+            onChange={(e) => setFilterProject(e.target.value)}
           >
-            <PlusIcon className="h-4 w-4" />
-            Add Manual Entry
-          </Button>
+            <option value="">All Projects</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </Select>
         </div>
 
-        <div className="mt-4 rounded-xl bg-white shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
-          <TimeEntryList
-            entries={entries}
-            isAdmin={isAdmin}
-            onDelete={handleDeleteEntry}
-            onRefresh={loadData}
-          />
+        <div className="w-48">
+          <Select
+            value={filterAssignee}
+            onChange={(e) => setFilterAssignee(e.target.value)}
+          >
+            <option value="">All Assignees</option>
+            {staffMembers.map((member) => (
+              <option key={member.id} value={member.id}>
+                {member.user.name}
+              </option>
+            ))}
+          </Select>
         </div>
+
+        <div className="w-48">
+          <Select
+            value={filterPriority}
+            onChange={(e) => setFilterPriority(e.target.value)}
+          >
+            <option value="">All Priorities</option>
+            {PRIORITY_LEVELS.map((priority) => (
+              <option key={priority.value} value={priority.value}>
+                {priority.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        {(filterProject || filterAssignee || filterPriority) && (
+          <button
+            onClick={() => {
+              setFilterProject('')
+              setFilterAssignee('')
+              setFilterPriority('')
+            }}
+            className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+          >
+            Clear filters
+          </button>
+        )}
       </div>
 
-      {/* Manual Entry Modal */}
-      {showManualEntry && (
-        <ManualEntryModal
-          projects={projects}
-          onSave={handleManualEntry}
-          onClose={() => setShowManualEntry(false)}
+      {/* Kanban Board */}
+      {tickets.length === 0 && !filterProject && !filterAssignee && !filterPriority ? (
+        <div className="rounded-xl bg-white p-12 text-center shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
+          <Text className="text-zinc-500">
+            No tickets yet. Create tickets from project pages to see them here.
+          </Text>
+        </div>
+      ) : (
+        <TicketKanbanBoard
+          tickets={tickets}
+          onStatusChange={handleStatusChange}
+          onTicketClick={handleTicketClick}
+          showProject={true}
+          staffMembers={staffMembers}
+          currentUserId={membership?.id}
+          onAssign={handleAssign}
+          runningTimer={runningTimer}
+          onStartTimer={handleStartTimer}
+          onStopTimer={handleStopTimer}
         />
       )}
     </div>
