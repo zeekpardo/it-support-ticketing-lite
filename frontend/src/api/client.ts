@@ -121,6 +121,24 @@ export interface PortalAccessRequest {
   reviewer?: { id: string; user: { name: string } }
 }
 
+// ==========================================
+// Ticket Stage Types
+// ==========================================
+
+export interface TicketStage {
+  id: string
+  projectId: string
+  name: string
+  slug: string
+  color: string
+  position: number
+  isDefault: boolean
+  isResolved: boolean
+  createdAt?: string
+  updatedAt?: string
+  _count?: { tickets: number }
+}
+
 class ApiClient {
   private organizationId: string | null = null
 
@@ -282,6 +300,49 @@ class ApiClient {
     return this.request<any>(`/projects/${id}/stats${query ? `?${query}` : ''}`)
   }
 
+  // Project Stages
+  async getProjectStages(projectId: string) {
+    return this.request<TicketStage[]>(`/projects/${projectId}/stages`)
+  }
+
+  async createStage(projectId: string, data: {
+    name: string
+    color: string
+    isDefault?: boolean
+    isResolved?: boolean
+  }) {
+    return this.request<TicketStage>(`/projects/${projectId}/stages`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async updateStage(projectId: string, stageId: string, data: {
+    name?: string
+    color?: string
+    isDefault?: boolean
+    isResolved?: boolean
+  }) {
+    return this.request<TicketStage>(`/projects/${projectId}/stages/${stageId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async reorderStages(projectId: string, stageIds: string[]) {
+    return this.request<TicketStage[]>(`/projects/${projectId}/stages/reorder`, {
+      method: 'PUT',
+      body: JSON.stringify({ stageIds })
+    })
+  }
+
+  async deleteStage(projectId: string, stageId: string, moveTicketsToStageId: string) {
+    return this.request<{ message: string }>(`/projects/${projectId}/stages/${stageId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ moveTicketsToStageId })
+    })
+  }
+
   // Reports
   async getReportSummary(filters: {
     startDate?: string
@@ -396,6 +457,13 @@ class ApiClient {
     return this.request<any>(`/tickets/${id}/status`, {
       method: 'PUT',
       body: JSON.stringify({ status })
+    })
+  }
+
+  async updateTicketStage(id: string, stageId: string) {
+    return this.request<any>(`/tickets/${id}/stage`, {
+      method: 'PUT',
+      body: JSON.stringify({ stageId })
     })
   }
 

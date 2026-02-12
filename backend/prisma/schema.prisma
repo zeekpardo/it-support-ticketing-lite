@@ -191,6 +191,7 @@ model Project {
   timeEntries        TimeEntry[]
   tickets            SupportTicket[]
   projectAssignments ProjectAssignment[]
+  stages             TicketStage[]
 
   // Software catalog
   projectSoftware    ProjectSoftware[]
@@ -228,12 +229,33 @@ model TimeEntry {
 // Support Ticket Tables (Org-scoped)
 // ==========================================
 
+// DEPRECATED - kept for migration only, will be removed
 enum TicketStatus {
   NEW_REQUEST
   IN_PROGRESS
   WAITING_FOR_INFO
   REVIEW
   RESOLVED
+}
+
+model TicketStage {
+  id         String   @id @default(cuid())
+  projectId  String   @map("project_id")
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name       String   // e.g., "New Requests", "In Progress"
+  slug       String   // e.g., "new_request", "in_progress"
+  color      String   // Tailwind color name, e.g., "purple", "blue"
+  position   Int      // Order in the Kanban board (0-indexed)
+  isDefault  Boolean  @default(false) @map("is_default")  // Default stage for new tickets
+  isResolved Boolean  @default(false) @map("is_resolved") // Represents closed/completed
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  tickets SupportTicket[]
+
+  @@unique([projectId, slug])
+  @@index([projectId])
+  @@map("ticket_stages")
 }
 
 enum TicketPriority {
@@ -273,7 +295,9 @@ model SupportTicket {
   screenRecordingLink String?        @map("screen_recording_link")
 
   // System fields
-  status              TicketStatus   @default(NEW_REQUEST)
+  status              TicketStatus   @default(NEW_REQUEST) // DEPRECATED - use stageId instead
+  stageId             String?        @map("stage_id")
+  stage               TicketStage?   @relation(fields: [stageId], references: [id])
   clientId            String         @map("client_id")
   client              Member         @relation("TicketClient", fields: [clientId], references: [id], onDelete: Cascade)
   ownerId             String?        @map("owner_id")
@@ -289,6 +313,7 @@ model SupportTicket {
   timeEntries         TimeEntry[]
 
   @@index([organizationId, status])
+  @@index([organizationId, stageId])
   @@index([organizationId, clientId])
   @@index([organizationId, ownerId])
   @@index([projectId])

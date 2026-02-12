@@ -11,7 +11,7 @@ router.use(requireOrganization);
 // Get all tickets for organization (staff only)
 router.get('/', requireStaff, async (req, res) => {
   try {
-    const { projectId, status, ownerId, clientId } = req.query;
+    const { projectId, status, stageId, ownerId, clientId } = req.query;
 
     const where = {
       organizationId: req.organization.id
@@ -19,6 +19,7 @@ router.get('/', requireStaff, async (req, res) => {
 
     if (projectId) where.projectId = projectId;
     if (status) where.status = status;
+    if (stageId) where.stageId = stageId;
     if (ownerId) where.ownerId = ownerId;
     if (clientId) where.clientId = clientId;
 
@@ -28,6 +29,9 @@ router.get('/', requireStaff, async (req, res) => {
       include: {
         project: {
           select: { id: true, name: true, projectCode: true }
+        },
+        stage: {
+          select: { id: true, name: true, slug: true, color: true, position: true, isDefault: true, isResolved: true }
         },
         client: {
           select: {
@@ -65,6 +69,9 @@ router.get('/:id', requireStaff, async (req, res) => {
       include: {
         project: {
           select: { id: true, name: true, projectCode: true }
+        },
+        stage: {
+          select: { id: true, name: true, slug: true, color: true, position: true, isDefault: true, isResolved: true }
         },
         client: {
           select: {
@@ -145,7 +152,8 @@ router.post('/', requireStaff, async (req, res) => {
       priorityLevel,
       description,
       screenRecordingLink,
-      dueDate
+      dueDate,
+      stageId
     } = req.body;
 
     if (!projectId || !clientId || !firstName || !lastName || !email || !subject || !description) {
@@ -169,6 +177,23 @@ router.post('/', requireStaff, async (req, res) => {
 
     if (!project) {
       return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // Get default stage for the project (or use provided stageId)
+    let ticketStageId = stageId;
+    if (!ticketStageId) {
+      const defaultStage = await prisma.ticketStage.findFirst({
+        where: { projectId, isDefault: true }
+      });
+      ticketStageId = defaultStage?.id || null;
+    } else {
+      // Verify stageId belongs to this project
+      const stage = await prisma.ticketStage.findFirst({
+        where: { id: stageId, projectId }
+      });
+      if (!stage) {
+        return res.status(400).json({ error: 'Invalid stage for this project' });
+      }
     }
 
     // Verify client is a member of org
@@ -201,6 +226,7 @@ router.post('/', requireStaff, async (req, res) => {
         organizationId: req.organization.id,
         projectId,
         clientId,
+        stageId: ticketStageId,
         ownerId: project.defaultAssigneeId, // Auto-assign to project default
         firstName,
         lastName,
@@ -215,6 +241,7 @@ router.post('/', requireStaff, async (req, res) => {
       },
       include: {
         project: { select: { id: true, name: true, projectCode: true } },
+        stage: { select: { id: true, name: true, slug: true, color: true, position: true, isDefault: true, isResolved: true } },
         client: {
           select: {
             id: true,
@@ -300,7 +327,54 @@ router.put('/:id', requireStaff, async (req, res) => {
   }
 });
 
-// Update ticket status (for Kanban drag-drop)
+// Update ticket stage (for Kanban drag-drop) - NEW ENDPOINT
+router.put('/:id/stage', requireStaff, async (req, res) => {
+  try {
+    const { stageId } = req.body;
+
+    if (!stageId) {
+      return res.status(400).json({ error: 'stageId is required' });
+    }
+
+    const ticket = await prisma.supportTicket.findFirst({
+      where: {
+        id: req.params.id,
+        organizationId: req.organization.id
+      }
+    });
+
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+
+    // Verify stage belongs to the same project
+    const stage = await prisma.ticketStage.findFirst({
+      where: {
+        id: stageId,
+        projectId: ticket.projectId
+      }
+    });
+
+    if (!stage) {
+      return res.status(400).json({ error: 'Invalid stage for this project' });
+    }
+
+    const updated = await prisma.supportTicket.update({
+      where: { id: req.params.id },
+      data: { stageId },
+      include: {
+        stage: { select: { id: true, name: true, slug: true, color: true, position: true, isDefault: true, isResolved: true } }
+      }
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error('Error updating ticket stage:', error);
+    res.status(500).json({ error: 'Failed to update ticket stage' });
+  }
+});
+
+// Update ticket status (DEPRECATED - kept for backward compatibility)
 router.put('/:id/status', requireStaff, async (req, res) => {
   try {
     const { status } = req.body;

@@ -109,7 +109,7 @@ export function TicketKanbanBoard({ tickets, onStatusChange, onTicketClick }: Ti
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-4 overflow-x-auto pb-4">
+      <div className="flex gap-4 w-full pb-4">
         {TICKET_STATUSES.map(status => (
           <TicketColumn
             key={status.value}

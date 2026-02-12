@@ -35,7 +35,7 @@ export function TicketColumn({ id, title, tickets, color, onTicketClick }: Ticke
     <div
       ref={setNodeRef}
       className={`
-        flex flex-col w-72 min-w-[288px] bg-zinc-50 dark:bg-zinc-900 rounded-lg
+        flex flex-col flex-1 min-w-[200px] bg-zinc-50 dark:bg-zinc-900 rounded-lg
         ${isOver ? 'ring-2 ring-blue-500' : ''}
       `}
     >

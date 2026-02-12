@@ -96,6 +96,13 @@ export const auth = betterAuth({
     cookieCache: {
       enabled: true,
       maxAge: 60 * 5 // 5 minutes cache
+    },
+    // Include impersonatedBy field in session responses
+    additionalFields: {
+      impersonatedBy: {
+        type: 'string',
+        required: false
+      }
     }
   },
 
@@ -121,7 +128,8 @@ export const auth = betterAuth({
     // Admin plugin for super admin features
     admin({
       defaultRole: 'user',
-      adminRoles: ['admin']
+      adminRoles: ['admin'],
+      impersonationSessionDuration: 60 * 60 // 1 hour
     }),
 
     // Organization plugin with roles

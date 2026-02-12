@@ -25,7 +25,9 @@ import {
   BuildingOfficeIcon,
   UserCircleIcon,
   ComputerDesktopIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
+import { Button } from '@/components/ui/button'
 
 interface PortalLayoutProps {
   children: ReactNode
@@ -34,7 +36,7 @@ interface PortalLayoutProps {
 export function PortalLayout({ children }: PortalLayoutProps) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, logout } = useAuth()
+  const { user, logout, isImpersonating, stopImpersonating } = useAuth()
   const { currentOrg, organizations, selectOrganization } = useOrganization()
 
   const handleLogout = async () => {
@@ -153,6 +155,21 @@ export function PortalLayout({ children }: PortalLayoutProps) {
         </Navbar>
       }
     >
+      {isImpersonating && (
+        <div className="flex items-center justify-between bg-amber-500 px-4 py-2 text-sm font-medium text-amber-950">
+          <div className="flex items-center gap-2">
+            <ExclamationTriangleIcon className="h-5 w-5" />
+            <span>You are impersonating <strong>{user?.name}</strong> ({user?.email})</span>
+          </div>
+          <Button
+            color="amber"
+            onClick={stopImpersonating}
+            className="!bg-amber-700 !text-white hover:!bg-amber-800"
+          >
+            Stop Impersonating
+          </Button>
+        </div>
+      )}
       <div className="p-6">
         {children}
       </div>
