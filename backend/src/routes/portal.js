@@ -168,7 +168,7 @@ router.post('/tickets', async (req, res) => {
       });
     }
 
-    // Verify client has access to this project
+    // Verify client has access to this project and get project details
     const assignment = await prisma.projectAssignment.findUnique({
       where: {
         memberId_projectId: {
@@ -177,7 +177,17 @@ router.post('/tickets', async (req, res) => {
         }
       },
       include: {
-        project: true
+        project: {
+          select: {
+            id: true,
+            isActive: true,
+            defaultAssigneeId: true,
+            dueDateLowDays: true,
+            dueDateMediumDays: true,
+            dueDateHighDays: true,
+            dueDateUrgentDays: true
+          }
+        }
       }
     });
 
@@ -200,20 +210,33 @@ router.post('/tickets', async (req, res) => {
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
 
+    // Calculate due date based on priority and project settings
+    const effectivePriority = priorityLevel || 'MEDIUM';
+    const priorityDueDaysMap = {
+      LOW: assignment.project.dueDateLowDays,
+      MEDIUM: assignment.project.dueDateMediumDays,
+      HIGH: assignment.project.dueDateHighDays,
+      URGENT: assignment.project.dueDateUrgentDays
+    };
+    const dueDays = priorityDueDaysMap[effectivePriority];
+    const dueDate = dueDays != null ? new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000) : null;
+
     const ticket = await prisma.supportTicket.create({
       data: {
         organizationId: req.organization.id,
         projectId,
         clientId: req.membership.id,
+        ownerId: assignment.project.defaultAssigneeId, // Auto-assign to project default
         firstName,
         lastName,
         email: user.email,
         phone: user.phone,
         subject,
         requestType: requestType || 'GENERAL_SUPPORT',
-        priorityLevel: priorityLevel || 'MEDIUM',
+        priorityLevel: effectivePriority,
         description,
-        screenRecordingLink
+        screenRecordingLink,
+        dueDate
       },
       include: {
         project: { select: { id: true, name: true, projectCode: true } }

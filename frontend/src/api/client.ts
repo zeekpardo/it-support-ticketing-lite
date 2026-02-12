@@ -120,6 +120,11 @@ class ApiClient {
     projectCode: string
     clientName?: string
     description?: string
+    defaultAssigneeId?: string | null
+    dueDateLowDays?: number | null
+    dueDateMediumDays?: number | null
+    dueDateHighDays?: number | null
+    dueDateUrgentDays?: number | null
   }) {
     return this.request<any>('/projects', {
       method: 'POST',
@@ -133,6 +138,11 @@ class ApiClient {
     clientName?: string
     description?: string
     isActive?: boolean
+    defaultAssigneeId?: string | null
+    dueDateLowDays?: number | null
+    dueDateMediumDays?: number | null
+    dueDateHighDays?: number | null
+    dueDateUrgentDays?: number | null
   }) {
     return this.request<any>(`/projects/${id}`, {
       method: 'PUT',
@@ -387,6 +397,15 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(data)
     })
+  }
+
+  // Get all staff members (non-clients) for ticket assignment
+  async getStaffMembers() {
+    return this.request<Array<{
+      id: string
+      role: string
+      user: { id: string; name: string; email: string }
+    }>>('/members/staff')
   }
 
   // Get all clients with their project assignments

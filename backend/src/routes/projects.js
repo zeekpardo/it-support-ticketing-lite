@@ -29,6 +29,13 @@ router.get('/', async (req, res) => {
       include: {
         _count: {
           select: { timeEntries: true }
+        },
+        defaultAssignee: {
+          select: {
+            id: true,
+            role: true,
+            user: { select: { id: true, name: true } }
+          }
         }
       }
     });
@@ -51,6 +58,13 @@ router.get('/:id', async (req, res) => {
       include: {
         _count: {
           select: { timeEntries: true }
+        },
+        defaultAssignee: {
+          select: {
+            id: true,
+            role: true,
+            user: { select: { id: true, name: true } }
+          }
         }
       }
     });
@@ -69,7 +83,17 @@ router.get('/:id', async (req, res) => {
 // Create project (all members can create, but admins have more control)
 router.post('/', async (req, res) => {
   try {
-    const { name, projectCode, clientName, description } = req.body;
+    const {
+      name,
+      projectCode,
+      clientName,
+      description,
+      defaultAssigneeId,
+      dueDateLowDays,
+      dueDateMediumDays,
+      dueDateHighDays,
+      dueDateUrgentDays
+    } = req.body;
 
     if (!name || !projectCode) {
       return res.status(400).json({ error: 'Name and project code are required' });
@@ -87,13 +111,41 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Project code already exists' });
     }
 
+    // Validate defaultAssigneeId if provided
+    if (defaultAssigneeId) {
+      const assignee = await prisma.member.findFirst({
+        where: {
+          id: defaultAssigneeId,
+          organizationId: req.organization.id,
+          role: { in: ['owner', 'manager', 'member'] }
+        }
+      });
+      if (!assignee) {
+        return res.status(400).json({ error: 'Invalid default assignee' });
+      }
+    }
+
     const project = await prisma.project.create({
       data: {
         organizationId: req.organization.id,
         name,
         projectCode,
         clientName,
-        description
+        description,
+        defaultAssigneeId,
+        dueDateLowDays: dueDateLowDays ?? null,
+        dueDateMediumDays: dueDateMediumDays ?? null,
+        dueDateHighDays: dueDateHighDays ?? null,
+        dueDateUrgentDays: dueDateUrgentDays ?? null
+      },
+      include: {
+        defaultAssignee: {
+          select: {
+            id: true,
+            role: true,
+            user: { select: { id: true, name: true } }
+          }
+        }
       }
     });
 
@@ -118,7 +170,18 @@ router.put('/:id', requireAdmin, async (req, res) => {
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    const { name, projectCode, clientName, description, isActive } = req.body;
+    const {
+      name,
+      projectCode,
+      clientName,
+      description,
+      isActive,
+      defaultAssigneeId,
+      dueDateLowDays,
+      dueDateMediumDays,
+      dueDateHighDays,
+      dueDateUrgentDays
+    } = req.body;
 
     // Check if new project code conflicts with existing
     if (projectCode && projectCode !== project.projectCode) {
@@ -135,6 +198,20 @@ router.put('/:id', requireAdmin, async (req, res) => {
       }
     }
 
+    // Validate defaultAssigneeId if provided (null is allowed to clear it)
+    if (defaultAssigneeId) {
+      const assignee = await prisma.member.findFirst({
+        where: {
+          id: defaultAssigneeId,
+          organizationId: req.organization.id,
+          role: { in: ['owner', 'manager', 'member'] }
+        }
+      });
+      if (!assignee) {
+        return res.status(400).json({ error: 'Invalid default assignee' });
+      }
+    }
+
     const updated = await prisma.project.update({
       where: { id: req.params.id },
       data: {
@@ -142,7 +219,21 @@ router.put('/:id', requireAdmin, async (req, res) => {
         projectCode: projectCode !== undefined ? projectCode : project.projectCode,
         clientName: clientName !== undefined ? clientName : project.clientName,
         description: description !== undefined ? description : project.description,
-        isActive: isActive !== undefined ? isActive : project.isActive
+        isActive: isActive !== undefined ? isActive : project.isActive,
+        defaultAssigneeId: defaultAssigneeId !== undefined ? defaultAssigneeId : project.defaultAssigneeId,
+        dueDateLowDays: dueDateLowDays !== undefined ? dueDateLowDays : project.dueDateLowDays,
+        dueDateMediumDays: dueDateMediumDays !== undefined ? dueDateMediumDays : project.dueDateMediumDays,
+        dueDateHighDays: dueDateHighDays !== undefined ? dueDateHighDays : project.dueDateHighDays,
+        dueDateUrgentDays: dueDateUrgentDays !== undefined ? dueDateUrgentDays : project.dueDateUrgentDays
+      },
+      include: {
+        defaultAssignee: {
+          select: {
+            id: true,
+            role: true,
+            user: { select: { id: true, name: true } }
+          }
+        }
       }
     });
 

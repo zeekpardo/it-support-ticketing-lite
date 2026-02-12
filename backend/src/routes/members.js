@@ -1,7 +1,7 @@
 import express from 'express';
 import crypto from 'crypto';
 import { prisma } from '../lib/auth.js';
-import { authenticate, requireOrganization, requireOwner, requireAdmin } from '../middleware/auth.js';
+import { authenticate, requireOrganization, requireOwner, requireAdmin, requireStaff } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -194,6 +194,36 @@ router.get('/clients', authenticate, requireOrganization, requireAdmin, async (r
   } catch (error) {
     console.error('Error fetching clients:', error);
     res.status(500).json({ error: 'Failed to fetch clients' });
+  }
+});
+
+// Get all staff members (non-clients) for ticket assignment
+// GET /api/members/staff
+router.get('/staff', authenticate, requireOrganization, requireStaff, async (req, res) => {
+  try {
+    const staff = await prisma.member.findMany({
+      where: {
+        organizationId: req.organization.id,
+        role: { in: ['owner', 'manager', 'member'] }
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      },
+      orderBy: {
+        user: { name: 'asc' }
+      }
+    });
+
+    res.json(staff);
+  } catch (error) {
+    console.error('Error fetching staff:', error);
+    res.status(500).json({ error: 'Failed to fetch staff' });
   }
 });
 

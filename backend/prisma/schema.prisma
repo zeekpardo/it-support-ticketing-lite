@@ -118,8 +118,9 @@ model Member {
   ticketComments     TicketComment[]
   ticketAttachments  TicketAttachment[]
 
-  // Project assignments (for clients)
-  projectAssignments ProjectAssignment[]
+  // Project relations
+  projectAssignments      ProjectAssignment[]
+  defaultAssigneeProjects Project[]           @relation("ProjectDefaultAssignee")
 
   @@unique([organizationId, userId])
   @@map("members")
@@ -157,16 +158,25 @@ model Invitation {
 // ==========================================
 
 model Project {
-  id             String       @id @default(cuid())
-  organizationId String       @map("organization_id")
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  name           String
-  projectCode    String       @map("project_code")
-  clientName     String?      @map("client_name")
-  description    String?
-  isActive       Boolean      @default(true) @map("is_active")
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
+  id                String       @id @default(cuid())
+  organizationId    String       @map("organization_id")
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name              String
+  projectCode       String       @map("project_code")
+  clientName        String?      @map("client_name")
+  description       String?
+  isActive          Boolean      @default(true) @map("is_active")
+  defaultAssigneeId String?      @map("default_assignee_id")
+  defaultAssignee   Member?      @relation("ProjectDefaultAssignee", fields: [defaultAssigneeId], references: [id], onDelete: SetNull)
+
+  // Priority-based due date settings (in days, null means no auto due date)
+  dueDateLowDays    Int?         @map("due_date_low_days")
+  dueDateMediumDays Int?         @map("due_date_medium_days")
+  dueDateHighDays   Int?         @map("due_date_high_days")
+  dueDateUrgentDays Int?         @map("due_date_urgent_days")
+
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
 
   timeEntries        TimeEntry[]
   tickets            SupportTicket[]

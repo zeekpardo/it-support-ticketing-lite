@@ -154,9 +154,17 @@ router.post('/', requireStaff, async (req, res) => {
       });
     }
 
-    // Verify project belongs to org
+    // Verify project belongs to org and get default assignee + due date settings
     const project = await prisma.project.findFirst({
-      where: { id: projectId, organizationId: req.organization.id }
+      where: { id: projectId, organizationId: req.organization.id },
+      select: {
+        id: true,
+        defaultAssigneeId: true,
+        dueDateLowDays: true,
+        dueDateMediumDays: true,
+        dueDateHighDays: true,
+        dueDateUrgentDays: true
+      }
     });
 
     if (!project) {
@@ -172,11 +180,28 @@ router.post('/', requireStaff, async (req, res) => {
       return res.status(404).json({ error: 'Client not found' });
     }
 
+    // Calculate due date: use provided dueDate, or auto-calculate from priority
+    let calculatedDueDate = dueDate ? new Date(dueDate) : null;
+    if (!calculatedDueDate) {
+      const effectivePriority = priorityLevel || 'MEDIUM';
+      const priorityDueDaysMap = {
+        LOW: project.dueDateLowDays,
+        MEDIUM: project.dueDateMediumDays,
+        HIGH: project.dueDateHighDays,
+        URGENT: project.dueDateUrgentDays
+      };
+      const dueDays = priorityDueDaysMap[effectivePriority];
+      if (dueDays != null) {
+        calculatedDueDate = new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000);
+      }
+    }
+
     const ticket = await prisma.supportTicket.create({
       data: {
         organizationId: req.organization.id,
         projectId,
         clientId,
+        ownerId: project.defaultAssigneeId, // Auto-assign to project default
         firstName,
         lastName,
         email,
@@ -186,7 +211,7 @@ router.post('/', requireStaff, async (req, res) => {
         priorityLevel: priorityLevel || 'MEDIUM',
         description,
         screenRecordingLink,
-        dueDate: dueDate ? new Date(dueDate) : null
+        dueDate: calculatedDueDate
       },
       include: {
         project: { select: { id: true, name: true, projectCode: true } },
