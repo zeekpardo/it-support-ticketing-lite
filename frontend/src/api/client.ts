@@ -203,6 +203,264 @@ class ApiClient {
     const query = params.toString()
     return this.request<any>(`/reports/billing${query ? `?${query}` : ''}`)
   }
+
+  // === TICKETS (Staff) ===
+
+  async getTickets(filters: {
+    projectId?: string
+    status?: string
+    ownerId?: string
+    clientId?: string
+  } = {}) {
+    const params = new URLSearchParams()
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value)
+    })
+    const query = params.toString()
+    return this.request<any[]>(`/tickets${query ? `?${query}` : ''}`)
+  }
+
+  async getTicket(id: string) {
+    return this.request<any>(`/tickets/${id}`)
+  }
+
+  async createTicket(data: {
+    projectId: string
+    clientId: string
+    firstName: string
+    lastName: string
+    email: string
+    phone?: string
+    subject: string
+    requestType?: string
+    priorityLevel?: string
+    description: string
+    screenRecordingLink?: string
+    dueDate?: string
+  }) {
+    return this.request<any>('/tickets', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async updateTicket(id: string, data: {
+    firstName?: string
+    lastName?: string
+    email?: string
+    phone?: string
+    subject?: string
+    requestType?: string
+    priorityLevel?: string
+    description?: string
+    screenRecordingLink?: string
+    status?: string
+    ownerId?: string | null
+    dueDate?: string | null
+  }) {
+    return this.request<any>(`/tickets/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async updateTicketStatus(id: string, status: string) {
+    return this.request<any>(`/tickets/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status })
+    })
+  }
+
+  async assignTicket(id: string, ownerId: string | null) {
+    return this.request<any>(`/tickets/${id}/assign`, {
+      method: 'PUT',
+      body: JSON.stringify({ ownerId })
+    })
+  }
+
+  async deleteTicket(id: string) {
+    return this.request<{ message: string }>(`/tickets/${id}`, {
+      method: 'DELETE'
+    })
+  }
+
+  // Ticket Comments
+  async getTicketComments(ticketId: string) {
+    return this.request<any[]>(`/tickets/${ticketId}/comments`)
+  }
+
+  async addTicketComment(ticketId: string, data: { content: string; isInternal?: boolean }) {
+    return this.request<any>(`/tickets/${ticketId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  // Ticket Time Entries
+  async getTicketTimeEntries(ticketId: string) {
+    return this.request<any[]>(`/tickets/${ticketId}/time-entries`)
+  }
+
+  async startTicketTimer(ticketId: string) {
+    return this.request<any>(`/tickets/${ticketId}/time-entries`, {
+      method: 'POST'
+    })
+  }
+
+  // Ticket Attachments
+  async getTicketAttachments(ticketId: string) {
+    return this.request<any[]>(`/tickets/${ticketId}/attachments`)
+  }
+
+  async deleteTicketAttachment(ticketId: string, attachmentId: string) {
+    return this.request<{ message: string }>(`/tickets/${ticketId}/attachments/${attachmentId}`, {
+      method: 'DELETE'
+    })
+  }
+
+  // === PORTAL (Client) ===
+
+  async getPortalProjects() {
+    return this.request<any[]>('/portal/projects')
+  }
+
+  async getPortalDashboard() {
+    return this.request<any>('/portal/dashboard')
+  }
+
+  async getPortalTickets(filters: { projectId?: string; status?: string } = {}) {
+    const params = new URLSearchParams()
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value)
+    })
+    const query = params.toString()
+    return this.request<any[]>(`/portal/tickets${query ? `?${query}` : ''}`)
+  }
+
+  async getPortalTicket(id: string) {
+    return this.request<any>(`/portal/tickets/${id}`)
+  }
+
+  async submitPortalTicket(data: {
+    projectId: string
+    subject: string
+    requestType?: string
+    priorityLevel?: string
+    description: string
+    screenRecordingLink?: string
+  }) {
+    return this.request<any>('/portal/tickets', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async addPortalMessage(ticketId: string, content: string) {
+    return this.request<any>(`/portal/tickets/${ticketId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ content })
+    })
+  }
+
+  // === MEMBERS ===
+
+  async createUserAndAddToOrg(data: {
+    name: string
+    email: string
+    phone?: string
+    password: string
+    role: 'manager' | 'member' | 'client'
+  }) {
+    return this.request<{
+      success: boolean
+      message: string
+      member: {
+        id: string
+        role: string
+        user: {
+          id: string
+          name: string
+          email: string
+        }
+      }
+    }>('/members/create-user', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  // Get all clients with their project assignments
+  async getClients() {
+    return this.request<Array<{
+      id: string
+      role: string
+      user: { id: string; name: string; email: string }
+      projectAssignments: Array<{
+        id: string
+        project: { id: string; name: string; projectCode: string; isActive: boolean }
+      }>
+    }>>('/members/clients')
+  }
+
+  // Get project assignments for a specific member
+  async getMemberProjects(memberId: string) {
+    return this.request<Array<{
+      id: string
+      project: { id: string; name: string; projectCode: string; isActive: boolean }
+    }>>(`/members/${memberId}/projects`)
+  }
+
+  // Assign a project to a member
+  async assignProject(memberId: string, projectId: string) {
+    return this.request<{
+      id: string
+      project: { id: string; name: string; projectCode: string; isActive: boolean }
+    }>(`/members/${memberId}/projects`, {
+      method: 'POST',
+      body: JSON.stringify({ projectId })
+    })
+  }
+
+  // Remove a project assignment
+  async unassignProject(memberId: string, projectId: string) {
+    return this.request<{ message: string }>(`/members/${memberId}/projects/${projectId}`, {
+      method: 'DELETE'
+    })
+  }
+
+  // Bulk update project assignments for a member
+  async updateMemberProjects(memberId: string, projectIds: string[]) {
+    return this.request<Array<{
+      id: string
+      project: { id: string; name: string; projectCode: string; isActive: boolean }
+    }>>(`/members/${memberId}/projects`, {
+      method: 'PUT',
+      body: JSON.stringify({ projectIds })
+    })
+  }
+
+  // Get current user's profile
+  async getProfile() {
+    return this.request<{
+      id: string
+      name: string
+      email: string
+      phone: string | null
+    }>('/members/profile')
+  }
+
+  // Update current user's profile (phone)
+  async updateProfile(data: { phone?: string }) {
+    return this.request<{
+      id: string
+      name: string
+      email: string
+      phone: string | null
+    }>('/members/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    })
+  }
 }
 
 export const api = new ApiClient()

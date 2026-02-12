@@ -15,6 +15,7 @@ model User {
   id            String    @id
   name          String
   email         String    @unique
+  phone         String?
   emailVerified Boolean   @default(false) @map("email_verified")
   image         String?
   createdAt     DateTime  @default(now()) @map("created_at")
@@ -97,6 +98,7 @@ model Organization {
   invitations Invitation[]
   projects    Project[]
   timeEntries TimeEntry[]
+  tickets     SupportTicket[]
 
   @@map("organizations")
 }
@@ -107,11 +109,32 @@ model Member {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userId         String       @map("user_id")
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role           String       // "owner", "admin", "member"
+  role           String       // "owner", "admin", "member", "client"
   createdAt      DateTime     @default(now()) @map("created_at")
+
+  // Ticket relations
+  ticketsAsClient    SupportTicket[]    @relation("TicketClient")
+  ticketsAsOwner     SupportTicket[]    @relation("TicketOwner")
+  ticketComments     TicketComment[]
+  ticketAttachments  TicketAttachment[]
+
+  // Project assignments (for clients)
+  projectAssignments ProjectAssignment[]
 
   @@unique([organizationId, userId])
   @@map("members")
+}
+
+model ProjectAssignment {
+  id        String   @id @default(cuid())
+  memberId  String   @map("member_id")
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  projectId String   @map("project_id")
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([memberId, projectId])
+  @@map("project_assignments")
 }
 
 model Invitation {
@@ -124,6 +147,7 @@ model Invitation {
   expiresAt      DateTime     @map("expires_at")
   inviterId      String       @map("inviter_id")
   inviter        User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now()) @map("created_at")
 
   @@map("invitations")
 }
@@ -144,30 +168,137 @@ model Project {
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
 
-  timeEntries TimeEntry[]
+  timeEntries        TimeEntry[]
+  tickets            SupportTicket[]
+  projectAssignments ProjectAssignment[]
 
   @@unique([organizationId, projectCode])
   @@map("projects")
 }
 
 model TimeEntry {
-  id             String       @id @default(cuid())
-  organizationId String       @map("organization_id")
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  userId         String       @map("user_id")
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  projectId      String       @map("project_id")
-  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  taskName       String       @map("task_name")
-  startTime      DateTime     @map("start_time")
-  endTime        DateTime?    @map("end_time")
-  durationMins   Int?         @map("duration_mins")
-  isRunning      Boolean      @default(false) @map("is_running")
+  id             String         @id @default(cuid())
+  organizationId String         @map("organization_id")
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String         @map("user_id")
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId      String         @map("project_id")
+  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ticketId       String?        @map("ticket_id")
+  ticket         SupportTicket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  taskName       String         @map("task_name")
+  startTime      DateTime       @map("start_time")
+  endTime        DateTime?      @map("end_time")
+  durationMins   Int?           @map("duration_mins")
+  isRunning      Boolean        @default(false) @map("is_running")
   notes          String?
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
 
   @@index([organizationId, userId])
   @@index([organizationId, projectId])
+  @@index([ticketId])
   @@map("time_entries")
 }
+
+// ==========================================
+// Support Ticket Tables (Org-scoped)
+// ==========================================
+
+enum TicketStatus {
+  NEW_REQUEST
+  IN_PROGRESS
+  WAITING_FOR_INFO
+  REVIEW
+  RESOLVED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum RequestType {
+  SOFTWARE_ISSUE
+  HARDWARE_REQUEST
+  ACCESS_REQUEST
+  GENERAL_SUPPORT
+  TECH_ADVICE
+  OTHER
+}
+
+model SupportTicket {
+  id                  String         @id @default(cuid())
+  organizationId      String         @map("organization_id")
+  organization        Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId           String         @map("project_id")
+  project             Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Contact info (stored for audit trail even if client is deleted)
+  firstName           String         @map("first_name")
+  lastName            String         @map("last_name")
+  email               String
+  phone               String?
+
+  // Ticket info
+  subject             String
+  requestType         RequestType    @default(GENERAL_SUPPORT) @map("request_type")
+  priorityLevel       TicketPriority @default(MEDIUM) @map("priority_level")
+  description         String
+  screenRecordingLink String?        @map("screen_recording_link")
+
+  // System fields
+  status              TicketStatus   @default(NEW_REQUEST)
+  clientId            String         @map("client_id")
+  client              Member         @relation("TicketClient", fields: [clientId], references: [id], onDelete: Cascade)
+  ownerId             String?        @map("owner_id")
+  owner               Member?        @relation("TicketOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  dueDate             DateTime?      @map("due_date")
+
+  createdAt           DateTime       @default(now()) @map("created_at")
+  updatedAt           DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  attachments         TicketAttachment[]
+  comments            TicketComment[]
+  timeEntries         TimeEntry[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, clientId])
+  @@index([organizationId, ownerId])
+  @@index([projectId])
+  @@map("support_tickets")
+}
+
+model TicketAttachment {
+  id           String        @id @default(cuid())
+  ticketId     String        @map("ticket_id")
+  ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  fileName     String        @map("file_name")
+  fileSize     Int           @map("file_size")
+  fileType     String        @map("file_type")
+  fileUrl      String        @map("file_url")
+  uploadedById String        @map("uploaded_by_id")
+  uploadedBy   Member        @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now()) @map("created_at")
+
+  @@map("ticket_attachments")
+}
+
+model TicketComment {
+  id         String        @id @default(cuid())
+  ticketId   String        @map("ticket_id")
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId   String        @map("author_id")
+  author     Member        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content    String
+  isInternal Boolean       @default(false) @map("is_internal")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+
+  @@index([ticketId, isInternal])
+  @@map("ticket_comments")
+}
+

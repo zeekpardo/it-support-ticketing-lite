@@ -12,7 +12,7 @@ interface Organization {
 
 interface Membership {
   id: string
-  role: 'owner' | 'manager' | 'member'
+  role: 'owner' | 'manager' | 'member' | 'client'
   organizationId: string
   userId: string
 }
@@ -24,6 +24,8 @@ interface OrganizationContextType {
   loading: boolean
   isAdmin: boolean
   isOwner: boolean
+  isClient: boolean
+  isStaff: boolean
   selectOrganization: (org: Organization) => Promise<void>
   createOrganization: (name: string, slug: string) => Promise<Organization>
   inviteMember: (email: string, role: string) => Promise<void>
@@ -151,6 +153,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
   const isAdmin = membership?.role === 'manager' || membership?.role === 'owner'
   const isOwner = membership?.role === 'owner'
+  const isClient = membership?.role === 'client'
+  const isStaff = membership?.role !== 'client' && membership?.role !== undefined
 
   return (
     <OrganizationContext.Provider
@@ -161,6 +165,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         loading,
         isAdmin,
         isOwner,
+        isClient,
+        isStaff,
         selectOrganization,
         createOrganization,
         inviteMember,

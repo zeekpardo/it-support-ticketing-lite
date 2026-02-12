@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useOrganization } from '../context/OrganizationContext'
 import { api } from '../api/client'
 import { Heading, Subheading } from '@/components/ui/heading'
@@ -13,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { FolderIcon } from '@heroicons/react/24/outline'
+import { FolderIcon, TicketIcon } from '@heroicons/react/24/outline'
 
 interface Project {
   id: string
@@ -90,6 +91,7 @@ export default function Projects() {
                 <TableHeader>Client</TableHeader>
                 <TableHeader>Entries</TableHeader>
                 <TableHeader>Status</TableHeader>
+                <TableHeader>Actions</TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -111,6 +113,14 @@ export default function Projects() {
                     ) : (
                       <Badge color="zinc">Archived</Badge>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <Link to={`/projects/${project.id}/tickets`}>
+                      <Button outline className="flex items-center gap-1">
+                        <TicketIcon className="w-4 h-4" />
+                        Tickets
+                      </Button>
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))}

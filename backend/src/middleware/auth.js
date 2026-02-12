@@ -82,13 +82,65 @@ export const requireOwner = (req, res, next) => {
   next();
 };
 
+// Middleware to require staff (non-client) role
+export const requireStaff = (req, res, next) => {
+  if (!req.membership) {
+    return res.status(400).json({ error: 'Organization context required' });
+  }
+
+  if (req.membership.role === 'client') {
+    return res.status(403).json({ error: 'Staff access required' });
+  }
+
+  next();
+};
+
+// Middleware to require client role
+export const requireClient = (req, res, next) => {
+  if (!req.membership) {
+    return res.status(400).json({ error: 'Organization context required' });
+  }
+
+  if (req.membership.role !== 'client') {
+    return res.status(403).json({ error: 'Client access only' });
+  }
+
+  next();
+};
+
 // Check if user has a specific permission
 export const hasPermission = (permission) => {
   return (req, res, next) => {
     const rolePermissions = {
-      owner: ['organization:delete', 'organization:update', 'member:create', 'member:delete', 'member:update', 'invitation:create', 'invitation:cancel', 'project:create', 'project:update', 'project:delete', 'time-entry:view-all', 'time-entry:edit-all', 'time-entry:delete-all', 'reports:view-all'],
-      manager: ['member:create', 'member:delete', 'member:update', 'invitation:create', 'invitation:cancel', 'project:create', 'project:update', 'project:delete', 'time-entry:view-all', 'time-entry:edit-all', 'time-entry:delete-all', 'reports:view-all'],
-      member: ['project:view', 'time-entry:create', 'time-entry:view-own', 'time-entry:edit-own', 'time-entry:delete-own', 'reports:view-own']
+      owner: [
+        'organization:delete', 'organization:update',
+        'member:create', 'member:delete', 'member:update',
+        'invitation:create', 'invitation:cancel',
+        'project:create', 'project:update', 'project:delete',
+        'time-entry:view-all', 'time-entry:edit-all', 'time-entry:delete-all',
+        'reports:view-all',
+        'ticket:view-all', 'ticket:edit-all', 'ticket:delete', 'ticket:assign',
+        'client:manage'
+      ],
+      manager: [
+        'member:create', 'member:delete', 'member:update',
+        'invitation:create', 'invitation:cancel',
+        'project:create', 'project:update', 'project:delete',
+        'time-entry:view-all', 'time-entry:edit-all', 'time-entry:delete-all',
+        'reports:view-all',
+        'ticket:view-all', 'ticket:edit-all', 'ticket:assign',
+        'client:manage'
+      ],
+      member: [
+        'project:view',
+        'time-entry:create', 'time-entry:view-own', 'time-entry:edit-own', 'time-entry:delete-own',
+        'reports:view-own',
+        'ticket:view-all', 'ticket:edit-own'
+      ],
+      client: [
+        'ticket:create', 'ticket:view-own', 'ticket:comment-public',
+        'project:view-assigned'
+      ]
     };
 
     const role = req.membership?.role;

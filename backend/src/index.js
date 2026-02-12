@@ -6,6 +6,9 @@ import { auth } from './lib/auth.js';
 import timeEntriesRoutes from './routes/timeEntries.js';
 import projectsRoutes from './routes/projects.js';
 import reportsRoutes from './routes/reports.js';
+import ticketsRoutes from './routes/tickets.js';
+import portalRoutes from './routes/portal.js';
+import membersRoutes from './routes/members.js';
 
 dotenv.config();
 
@@ -50,6 +53,9 @@ app.use(express.json());
 app.use('/api/time-entries', timeEntriesRoutes);
 app.use('/api/projects', projectsRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/tickets', ticketsRoutes);
+app.use('/api/portal', portalRoutes);
+app.use('/api/members', membersRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

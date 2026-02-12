@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useOrganization } from '../../context/OrganizationContext'
+import { useAuth } from '../../context/AuthContext'
 import { organization } from '../../lib/auth-client'
+import { api } from '../../api/client'
 import { Heading, Subheading } from '@/components/ui/heading'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Text } from '@/components/ui/text'
-import { Field, FieldGroup, Label } from '@/components/ui/fieldset'
+import { Field, FieldGroup, Label, Description } from '@/components/ui/fieldset'
 import { Dialog, DialogTitle, DialogDescription, DialogBody, DialogActions } from '@/components/ui/dialog'
 import {
   Table,
@@ -17,17 +19,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { PlusIcon, TrashIcon, UserGroupIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, TrashIcon, UserGroupIcon, EnvelopeIcon, UserPlusIcon, FolderIcon } from '@heroicons/react/24/outline'
+import { Checkbox, CheckboxField, CheckboxGroup } from '@/components/ui/checkbox'
 
 interface Member {
   id: string
-  role: 'owner' | 'manager' | 'member'
+  role: 'owner' | 'manager' | 'member' | 'client'
   user: {
     id: string
     name: string
     email: string
   }
-  createdAt: string
+  createdAt: Date | string
 }
 
 interface Invitation {
@@ -35,21 +38,43 @@ interface Invitation {
   email: string
   role: string
   status: string
-  expiresAt: string
+  expiresAt: Date | string
+}
+
+interface Project {
+  id: string
+  name: string
+  projectCode: string
+  isActive: boolean
 }
 
 export default function AdminMembers() {
   const { currentOrg, isOwner, inviteMember, removeMember, updateMemberRole } = useOrganization()
+  const { isSuperAdmin } = useAuth()
   const [members, setMembers] = useState<Member[]>([])
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [loading, setLoading] = useState(true)
-  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
 
-  // Invite form
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState<'manager' | 'member'>('member')
-  const [inviteError, setInviteError] = useState('')
-  const [inviting, setInviting] = useState(false)
+  // Modal mode: 'invite' sends invitation email, 'create' creates user directly (super admin only)
+  const [addMode, setAddMode] = useState<'invite' | 'create'>('invite')
+
+  // Form fields
+  const [formName, setFormName] = useState('')
+  const [formEmail, setFormEmail] = useState('')
+  const [formPhone, setFormPhone] = useState('')
+  const [formPassword, setFormPassword] = useState('')
+  const [formRole, setFormRole] = useState<'manager' | 'member' | 'client'>('member')
+  const [formError, setFormError] = useState('')
+  const [formLoading, setFormLoading] = useState(false)
+
+  // Project assignment modal state
+  const [showProjectsModal, setShowProjectsModal] = useState(false)
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null)
+  const [allProjects, setAllProjects] = useState<Project[]>([])
+  const [assignedProjectIds, setAssignedProjectIds] = useState<Set<string>>(new Set())
+  const [projectsLoading, setProjectsLoading] = useState(false)
+  const [projectsSaving, setProjectsSaving] = useState(false)
 
   useEffect(() => {
     if (currentOrg) {
@@ -73,8 +98,12 @@ export default function AdminMembers() {
         query: { organizationId: currentOrg!.id }
       })
 
-      if (invitesResult.data?.invitations) {
-        setInvitations(invitesResult.data.invitations as Invitation[])
+      if (invitesResult.data) {
+        // Filter to only show pending invitations
+        const pendingInvitations = (invitesResult.data as Invitation[]).filter(
+          inv => inv.status === 'pending'
+        )
+        setInvitations(pendingInvitations)
       }
     } catch (error) {
       console.error('Failed to load members:', error)
@@ -83,26 +112,62 @@ export default function AdminMembers() {
     }
   }
 
-  const handleInvite = async (e: React.FormEvent) => {
+  const resetForm = () => {
+    setFormName('')
+    setFormEmail('')
+    setFormPhone('')
+    setFormPassword('')
+    setFormRole('member')
+    setFormError('')
+  }
+
+  const handleCloseModal = () => {
+    setShowAddModal(false)
+    resetForm()
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setInviteError('')
-    setInviting(true)
+    setFormError('')
+    setFormLoading(true)
 
     try {
-      await inviteMember(inviteEmail, inviteRole)
-      setShowInviteModal(false)
-      setInviteEmail('')
-      setInviteRole('member')
+      if (addMode === 'invite') {
+        // Send invitation
+        await inviteMember(formEmail, formRole)
+      } else {
+        // Create user directly and add to organization (super admin only)
+        if (!formName.trim()) {
+          throw new Error('Name is required')
+        }
+        if (!formPhone.trim()) {
+          throw new Error('Phone number is required')
+        }
+        if (formPassword.length < 8) {
+          throw new Error('Password must be at least 8 characters')
+        }
+
+        // Create user and add them to the organization in one step
+        await api.createUserAndAddToOrg({
+          name: formName,
+          email: formEmail,
+          phone: formPhone,
+          password: formPassword,
+          role: formRole,
+        })
+      }
+
+      handleCloseModal()
       loadMembers()
     } catch (error) {
-      setInviteError(error instanceof Error ? error.message : 'Failed to invite')
+      setFormError(error instanceof Error ? error.message : 'Failed to add user')
     } finally {
-      setInviting(false)
+      setFormLoading(false)
     }
   }
 
   const handleRemoveMember = async (memberId: string) => {
-    if (!confirm('Are you sure you want to remove this member?')) return
+    if (!confirm('Are you sure you want to remove this user?')) return
 
     try {
       await removeMember(memberId)
@@ -132,12 +197,68 @@ export default function AdminMembers() {
     }
   }
 
+  const handleManageProjects = async (member: Member) => {
+    setSelectedMember(member)
+    setShowProjectsModal(true)
+    setProjectsLoading(true)
+
+    try {
+      // Load all projects and member's current assignments in parallel
+      const [projectsData, assignmentsData] = await Promise.all([
+        api.getProjects(),
+        api.getMemberProjects(member.id)
+      ])
+
+      setAllProjects(projectsData)
+      setAssignedProjectIds(new Set(assignmentsData.map(a => a.project.id)))
+    } catch (error) {
+      console.error('Failed to load projects:', error)
+    } finally {
+      setProjectsLoading(false)
+    }
+  }
+
+  const handleProjectToggle = (projectId: string, checked: boolean) => {
+    setAssignedProjectIds(prev => {
+      const next = new Set(prev)
+      if (checked) {
+        next.add(projectId)
+      } else {
+        next.delete(projectId)
+      }
+      return next
+    })
+  }
+
+  const handleSaveProjectAssignments = async () => {
+    if (!selectedMember) return
+
+    setProjectsSaving(true)
+    try {
+      await api.updateMemberProjects(selectedMember.id, Array.from(assignedProjectIds))
+      setShowProjectsModal(false)
+      setSelectedMember(null)
+    } catch (error) {
+      console.error('Failed to save project assignments:', error)
+    } finally {
+      setProjectsSaving(false)
+    }
+  }
+
+  const handleCloseProjectsModal = () => {
+    setShowProjectsModal(false)
+    setSelectedMember(null)
+    setAssignedProjectIds(new Set())
+  }
+
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'owner':
         return 'purple'
       case 'manager':
         return 'blue'
+      case 'client':
+        return 'green'
       default:
         return 'zinc'
     }
@@ -162,20 +283,20 @@ export default function AdminMembers() {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <Heading>Team Members</Heading>
-        <Button color="blue" onClick={() => setShowInviteModal(true)}>
+        <Heading>Users</Heading>
+        <Button color="blue" onClick={() => setShowAddModal(true)}>
           <PlusIcon className="h-4 w-4" />
-          Invite Member
+          Add User
         </Button>
       </div>
 
-      {/* Members Table */}
+      {/* Users Table */}
       {members.length === 0 ? (
         <div className="rounded-xl bg-white p-12 text-center shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
           <UserGroupIcon className="mx-auto h-12 w-12 text-zinc-400" />
-          <Subheading className="mt-4">No team members yet</Subheading>
+          <Subheading className="mt-4">No users yet</Subheading>
           <Text className="mt-2">
-            Invite team members to start collaborating.
+            Add users to start collaborating.
           </Text>
         </div>
       ) : (
@@ -204,6 +325,7 @@ export default function AdminMembers() {
                       >
                         <option value="member">Member</option>
                         <option value="manager">Manager</option>
+                        <option value="client">Client</option>
                       </Select>
                     ) : (
                       <Badge color={getRoleBadgeColor(member.role)}>
@@ -215,14 +337,25 @@ export default function AdminMembers() {
                     {new Date(member.createdAt).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
-                    {member.role !== 'owner' && isOwner && (
-                      <Button
-                        plain
-                        onClick={() => handleRemoveMember(member.id)}
-                      >
-                        <TrashIcon className="h-4 w-4 text-zinc-400 hover:text-red-500" />
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {member.role === 'client' && isOwner && (
+                        <Button
+                          plain
+                          onClick={() => handleManageProjects(member)}
+                          title="Manage project access"
+                        >
+                          <FolderIcon className="h-4 w-4 text-zinc-400 hover:text-blue-500" />
+                        </Button>
+                      )}
+                      {member.role !== 'owner' && isOwner && (
+                        <Button
+                          plain
+                          onClick={() => handleRemoveMember(member.id)}
+                        >
+                          <TrashIcon className="h-4 w-4 text-zinc-400 hover:text-red-500" />
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -277,58 +410,180 @@ export default function AdminMembers() {
         </>
       )}
 
-      {/* Invite Modal */}
-      {showInviteModal && (
-        <Dialog open={true} onClose={() => setShowInviteModal(false)} size="md">
-          <DialogTitle>Invite Team Member</DialogTitle>
-          <DialogDescription>
-            Send an invitation to join your organization.
-          </DialogDescription>
+      {/* Add User Modal */}
+      <Dialog open={showAddModal} onClose={handleCloseModal} size="md">
+        <DialogTitle>Add User</DialogTitle>
+        <DialogDescription>
+          {addMode === 'invite'
+            ? 'Send an invitation email to add a new user.'
+            : 'Create a new user account directly.'}
+        </DialogDescription>
 
-          <form onSubmit={handleInvite}>
-            <DialogBody>
-              {inviteError && (
-                <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-                  {inviteError}
-                </div>
-              )}
+        <form onSubmit={handleSubmit}>
+          <DialogBody>
+            {/* Mode toggle - only show if super admin */}
+            {isSuperAdmin && (
+              <div className="mb-6 flex gap-2">
+                <Button
+                  type="button"
+                  color={addMode === 'invite' ? 'blue' : 'white'}
+                  onClick={() => setAddMode('invite')}
+                  className="flex-1"
+                >
+                  <EnvelopeIcon className="h-4 w-4" />
+                  Send Invitation
+                </Button>
+                <Button
+                  type="button"
+                  color={addMode === 'create' ? 'blue' : 'white'}
+                  onClick={() => setAddMode('create')}
+                  className="flex-1"
+                >
+                  <UserPlusIcon className="h-4 w-4" />
+                  Create User
+                </Button>
+              </div>
+            )}
 
-              <FieldGroup>
+            {formError && (
+              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+                {formError}
+              </div>
+            )}
+
+            <FieldGroup>
+              {addMode === 'create' && (
                 <Field>
-                  <Label>Email</Label>
+                  <Label>Name</Label>
                   <Input
-                    type="email"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="colleague@company.com"
+                    type="text"
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    placeholder="John Doe"
                     required
                   />
                 </Field>
+              )}
 
+              <Field>
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={formEmail}
+                  onChange={(e) => setFormEmail(e.target.value)}
+                  placeholder="user@example.com"
+                  required
+                />
+              </Field>
+
+              {addMode === 'create' && (
                 <Field>
-                  <Label>Role</Label>
-                  <Select
-                    value={inviteRole}
-                    onChange={(e) => setInviteRole(e.target.value as 'manager' | 'member')}
-                  >
-                    <option value="member">Member</option>
-                    <option value="manager">Manager</option>
-                  </Select>
+                  <Label>Phone Number</Label>
+                  <Input
+                    type="tel"
+                    value={formPhone}
+                    onChange={(e) => setFormPhone(e.target.value)}
+                    placeholder="+1 (555) 123-4567"
+                    required
+                  />
                 </Field>
-              </FieldGroup>
-            </DialogBody>
+              )}
 
-            <DialogActions>
-              <Button plain onClick={() => setShowInviteModal(false)} disabled={inviting}>
-                Cancel
-              </Button>
-              <Button color="blue" type="submit" disabled={inviting}>
-                {inviting ? 'Sending...' : 'Send Invitation'}
-              </Button>
-            </DialogActions>
-          </form>
-        </Dialog>
-      )}
+              {addMode === 'create' && (
+                <Field>
+                  <Label>Password</Label>
+                  <Input
+                    type="password"
+                    value={formPassword}
+                    onChange={(e) => setFormPassword(e.target.value)}
+                    placeholder="Minimum 8 characters"
+                    required
+                  />
+                  <Description>The user can change this after logging in.</Description>
+                </Field>
+              )}
+
+              <Field>
+                <Label>Role</Label>
+                <Select
+                  value={formRole}
+                  onChange={(e) => setFormRole(e.target.value as 'manager' | 'member' | 'client')}
+                >
+                  <option value="member">Member</option>
+                  <option value="manager">Manager</option>
+                  <option value="client">Client</option>
+                </Select>
+                <Description className="mt-2 text-sm text-zinc-500">
+                  {formRole === 'manager' && 'Can manage members, projects, and tickets'}
+                  {formRole === 'member' && 'Can track time and work on tickets'}
+                  {formRole === 'client' && 'Can submit and view support tickets'}
+                </Description>
+              </Field>
+            </FieldGroup>
+          </DialogBody>
+
+          <DialogActions>
+            <Button plain onClick={handleCloseModal} disabled={formLoading}>
+              Cancel
+            </Button>
+            <Button color="blue" type="submit" disabled={formLoading}>
+              {formLoading
+                ? (addMode === 'invite' ? 'Sending...' : 'Creating...')
+                : (addMode === 'invite' ? 'Send Invitation' : 'Create User')}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
+
+      {/* Project Assignment Modal */}
+      <Dialog open={showProjectsModal} onClose={handleCloseProjectsModal} size="md">
+        <DialogTitle>Manage Project Access</DialogTitle>
+        <DialogDescription>
+          {selectedMember && (
+            <>Select which projects <strong>{selectedMember.user.name}</strong> can access.</>
+          )}
+        </DialogDescription>
+
+        <DialogBody>
+          {projectsLoading ? (
+            <div className="py-8 text-center">
+              <Text>Loading projects...</Text>
+            </div>
+          ) : allProjects.length === 0 ? (
+            <div className="py-8 text-center">
+              <Text>No projects available. Create a project first.</Text>
+            </div>
+          ) : (
+            <CheckboxGroup>
+              {allProjects.filter(p => p.isActive).map((project) => (
+                <CheckboxField key={project.id}>
+                  <Checkbox
+                    checked={assignedProjectIds.has(project.id)}
+                    onChange={(checked) => handleProjectToggle(project.id, checked)}
+                  />
+                  <Label>
+                    {project.name}
+                    <span className="ml-2 text-zinc-500">({project.projectCode})</span>
+                  </Label>
+                </CheckboxField>
+              ))}
+            </CheckboxGroup>
+          )}
+        </DialogBody>
+
+        <DialogActions>
+          <Button plain onClick={handleCloseProjectsModal} disabled={projectsSaving}>
+            Cancel
+          </Button>
+          <Button
+            color="blue"
+            onClick={handleSaveProjectAssignments}
+            disabled={projectsSaving || projectsLoading}
+          >
+            {projectsSaving ? 'Saving...' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   )
 }

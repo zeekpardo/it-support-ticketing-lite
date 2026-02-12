@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { OrganizationProvider, useOrganization } from './context/OrganizationContext'
 import { Layout } from './components/Layout'
+import { PortalLayout } from './components/PortalLayout'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Onboarding from './pages/Onboarding'
@@ -11,10 +12,22 @@ import Reports from './pages/Reports'
 import AdminMembers from './pages/admin/Members'
 import AdminProjects from './pages/admin/Projects'
 import SuperAdmin from './pages/admin/SuperAdmin'
+import Settings from './pages/Settings'
+// Ticket pages
+import ProjectTickets from './pages/ProjectTickets'
+import TicketDetail from './pages/TicketDetail'
+import NewTicket from './pages/NewTicket'
+// Portal pages
+import PortalDashboard from './pages/portal/PortalDashboard'
+import PortalTickets from './pages/portal/PortalTickets'
+import PortalTicketDetail from './pages/portal/PortalTicketDetail'
+import PortalNewTicket from './pages/portal/PortalNewTicket'
+import PortalSettings from './pages/portal/PortalSettings'
+import AcceptInvitation from './pages/AcceptInvitation'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth()
-  const { loading: orgLoading, organizations } = useOrganization()
+  const { loading: orgLoading, organizations, isClient } = useOrganization()
 
   if (isLoading || orgLoading) {
     return (
@@ -33,7 +46,50 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/onboarding" replace />
   }
 
+  // If user is a client, redirect to portal
+  if (isClient) {
+    return <Navigate to="/portal" replace />
+  }
+
   return <Layout>{children}</Layout>
+}
+
+function ClientRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth()
+  const { loading: orgLoading, organizations, isClient } = useOrganization()
+
+  if (isLoading || orgLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-zinc-500">Loading...</div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (organizations.length === 0) {
+    return <Navigate to="/onboarding" replace />
+  }
+
+  // Only allow clients to access portal routes
+  if (!isClient) {
+    return <Navigate to="/" replace />
+  }
+
+  return <PortalLayout>{children}</PortalLayout>
+}
+
+function StaffRoute({ children }: { children: React.ReactNode }) {
+  const { isClient } = useOrganization()
+
+  if (isClient) {
+    return <Navigate to="/portal" replace />
+  }
+
+  return <>{children}</>
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
@@ -98,6 +154,9 @@ function AppRoutes() {
       {/* Onboarding - requires auth but not org */}
       <Route path="/onboarding" element={<Onboarding />} />
 
+      {/* Accept invitation - public route that handles auth internally */}
+      <Route path="/accept-invitation" element={<AcceptInvitation />} />
+
       {/* Protected routes */}
       <Route
         path="/"
@@ -123,6 +182,88 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <Settings />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Ticket routes (staff) */}
+      <Route
+        path="/projects/:projectId/tickets"
+        element={
+          <ProtectedRoute>
+            <StaffRoute>
+              <ProjectTickets />
+            </StaffRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/:projectId/tickets/new"
+        element={
+          <ProtectedRoute>
+            <StaffRoute>
+              <NewTicket />
+            </StaffRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/:projectId/tickets/:ticketId"
+        element={
+          <ProtectedRoute>
+            <StaffRoute>
+              <TicketDetail />
+            </StaffRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Client Portal routes */}
+      <Route
+        path="/portal"
+        element={
+          <ClientRoute>
+            <PortalDashboard />
+          </ClientRoute>
+        }
+      />
+      <Route
+        path="/portal/tickets"
+        element={
+          <ClientRoute>
+            <PortalTickets />
+          </ClientRoute>
+        }
+      />
+      <Route
+        path="/portal/tickets/new"
+        element={
+          <ClientRoute>
+            <PortalNewTicket />
+          </ClientRoute>
+        }
+      />
+      <Route
+        path="/portal/tickets/:id"
+        element={
+          <ClientRoute>
+            <PortalTicketDetail />
+          </ClientRoute>
+        }
+      />
+      <Route
+        path="/portal/settings"
+        element={
+          <ClientRoute>
+            <PortalSettings />
+          </ClientRoute>
+        }
+      />
 
       {/* Admin routes */}
       <Route
@@ -145,7 +286,6 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
       {/* Super Admin routes */}
       <Route
         path="/super-admin"

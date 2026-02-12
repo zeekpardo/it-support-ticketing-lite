@@ -65,8 +65,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const user = session?.user as User | null
   const isSuperAdmin = user?.role === 'admin'
-  // Check if session has impersonatedBy field (indicates we're impersonating)
-  const isImpersonating = !!(session?.session as { impersonatedBy?: string } | undefined)?.impersonatedBy
+
+  // Debug: log full session object
+  useEffect(() => {
+    console.log('Full session object:', session)
+    console.log('Session keys:', session ? Object.keys(session) : 'null')
+    if (session?.session) {
+      console.log('session.session:', session.session)
+    }
+  }, [session])
+
+  // Check if session has impersonatedBy field
+  // Try multiple possible paths where Better Auth might store this
+  const sessionData = session?.session as { impersonatedBy?: string } | undefined
+  const isImpersonating = !!(
+    sessionData?.impersonatedBy ||
+    (session as { impersonatedBy?: string } | undefined)?.impersonatedBy
+  )
 
   const value: AuthContextType = {
     user,
