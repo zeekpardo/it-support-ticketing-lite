@@ -1,6 +1,7 @@
 import express from 'express';
 import { prisma } from '../lib/auth.js';
 import { authenticate, requireOrganization, requireClient } from '../middleware/auth.js';
+import { createNotification, parseMentions } from '../services/notificationService.js';
 
 const router = express.Router();
 
@@ -243,6 +244,43 @@ router.post('/tickets', async (req, res) => {
       }
     });
 
+    // Send notifications (non-blocking)
+    try {
+      const notificationData = {
+        ticketId: ticket.id,
+        ticketSubject: subject,
+        projectName: ticket.project.name,
+        requestType: requestType || 'GENERAL_SUPPORT',
+        priorityLevel: effectivePriority,
+        description,
+        clientName: user.name || user.email,
+      };
+
+      // 1. Send confirmation to client
+      await createNotification(prisma, {
+        type: 'TICKET_SUBMITTED',
+        recipientId: req.membership.id,
+        organizationId: req.organization.id,
+        data: notificationData,
+        entityType: 'ticket',
+        entityId: ticket.id,
+      });
+
+      // 2. Notify the assigned staff member
+      if (assignment.project.defaultAssigneeId) {
+        await createNotification(prisma, {
+          type: 'NEW_TICKET_ASSIGNED',
+          recipientId: assignment.project.defaultAssigneeId,
+          organizationId: req.organization.id,
+          data: notificationData,
+          entityType: 'ticket',
+          entityId: ticket.id,
+        });
+      }
+    } catch (notifError) {
+      console.error('Error sending ticket submission notification:', notifError);
+    }
+
     res.status(201).json(ticket);
   } catch (error) {
     console.error('Error creating ticket:', error);
@@ -265,6 +303,11 @@ router.post('/tickets/:id/messages', async (req, res) => {
         id: req.params.id,
         organizationId: req.organization.id,
         clientId: req.membership.id
+      },
+      select: {
+        id: true,
+        subject: true,
+        ownerId: true,
       }
     });
 
@@ -289,6 +332,50 @@ router.post('/tickets/:id/messages', async (req, res) => {
         }
       }
     });
+
+    // Send notifications (non-blocking)
+    try {
+      const authorName = comment.author.user.name;
+      const notificationData = {
+        ticketId: ticket.id,
+        ticketSubject: ticket.subject,
+        authorName,
+        commentId: comment.id,
+        commentContent: content, // For email notifications
+      };
+
+      // 1. Parse @mentions and notify mentioned staff members
+      const mentionedMemberIds = parseMentions(content);
+      if (mentionedMemberIds.length > 0) {
+        for (const memberId of mentionedMemberIds) {
+          if (memberId === req.membership.id) continue; // Don't notify self
+
+          await createNotification(prisma, {
+            type: 'MENTION',
+            recipientId: memberId,
+            organizationId: req.organization.id,
+            data: notificationData,
+            entityType: 'comment',
+            entityId: comment.id,
+          });
+        }
+      }
+
+      // 2. Notify ticket owner if they weren't mentioned
+      if (ticket.ownerId && !mentionedMemberIds.includes(ticket.ownerId)) {
+        await createNotification(prisma, {
+          type: 'TICKET_COMMENT',
+          recipientId: ticket.ownerId,
+          organizationId: req.organization.id,
+          data: notificationData,
+          entityType: 'comment',
+          entityId: comment.id,
+        });
+      }
+    } catch (notifError) {
+      console.error('Error sending comment notifications:', notifError);
+      // Don't fail the request if notifications fail
+    }
 
     res.status(201).json(comment);
   } catch (error) {

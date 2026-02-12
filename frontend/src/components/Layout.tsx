@@ -31,6 +31,7 @@ import {
   ExclamationTriangleIcon,
   UserCircleIcon,
 } from '@heroicons/react/24/outline'
+import { NotificationBell } from './notifications'
 import { Button } from '@/components/ui/button'
 
 interface LayoutProps {
@@ -187,6 +188,7 @@ export function Layout({ children }: LayoutProps) {
         <Navbar>
           <NavbarSpacer />
           <NavbarSection>
+            <NotificationBell />
             <Dropdown>
               <DropdownButton as={NavbarItem}>
                 <Avatar
@@ -227,7 +229,11 @@ export function Layout({ children }: LayoutProps) {
         </div>
       )}
       <TimerBanner />
-      <div className="p-6">
+      {/* Desktop header with notifications */}
+      <div className="hidden lg:flex items-center justify-end px-6 pt-4 pb-2">
+        <NotificationBell />
+      </div>
+      <div className="p-6 lg:pt-2">
         {children}
       </div>
     </SidebarLayout>

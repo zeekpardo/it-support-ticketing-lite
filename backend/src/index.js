@@ -12,6 +12,8 @@ import membersRoutes from './routes/members.js';
 import superAdminRoutes from './routes/superAdmin.js';
 import projectSoftwareRoutes from './routes/project-software.js';
 import portalSoftwareRoutes from './routes/portal-software.js';
+import importRoutes from './routes/import.js';
+import notificationsRoutes from './routes/notifications.js';
 
 dotenv.config();
 
@@ -62,6 +64,8 @@ app.use('/api/members', membersRoutes);
 app.use('/api/super-admin', superAdminRoutes);
 app.use('/api/software', projectSoftwareRoutes);
 app.use('/api/portal/software', portalSoftwareRoutes);
+app.use('/api/import', importRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

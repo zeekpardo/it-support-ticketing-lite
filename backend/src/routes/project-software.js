@@ -1,6 +1,7 @@
 import express from 'express';
 import { prisma } from '../lib/auth.js';
 import { authenticate, requireOrganization, requireAdmin, requireStaff } from '../middleware/auth.js';
+import { createNotification } from '../services/notificationService.js';
 
 const router = express.Router();
 
@@ -944,9 +945,44 @@ router.put('/projects/:projectId/software/:id/requests/:requestId', async (req, 
           include: {
             user: { select: { id: true, name: true, email: true } }
           }
+        },
+        projectSoftware: {
+          include: {
+            software: { select: { name: true } }
+          }
         }
       }
     });
+
+    // Send notification to the requester about status change
+    if (status !== 'PENDING' && request.requesterId !== req.membership.id) {
+      try {
+        const notificationTypeMap = {
+          APPROVED: 'ACCESS_REQUEST_APPROVED',
+          DECLINED: 'ACCESS_REQUEST_DECLINED',
+          REVOKED: 'ACCESS_REQUEST_REVOKED',
+        };
+
+        const notificationType = notificationTypeMap[status];
+        if (notificationType) {
+          await createNotification(prisma, {
+            type: notificationType,
+            recipientId: request.requesterId,
+            organizationId: req.organization.id,
+            data: {
+              softwareName: updated.projectSoftware.software.name,
+              projectId,
+              projectSoftwareId: id,
+            },
+            entityType: 'access_request',
+            entityId: requestId,
+          });
+        }
+      } catch (notifError) {
+        console.error('Error sending access request notification:', notifError);
+        // Don't fail the request if notification fails
+      }
+    }
 
     res.json(updated);
   } catch (error) {

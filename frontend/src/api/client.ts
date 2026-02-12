@@ -139,6 +139,37 @@ export interface TicketStage {
   _count?: { tickets: number }
 }
 
+// ==========================================
+// Notification Types
+// ==========================================
+
+export type NotificationType =
+  | 'ticket_assigned'
+  | 'ticket_comment'
+  | 'ticket_comment_client'
+  | 'mention'
+  | 'mention_client'
+  | 'ticket_status_changed'
+  | 'access_request_submitted'
+  | 'access_request_approved'
+  | 'access_request_declined'
+  | 'access_request_revoked'
+
+export interface Notification {
+  id: string
+  organizationId: string
+  recipientId: string
+  type: NotificationType
+  title: string
+  message: string
+  link?: string
+  isRead: boolean
+  readAt?: string
+  createdAt: string
+  entityType?: string
+  entityId?: string
+}
+
 class ApiClient {
   private organizationId: string | null = null
 
@@ -1066,6 +1097,78 @@ class ApiClient {
     return this.request<PortalAccessRequest[]>(
       `/portal/software/my-requests${query ? `?${query}` : ''}`
     )
+  }
+
+  // ==========================================
+  // IMPORT
+  // ==========================================
+
+  async importClients(projectId: string, clients: Array<{
+    firstName: string
+    lastName: string
+    email: string
+    phone?: string
+  }>) {
+    return this.request<{
+      success: boolean
+      summary: {
+        total: number
+        created: number
+        existingUsersAdded: number
+        alreadyMembers: number
+        failed: number
+        magicLinksSent: number
+      }
+      results: Array<{
+        email: string
+        status: 'created' | 'existing_added' | 'already_member' | 'error'
+        message: string
+      }>
+    }>('/import/clients', {
+      method: 'POST',
+      body: JSON.stringify({ projectId, clients })
+    })
+  }
+
+  // ==========================================
+  // NOTIFICATIONS
+  // ==========================================
+
+  async getNotifications(params: { limit?: number; offset?: number; unreadOnly?: boolean } = {}) {
+    const queryParams = new URLSearchParams()
+    if (params.limit) queryParams.append('limit', params.limit.toString())
+    if (params.offset) queryParams.append('offset', params.offset.toString())
+    if (params.unreadOnly) queryParams.append('unreadOnly', 'true')
+
+    const query = queryParams.toString()
+    return this.request<{
+      notifications: Notification[]
+      total: number
+      limit: number
+      offset: number
+    }>(`/notifications${query ? `?${query}` : ''}`)
+  }
+
+  async getUnreadNotificationCount() {
+    return this.request<{ count: number }>('/notifications/unread-count')
+  }
+
+  async markNotificationAsRead(id: string) {
+    return this.request<{ success: boolean }>(`/notifications/${id}/read`, {
+      method: 'PUT'
+    })
+  }
+
+  async markAllNotificationsAsRead() {
+    return this.request<{ success: boolean; count: number }>('/notifications/read-all', {
+      method: 'PUT'
+    })
+  }
+
+  async deleteNotification(id: string) {
+    return this.request<{ success: boolean }>(`/notifications/${id}`, {
+      method: 'DELETE'
+    })
   }
 }
 

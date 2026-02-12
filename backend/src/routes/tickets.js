@@ -1,6 +1,7 @@
 import express from 'express';
 import { prisma } from '../lib/auth.js';
 import { authenticate, requireOrganization, requireStaff, requireAdmin } from '../middleware/auth.js';
+import { createNotification, notifyMultiple, parseMentions } from '../services/notificationService.js';
 
 const router = express.Router();
 
@@ -455,6 +456,26 @@ router.put('/:id/assign', requireStaff, async (req, res) => {
       }
     });
 
+    // Send notification to the newly assigned owner (if different from current user)
+    if (ownerId && ownerId !== req.membership.id) {
+      try {
+        await createNotification(prisma, {
+          type: 'TICKET_ASSIGNED',
+          recipientId: ownerId,
+          organizationId: req.organization.id,
+          data: {
+            ticketId: ticket.id,
+            ticketSubject: ticket.subject,
+          },
+          entityType: 'ticket',
+          entityId: ticket.id,
+        });
+      } catch (notifError) {
+        console.error('Error sending assignment notification:', notifError);
+        // Don't fail the request if notification fails
+      }
+    }
+
     res.json(updated);
   } catch (error) {
     console.error('Error assigning ticket:', error);
@@ -561,6 +582,76 @@ router.post('/:id/comments', requireStaff, async (req, res) => {
         }
       }
     });
+
+    // Send notifications for comment (non-blocking)
+    try {
+      const authorName = comment.author.user.name;
+      const notificationData = {
+        ticketId: ticket.id,
+        ticketSubject: ticket.subject,
+        authorName,
+        commentId: comment.id,
+        commentContent: content, // For email notifications
+      };
+
+      // 1. Parse @mentions and notify mentioned users
+      const mentionedMemberIds = parseMentions(content);
+      if (mentionedMemberIds.length > 0) {
+        // Get member details to determine if they're staff or client
+        const mentionedMembers = await prisma.member.findMany({
+          where: { id: { in: mentionedMemberIds } },
+          select: { id: true, role: true },
+        });
+
+        for (const member of mentionedMembers) {
+          if (member.id === req.membership.id) continue; // Don't notify self
+
+          const isClient = member.role === 'client';
+          // Don't notify clients about internal comments
+          if (isClient && isInternal) continue;
+
+          await createNotification(prisma, {
+            type: isClient ? 'MENTION_CLIENT' : 'MENTION',
+            recipientId: member.id,
+            organizationId: req.organization.id,
+            data: notificationData,
+            entityType: 'comment',
+            entityId: comment.id,
+          });
+        }
+      }
+
+      // 2. Notify ticket owner if they weren't mentioned and aren't the author
+      if (ticket.ownerId &&
+          ticket.ownerId !== req.membership.id &&
+          !mentionedMemberIds.includes(ticket.ownerId)) {
+        await createNotification(prisma, {
+          type: 'TICKET_COMMENT',
+          recipientId: ticket.ownerId,
+          organizationId: req.organization.id,
+          data: notificationData,
+          entityType: 'comment',
+          entityId: comment.id,
+        });
+      }
+
+      // 3. Notify ticket client if it's a public comment and they weren't mentioned
+      if (!isInternal &&
+          ticket.clientId !== req.membership.id &&
+          !mentionedMemberIds.includes(ticket.clientId)) {
+        await createNotification(prisma, {
+          type: 'TICKET_COMMENT_CLIENT',
+          recipientId: ticket.clientId,
+          organizationId: req.organization.id,
+          data: notificationData,
+          entityType: 'comment',
+          entityId: comment.id,
+        });
+      }
+    } catch (notifError) {
+      console.error('Error sending comment notifications:', notifError);
+      // Don't fail the request if notifications fail
+    }
 
     res.status(201).json(comment);
   } catch (error) {

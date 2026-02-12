@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { OrganizationProvider, useOrganization } from './context/OrganizationContext'
 import { TimerProvider } from './context/TimerContext'
+import { NotificationProvider } from './context/NotificationContext'
 import { Layout } from './components/Layout'
 import { PortalLayout } from './components/PortalLayout'
 import Login from './pages/Login'
@@ -405,7 +406,9 @@ export default function App() {
       <AuthProvider>
         <OrganizationProvider>
           <TimerProvider>
-            <AppRoutes />
+            <NotificationProvider>
+              <AppRoutes />
+            </NotificationProvider>
           </TimerProvider>
         </OrganizationProvider>
       </AuthProvider>

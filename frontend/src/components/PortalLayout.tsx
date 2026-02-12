@@ -28,6 +28,7 @@ import {
   ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 import { Button } from '@/components/ui/button'
+import { NotificationBell } from './notifications'
 
 interface PortalLayoutProps {
   children: ReactNode
@@ -131,6 +132,7 @@ export function PortalLayout({ children }: PortalLayoutProps) {
         <Navbar>
           <NavbarSpacer />
           <NavbarSection>
+            <NotificationBell />
             <Dropdown>
               <DropdownButton as={NavbarItem}>
                 <Avatar
@@ -170,7 +172,11 @@ export function PortalLayout({ children }: PortalLayoutProps) {
           </Button>
         </div>
       )}
-      <div className="p-6">
+      {/* Desktop header with notifications */}
+      <div className="hidden lg:flex items-center justify-end px-6 pt-4 pb-2">
+        <NotificationBell />
+      </div>
+      <div className="p-6 lg:pt-2">
         {children}
       </div>
     </SidebarLayout>

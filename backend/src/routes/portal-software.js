@@ -1,6 +1,7 @@
 import express from 'express';
 import { prisma } from '../lib/auth.js';
 import { authenticate, requireOrganization } from '../middleware/auth.js';
+import { createNotification } from '../services/notificationService.js';
 
 const router = express.Router();
 
@@ -337,6 +338,27 @@ router.post('/projects/:projectId/software/:id/request', async (req, res) => {
         }
       });
 
+      // Notify assignee about re-submitted request
+      if (project.defaultAssigneeId) {
+        try {
+          await createNotification(prisma, {
+            type: 'ACCESS_REQUEST_SUBMITTED',
+            recipientId: project.defaultAssigneeId,
+            organizationId: req.organization.id,
+            data: {
+              requesterName: req.user.name,
+              softwareName: updated.projectSoftware.software.name,
+              projectId,
+              projectSoftwareId: id,
+            },
+            entityType: 'access_request',
+            entityId: updated.id,
+          });
+        } catch (notifError) {
+          console.error('Error sending access request notification:', notifError);
+        }
+      }
+
       return res.json({
         id: updated.id,
         status: updated.status,
@@ -365,6 +387,27 @@ router.post('/projects/:projectId/software/:id/request', async (req, res) => {
         }
       }
     });
+
+    // Notify assignee about new request
+    if (project.defaultAssigneeId) {
+      try {
+        await createNotification(prisma, {
+          type: 'ACCESS_REQUEST_SUBMITTED',
+          recipientId: project.defaultAssigneeId,
+          organizationId: req.organization.id,
+          data: {
+            requesterName: req.user.name,
+            softwareName: request.projectSoftware.software.name,
+            projectId,
+            projectSoftwareId: id,
+          },
+          entityType: 'access_request',
+          entityId: request.id,
+        });
+      } catch (notifError) {
+        console.error('Error sending access request notification:', notifError);
+      }
+    }
 
     res.status(201).json({
       id: request.id,

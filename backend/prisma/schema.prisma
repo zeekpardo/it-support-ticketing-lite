@@ -97,11 +97,12 @@ model Organization {
   createdAt   DateTime @default(now()) @map("created_at")
   metadata    String?
 
-  members     Member[]
-  invitations Invitation[]
-  projects    Project[]
-  timeEntries TimeEntry[]
-  tickets     SupportTicket[]
+  members       Member[]
+  invitations   Invitation[]
+  projects      Project[]
+  timeEntries   TimeEntry[]
+  tickets       SupportTicket[]
+  notifications Notification[]
 
   @@map("organizations")
 }
@@ -131,6 +132,9 @@ model Member {
   softwareRequestsAsRequester     SoftwareAccessRequest[] @relation("SoftwareRequester")
   softwareRequestsAsAssignee      SoftwareAccessRequest[] @relation("SoftwareRequestAssignee")
   softwareRequestsAsReviewer      SoftwareAccessRequest[] @relation("SoftwareReviewer")
+
+  // Notification relations
+  notifications                   Notification[]
 
   @@unique([organizationId, userId])
   @@map("members")
@@ -459,5 +463,35 @@ model SoftwareAccessRequest {
 
   @@index([projectSoftwareId])
   @@map("software_access_requests")
+}
+
+// ==========================================
+// Notification System
+// ==========================================
+
+model Notification {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  recipientId    String       @map("recipient_id")
+  recipient      Member       @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  type           String       // "ticket_assigned", "ticket_comment", "mention", etc.
+  title          String
+  message        String
+  link           String?      // URL to navigate to
+
+  isRead         Boolean      @default(false) @map("is_read")
+  readAt         DateTime?    @map("read_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  // Polymorphic reference to source entity
+  entityType     String?      @map("entity_type")  // "ticket", "comment", etc.
+  entityId       String?      @map("entity_id")
+
+  @@index([recipientId, isRead])
+  @@index([organizationId])
+  @@index([recipientId, createdAt])
+  @@map("notifications")
 }
 
