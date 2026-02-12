@@ -14,6 +14,7 @@ import {
   sendAccessStatusEmail,
   sendTicketSubmittedEmail,
   sendNewTicketAssignedEmail,
+  sendRenewalReminderEmail,
 } from '../lib/email.js';
 
 export const NOTIFICATION_TYPES = {
@@ -202,6 +203,27 @@ export const NOTIFICATION_TYPES = {
       recipientName: recipient.name,
       softwareName: data.softwareName,
       status: 'REVOKED',
+    }),
+  },
+
+  // Software renewal reminders
+  SOFTWARE_RENEWAL_REMINDER: {
+    key: 'software_renewal_reminder',
+    title: () => 'Software renewal coming up',
+    message: (data) => `${data.softwareName} renews in ${data.daysUntilRenewal} day${data.daysUntilRenewal === 1 ? '' : 's'} (${data.renewalDateFormatted})`,
+    link: (data) => `/admin/projects/${data.projectId}/software/${data.projectSoftwareId}`,
+    icon: 'software',
+    sendEmail: (recipient, data) => sendRenewalReminderEmail({
+      to: recipient.email,
+      recipientName: recipient.name,
+      softwareName: data.softwareName,
+      daysUntilRenewal: data.daysUntilRenewal,
+      renewalDate: data.renewalDateFormatted,
+      cost: data.cost,
+      billingCycle: data.billingCycle,
+      projectName: data.projectName,
+      projectId: data.projectId,
+      projectSoftwareId: data.projectSoftwareId,
     }),
   },
 };

@@ -47,6 +47,43 @@ export interface ProjectSoftware {
   createdAt: string
   updatedAt: string
   _count?: { admins: number; accessRequests: number }
+
+  // Renewal & Billing
+  renewalDate?: string | null
+  billingCycle?: 'MONTHLY' | 'YEARLY' | null
+  cost?: string | null
+  costType?: 'PER_USER' | 'PER_ORGANIZATION' | null
+  autoRenewal?: boolean
+
+  // License Management
+  licenseType?: 'PER_SEAT' | 'ENTERPRISE' | 'FREE' | 'OTHER' | null
+  totalSeats?: number | null
+
+  // Vendor & Contract Info
+  vendorContactEmail?: string | null
+  vendorContactPhone?: string | null
+  contractUrl?: string | null
+  loginUrl?: string | null
+}
+
+export interface SoftwareBudgetSummary {
+  totalMonthly: number
+  totalYearly: number
+  softwareCount: number
+  breakdown: Array<{
+    id: string
+    name: string
+    iconUrl?: string
+    cost: number
+    costType: 'PER_USER' | 'PER_ORGANIZATION' | null
+    billingCycle: 'MONTHLY' | 'YEARLY' | null
+    users: number
+    effectiveCost: number
+    monthly: number
+    yearly: number
+    renewalDate?: string | null
+    autoRenewal: boolean
+  }>
 }
 
 export interface ProjectSoftwareAdmin {
@@ -939,11 +976,28 @@ class ApiClient {
     })
   }
 
-  async updateProjectSoftware(projectId: string, id: string, data: { notes?: string }) {
+  async updateProjectSoftware(projectId: string, id: string, data: {
+    notes?: string
+    renewalDate?: string | null
+    billingCycle?: 'MONTHLY' | 'YEARLY' | null
+    cost?: string | null
+    costType?: 'PER_USER' | 'PER_ORGANIZATION' | null
+    autoRenewal?: boolean
+    licenseType?: 'PER_SEAT' | 'ENTERPRISE' | 'FREE' | 'OTHER' | null
+    totalSeats?: number | null
+    vendorContactEmail?: string | null
+    vendorContactPhone?: string | null
+    contractUrl?: string | null
+    loginUrl?: string | null
+  }) {
     return this.request<ProjectSoftware>(`/software/projects/${projectId}/software/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data)
     })
+  }
+
+  async getProjectSoftwareBudget(projectId: string) {
+    return this.request<SoftwareBudgetSummary>(`/software/projects/${projectId}/software-budget`)
   }
 
   async removeProjectSoftware(projectId: string, id: string) {

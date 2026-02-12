@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { api, GlobalSoftware, ProjectSoftware, SoftwareCategory } from '../../api/client'
+import { api, GlobalSoftware, ProjectSoftware, SoftwareCategory, SoftwareBudgetSummary } from '../../api/client'
 import { Heading, Subheading } from '@/components/ui/heading'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
@@ -11,6 +11,14 @@ import { Textarea } from '@/components/ui/textarea'
 import { Field, FieldGroup, Label } from '@/components/ui/fieldset'
 import { Dialog, DialogTitle, DialogDescription, DialogBody, DialogActions } from '@/components/ui/dialog'
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
   PlusIcon,
   ComputerDesktopIcon,
   MagnifyingGlassIcon,
@@ -18,9 +26,11 @@ import {
   ArrowLeftIcon,
   GlobeAltIcon,
   FolderIcon,
+  CurrencyDollarIcon,
+  CalendarDaysIcon,
 } from '@heroicons/react/24/outline'
 
-type TabType = 'project' | 'catalog'
+type TabType = 'project' | 'catalog' | 'budget'
 
 export default function ProjectSoftwareCatalog() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -46,6 +56,10 @@ export default function ProjectSoftwareCatalog() {
   const [addNotes, setAddNotes] = useState('')
   const [adding, setAdding] = useState(false)
 
+  // Budget state
+  const [budgetData, setBudgetData] = useState<SoftwareBudgetSummary | null>(null)
+  const [loadingBudget, setLoadingBudget] = useState(false)
+
   // Submit new software modal
   const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [submitForm, setSubmitForm] = useState({
@@ -70,6 +84,9 @@ export default function ProjectSoftwareCatalog() {
   useEffect(() => {
     if (activeTab === 'catalog') {
       loadGlobalCatalog()
+    }
+    if (activeTab === 'budget') {
+      loadBudget()
     }
   }, [activeTab, categoryFilter])
 
@@ -119,6 +136,27 @@ export default function ProjectSoftwareCatalog() {
     } finally {
       setLoadingProject(false)
     }
+  }
+
+  const loadBudget = async () => {
+    if (!projectId) return
+    setLoadingBudget(true)
+    try {
+      const data = await api.getProjectSoftwareBudget(projectId)
+      setBudgetData(data)
+    } catch (error) {
+      console.error('Failed to load budget:', error)
+    } finally {
+      setLoadingBudget(false)
+    }
+  }
+
+  const getDaysUntilRenewal = (renewalDate: string) => {
+    const now = new Date()
+    now.setHours(0, 0, 0, 0)
+    const renewal = new Date(renewalDate)
+    renewal.setHours(0, 0, 0, 0)
+    return Math.ceil((renewal.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
   }
 
   const handleSearch = (e: React.FormEvent) => {
@@ -229,6 +267,7 @@ export default function ProjectSoftwareCatalog() {
         <nav className="-mb-px flex gap-2">
           <TabButton tab="project" label="Project Software" icon={FolderIcon} />
           <TabButton tab="catalog" label="Browse Global Catalog" icon={GlobeAltIcon} />
+          <TabButton tab="budget" label="Budget Overview" icon={CurrencyDollarIcon} />
         </nav>
       </div>
 
@@ -282,12 +321,29 @@ export default function ProjectSoftwareCatalog() {
                       )}
                     </div>
                   </div>
-                  {ps.software.category && (
-                    <div className="mt-3">
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {ps.software.category && (
                       <Badge color="zinc">{ps.software.category.name}</Badge>
-                    </div>
-                  )}
-                  <div className="mt-3 flex gap-4 text-xs text-zinc-500">
+                    )}
+                    {ps.cost && (
+                      <Badge color="blue">
+                        ${parseFloat(ps.cost).toFixed(0)}{ps.billingCycle === 'MONTHLY' ? '/mo' : '/yr'}
+                      </Badge>
+                    )}
+                    {ps.renewalDate && (() => {
+                      const days = getDaysUntilRenewal(ps.renewalDate)
+                      if (days < 0) return <Badge color="zinc">Expired</Badge>
+                      if (days <= 7) return <Badge color="red">Renews in {days}d</Badge>
+                      if (days <= 30) return <Badge color="amber">Renews in {days}d</Badge>
+                      return null
+                    })()}
+                    {ps.totalSeats != null && (
+                      <Badge color={((ps._count?.accessRequests || 0) >= ps.totalSeats) ? 'red' : 'zinc'}>
+                        {ps._count?.accessRequests || 0}/{ps.totalSeats} seats
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="mt-2 flex gap-4 text-xs text-zinc-500">
                     <span>{ps._count?.admins || 0} admins</span>
                     <span>{ps._count?.accessRequests || 0} requests</span>
                   </div>
@@ -401,6 +457,141 @@ export default function ProjectSoftwareCatalog() {
                 )
               })}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Budget Tab */}
+      {activeTab === 'budget' && (
+        <div className="space-y-6">
+          {loadingBudget ? (
+            <div className="flex h-64 items-center justify-center">
+              <Text>Loading budget data...</Text>
+            </div>
+          ) : !budgetData || budgetData.softwareCount === 0 ? (
+            <div className="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 p-8 text-center">
+              <CurrencyDollarIcon className="mx-auto h-12 w-12 text-zinc-400" />
+              <Text className="mt-4 text-zinc-500">No cost data available. Add cost information to your software to see the budget overview.</Text>
+            </div>
+          ) : (
+            <>
+              {/* Summary Cards */}
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-800">
+                  <Text className="text-sm text-zinc-500">Monthly Spend</Text>
+                  <div className="mt-1 text-2xl font-semibold text-zinc-900 dark:text-white">
+                    ${budgetData.totalMonthly.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-800">
+                  <Text className="text-sm text-zinc-500">Yearly Spend</Text>
+                  <div className="mt-1 text-2xl font-semibold text-zinc-900 dark:text-white">
+                    ${budgetData.totalYearly.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-800">
+                  <Text className="text-sm text-zinc-500">Software with Costs</Text>
+                  <div className="mt-1 text-2xl font-semibold text-zinc-900 dark:text-white">
+                    {budgetData.softwareCount}
+                  </div>
+                </div>
+              </div>
+
+              {/* Upcoming Renewals Alert */}
+              {(() => {
+                const upcoming = budgetData.breakdown.filter(
+                  sw => sw.renewalDate && getDaysUntilRenewal(sw.renewalDate) >= 0 && getDaysUntilRenewal(sw.renewalDate) <= 30
+                )
+                if (upcoming.length === 0) return null
+                return (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CalendarDaysIcon className="h-5 w-5 text-amber-600" />
+                      <Text className="font-medium text-amber-800 dark:text-amber-300">
+                        {upcoming.length} software renewal{upcoming.length > 1 ? 's' : ''} within 30 days
+                      </Text>
+                    </div>
+                    <div className="space-y-1">
+                      {upcoming.map(sw => {
+                        const days = getDaysUntilRenewal(sw.renewalDate!)
+                        return (
+                          <Text key={sw.id} className="text-sm text-amber-700 dark:text-amber-400">
+                            {sw.name} - renews in {days} day{days !== 1 ? 's' : ''} (${sw.yearly.toFixed(2)}/yr)
+                          </Text>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* Cost Breakdown Table */}
+              <div>
+                <Subheading className="mb-4">Cost Breakdown</Subheading>
+                <div className="rounded-xl bg-white shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableHeader>Software</TableHeader>
+                        <TableHeader>Cost</TableHeader>
+                        <TableHeader>Type</TableHeader>
+                        <TableHeader>Users</TableHeader>
+                        <TableHeader>Monthly</TableHeader>
+                        <TableHeader>Yearly</TableHeader>
+                        <TableHeader>Renewal</TableHeader>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {budgetData.breakdown
+                        .sort((a, b) => b.yearly - a.yearly)
+                        .map((sw) => (
+                          <TableRow key={sw.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {sw.iconUrl ? (
+                                  <img src={sw.iconUrl} alt="" className="h-6 w-6 rounded object-cover" />
+                                ) : (
+                                  <ComputerDesktopIcon className="h-6 w-6 text-zinc-400" />
+                                )}
+                                <span className="font-medium">{sw.name}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              ${sw.cost.toFixed(2)}{sw.billingCycle === 'MONTHLY' ? '/mo' : '/yr'}
+                            </TableCell>
+                            <TableCell>
+                              {sw.costType === 'PER_USER' ? (
+                                <Badge color="blue">Per User</Badge>
+                              ) : sw.costType === 'PER_ORGANIZATION' ? (
+                                <Badge color="zinc">Per Org</Badge>
+                              ) : '-'}
+                            </TableCell>
+                            <TableCell>{sw.users}</TableCell>
+                            <TableCell className="font-medium">
+                              ${sw.monthly.toFixed(2)}
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              ${sw.yearly.toFixed(2)}
+                            </TableCell>
+                            <TableCell>
+                              {sw.renewalDate ? (
+                                <div className="flex items-center gap-1.5">
+                                  <Text className="text-sm">
+                                    {new Date(sw.renewalDate).toLocaleDateString()}
+                                  </Text>
+                                  {sw.autoRenewal && (
+                                    <Badge color="green" className="text-[10px]">Auto</Badge>
+                                  )}
+                                </div>
+                              ) : '-'}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}

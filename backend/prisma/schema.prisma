@@ -376,6 +376,23 @@ enum SoftwareAccessRequestStatus {
   REVOKED
 }
 
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+enum CostType {
+  PER_USER
+  PER_ORGANIZATION
+}
+
+enum LicenseType {
+  PER_SEAT
+  ENTERPRISE
+  FREE
+  OTHER
+}
+
 // Global catalog managed by super-admin
 model SoftwareCatalog {
   id            String                @id @default(cuid())
@@ -422,11 +439,30 @@ model ProjectSoftware {
   createdAt  DateTime        @default(now()) @map("created_at")
   updatedAt  DateTime        @updatedAt @map("updated_at")
 
-  admins         ProjectSoftwareAdmin[]
-  accessRequests SoftwareAccessRequest[]
+  // Renewal & Billing
+  renewalDate  DateTime?     @map("renewal_date")
+  billingCycle BillingCycle?  @map("billing_cycle")
+  cost         Decimal?      @db.Decimal(10, 2)
+  costType     CostType?     @map("cost_type")
+  autoRenewal  Boolean       @default(false) @map("auto_renewal")
+
+  // License Management
+  licenseType LicenseType?   @map("license_type")
+  totalSeats  Int?           @map("total_seats")
+
+  // Vendor & Contract Info
+  vendorContactEmail String?  @map("vendor_contact_email")
+  vendorContactPhone String?  @map("vendor_contact_phone")
+  contractUrl        String?  @map("contract_url")
+  loginUrl           String?  @map("login_url")
+
+  admins               ProjectSoftwareAdmin[]
+  accessRequests       SoftwareAccessRequest[]
+  renewalNotifications SoftwareRenewalNotification[]
 
   @@unique([projectId, softwareId])
   @@index([projectId])
+  @@index([renewalDate])
   @@map("project_software")
 }
 
@@ -463,6 +499,20 @@ model SoftwareAccessRequest {
 
   @@index([projectSoftwareId])
   @@map("software_access_requests")
+}
+
+// Tracks which renewal notifications have been sent (prevents duplicates)
+model SoftwareRenewalNotification {
+  id                String          @id @default(cuid())
+  projectSoftwareId String          @map("project_software_id")
+  projectSoftware   ProjectSoftware @relation(fields: [projectSoftwareId], references: [id], onDelete: Cascade)
+  threshold         String          // "30_days", "14_days", "3_days", "1_day"
+  renewalDate       DateTime        @map("renewal_date")
+  sentAt            DateTime        @default(now()) @map("sent_at")
+
+  @@unique([projectSoftwareId, threshold, renewalDate])
+  @@index([projectSoftwareId])
+  @@map("software_renewal_notifications")
 }
 
 // ==========================================

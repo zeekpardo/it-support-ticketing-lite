@@ -567,3 +567,46 @@ export async function sendAccessStatusEmail({ to, recipientName, softwareName, s
     })
   });
 }
+
+/**
+ * Send software renewal reminder email (to software admins)
+ */
+export async function sendRenewalReminderEmail({
+  to, recipientName, softwareName, daysUntilRenewal, renewalDate,
+  cost, billingCycle, projectName, projectId, projectSoftwareId
+}) {
+  const softwareUrl = `${FRONTEND_URL}/admin/projects/${projectId}/software/${projectSoftwareId}`;
+  const urgencyColor = daysUntilRenewal <= 3 ? '#ef4444' : '#f59e0b';
+
+  const paragraphs = [
+    { html: `<p><strong>${softwareName}</strong> for project <strong>${projectName}</strong> renews on <span style="color: ${urgencyColor}; font-weight: 600;">${renewalDate}</span> (in ${daysUntilRenewal} day${daysUntilRenewal === 1 ? '' : 's'}).</p>` }
+  ];
+
+  if (cost) {
+    paragraphs.push(`Cost: $${cost} (${billingCycle === 'MONTHLY' ? 'Monthly' : 'Yearly'})`);
+  }
+
+  const textParagraphs = [
+    `${softwareName} for project ${projectName} renews on ${renewalDate} (in ${daysUntilRenewal} day${daysUntilRenewal === 1 ? '' : 's'}).`
+  ];
+
+  if (cost) {
+    textParagraphs.push(`Cost: $${cost} (${billingCycle === 'MONTHLY' ? 'Monthly' : 'Yearly'})`);
+  }
+
+  return sendEmail({
+    to,
+    subject: `Software renewal in ${daysUntilRenewal} day${daysUntilRenewal === 1 ? '' : 's'}: ${softwareName}`,
+    html: buildHtmlEmail({
+      greeting: recipientName,
+      paragraphs,
+      button: { text: 'View Software Details', url: softwareUrl }
+    }),
+    text: buildTextEmail({
+      greeting: recipientName,
+      paragraphs: textParagraphs,
+      buttonText: 'View software details',
+      buttonUrl: softwareUrl
+    })
+  });
+}

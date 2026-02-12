@@ -242,6 +242,11 @@ router.get('/projects/:projectId/software/:id', async (req, res) => {
             }
           },
           orderBy: { createdAt: 'desc' }
+        },
+        _count: {
+          select: {
+            accessRequests: { where: { status: 'APPROVED' } }
+          }
         }
       }
     });
@@ -261,7 +266,20 @@ router.get('/projects/:projectId/software/:id', async (req, res) => {
 router.post('/projects/:projectId/software/:softwareId', requireAdmin, async (req, res) => {
   try {
     const { projectId, softwareId } = req.params;
-    const { notes } = req.body;
+    const {
+      notes,
+      renewalDate,
+      billingCycle,
+      cost,
+      costType,
+      autoRenewal,
+      licenseType,
+      totalSeats,
+      vendorContactEmail,
+      vendorContactPhone,
+      contractUrl,
+      loginUrl
+    } = req.body;
 
     // Verify project belongs to organization
     const project = await prisma.project.findFirst({
@@ -303,6 +321,17 @@ router.post('/projects/:projectId/software/:softwareId', requireAdmin, async (re
         softwareId,
         notes,
         addedById: req.membership.id,
+        renewalDate: renewalDate ? new Date(renewalDate) : null,
+        billingCycle: billingCycle || null,
+        cost: cost != null && cost !== '' ? parseFloat(cost) : null,
+        costType: costType || null,
+        autoRenewal: autoRenewal || false,
+        licenseType: licenseType || null,
+        totalSeats: totalSeats != null && totalSeats !== '' ? parseInt(totalSeats) : null,
+        vendorContactEmail: vendorContactEmail || null,
+        vendorContactPhone: vendorContactPhone || null,
+        contractUrl: contractUrl || null,
+        loginUrl: loginUrl || null,
         admins: {
           create: {
             memberId: req.membership.id,
@@ -338,11 +367,24 @@ router.post('/projects/:projectId/software/:softwareId', requireAdmin, async (re
   }
 });
 
-// Update project software (notes)
+// Update project software
 router.put('/projects/:projectId/software/:id', requireAdmin, async (req, res) => {
   try {
     const { projectId, id } = req.params;
-    const { notes } = req.body;
+    const {
+      notes,
+      renewalDate,
+      billingCycle,
+      cost,
+      costType,
+      autoRenewal,
+      licenseType,
+      totalSeats,
+      vendorContactEmail,
+      vendorContactPhone,
+      contractUrl,
+      loginUrl
+    } = req.body;
 
     // Verify project belongs to organization
     const project = await prisma.project.findFirst({
@@ -367,9 +409,24 @@ router.put('/projects/:projectId/software/:id', requireAdmin, async (req, res) =
       return res.status(403).json({ error: 'Only software owner or org owner can update' });
     }
 
+    // Build update data - only include fields that were explicitly sent
+    const updateData = {};
+    if (notes !== undefined) updateData.notes = notes;
+    if (renewalDate !== undefined) updateData.renewalDate = renewalDate ? new Date(renewalDate) : null;
+    if (billingCycle !== undefined) updateData.billingCycle = billingCycle || null;
+    if (cost !== undefined) updateData.cost = cost != null && cost !== '' ? parseFloat(cost) : null;
+    if (costType !== undefined) updateData.costType = costType || null;
+    if (autoRenewal !== undefined) updateData.autoRenewal = Boolean(autoRenewal);
+    if (licenseType !== undefined) updateData.licenseType = licenseType || null;
+    if (totalSeats !== undefined) updateData.totalSeats = totalSeats != null && totalSeats !== '' ? parseInt(totalSeats) : null;
+    if (vendorContactEmail !== undefined) updateData.vendorContactEmail = vendorContactEmail || null;
+    if (vendorContactPhone !== undefined) updateData.vendorContactPhone = vendorContactPhone || null;
+    if (contractUrl !== undefined) updateData.contractUrl = contractUrl || null;
+    if (loginUrl !== undefined) updateData.loginUrl = loginUrl || null;
+
     const software = await prisma.projectSoftware.update({
       where: { id },
-      data: { notes },
+      data: updateData,
       include: {
         software: {
           include: { category: true }
@@ -420,6 +477,79 @@ router.delete('/projects/:projectId/software/:id', requireAdmin, async (req, res
   } catch (error) {
     console.error('Error removing project software:', error);
     res.status(500).json({ error: 'Failed to remove software' });
+  }
+});
+
+// Get budget summary for a project's software
+router.get('/projects/:projectId/software-budget', requireAdmin, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    // Verify project belongs to organization
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, organizationId: req.organization.id }
+    });
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const software = await prisma.projectSoftware.findMany({
+      where: { projectId, cost: { not: null } },
+      include: {
+        software: { select: { name: true, iconUrl: true } },
+        _count: {
+          select: { accessRequests: { where: { status: 'APPROVED' } } }
+        }
+      }
+    });
+
+    let totalMonthly = 0;
+    let totalYearly = 0;
+
+    const breakdown = software.map(sw => {
+      const costNum = parseFloat(sw.cost) || 0;
+      const users = sw.costType === 'PER_USER' ? (sw._count.accessRequests || 1) : 1;
+      const effectiveCost = costNum * users;
+
+      let monthly, yearly;
+      if (sw.billingCycle === 'MONTHLY') {
+        monthly = effectiveCost;
+        yearly = effectiveCost * 12;
+      } else {
+        // YEARLY or null - treat as yearly
+        yearly = effectiveCost;
+        monthly = effectiveCost / 12;
+      }
+
+      totalMonthly += monthly;
+      totalYearly += yearly;
+
+      return {
+        id: sw.id,
+        name: sw.software.name,
+        iconUrl: sw.software.iconUrl,
+        cost: costNum,
+        costType: sw.costType,
+        billingCycle: sw.billingCycle,
+        users,
+        effectiveCost,
+        monthly: Math.round(monthly * 100) / 100,
+        yearly: Math.round(yearly * 100) / 100,
+        renewalDate: sw.renewalDate,
+        autoRenewal: sw.autoRenewal
+      };
+    });
+
+    res.json({
+      totalMonthly: Math.round(totalMonthly * 100) / 100,
+      totalYearly: Math.round(totalYearly * 100) / 100,
+      softwareCount: software.length,
+      breakdown
+    });
+  } catch (error) {
+    console.error('Error fetching budget summary:', error);
+    res.status(500).json({ error: 'Failed to fetch budget summary' });
   }
 });
 

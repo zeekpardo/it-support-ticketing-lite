@@ -14,6 +14,7 @@ import projectSoftwareRoutes from './routes/project-software.js';
 import portalSoftwareRoutes from './routes/portal-software.js';
 import importRoutes from './routes/import.js';
 import notificationsRoutes from './routes/notifications.js';
+import { startCronJobs } from './services/cronService.js';
 
 dotenv.config();
 
@@ -80,4 +81,5 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  startCronJobs();
 });
