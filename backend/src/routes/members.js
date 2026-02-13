@@ -7,6 +7,7 @@ import { NotFoundError, ValidationError, ForbiddenError, ConflictError } from '.
 import { createProjectAssignments } from '../utils/entityHelpers.js';
 import { USER_SELECT, MEMBER_WITH_USER } from '../utils/prismaFragments.js';
 import { PROJECT_ASSIGNMENT_INCLUDE, PROJECT_SELECT_ACTIVE, PROJECT_SELECT_BRIEF } from '../utils/prismaFragments.js';
+import { sendWelcomeEmail } from '../lib/email.js';
 
 const router = express.Router();
 
@@ -116,6 +117,16 @@ router.post('/create-user', authenticate, requireOrganization, requireOwner, asy
     if (role === 'client') {
       await createProjectAssignments(member.id, projectIds);
     }
+
+    // Send welcome email with login credentials
+    // Use void to prevent timing attacks (don't await email sending)
+    void sendWelcomeEmail({
+      to: email,
+      name,
+      organizationName: req.organization.name,
+      email,
+      temporaryPassword: password
+    });
 
     res.json({
       success: true,

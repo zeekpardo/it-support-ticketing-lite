@@ -610,3 +610,55 @@ export async function sendRenewalReminderEmail({
     })
   });
 }
+
+// ==========================================
+// User Account Emails
+// ==========================================
+
+/**
+ * Send welcome email when admin creates a user account
+ */
+export async function sendWelcomeEmail({ to, name, organizationName, email, temporaryPassword }) {
+  const loginUrl = `${FRONTEND_URL}/sign-in`;
+
+  return sendEmail({
+    to,
+    subject: `Welcome to ${organizationName} - ${APP_NAME}`,
+    html: buildHtmlEmail({
+      header: `Welcome to ${organizationName}!`,
+      greeting: name,
+      paragraphs: [
+        `An account has been created for you on <strong>${APP_NAME}</strong> by your organization administrator.`,
+        'You can sign in using the credentials below:',
+        { html: `
+          <table style="width: 100%; margin: 20px 0; border-collapse: collapse; background-color: #f9fafb; border-radius: 8px;">
+            <tr>
+              <td style="padding: 12px; font-weight: 600; width: 140px;">Email:</td>
+              <td style="padding: 12px;">${email}</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px; font-weight: 600; border-top: 1px solid #e5e7eb;">Password:</td>
+              <td style="padding: 12px; border-top: 1px solid #e5e7eb; font-family: monospace;">${temporaryPassword}</td>
+            </tr>
+          </table>
+        ` },
+        '<strong style="color: #f59e0b;">⚠️ For security, please change your password after your first login.</strong>'
+      ],
+      button: { text: 'Sign In', url: loginUrl },
+      showLinkFallback: true
+    }),
+    text: buildTextEmail({
+      greeting: name,
+      paragraphs: [
+        `Welcome to ${organizationName}!`,
+        `An account has been created for you on ${APP_NAME} by your organization administrator.`,
+        'You can sign in using these credentials:',
+        `Email: ${email}`,
+        `Password: ${temporaryPassword}`,
+        '⚠️ For security, please change your password after your first login.'
+      ],
+      buttonText: 'Sign in',
+      buttonUrl: loginUrl
+    })
+  });
+}
