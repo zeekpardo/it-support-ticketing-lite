@@ -1,6 +1,13 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy-load Resend client to avoid initialization errors when API key is not set
+let resend = null;
+function getResendClient() {
+  if (!resend && process.env.RESEND_API_KEY) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
 
 const FROM_EMAIL = process.env.FROM_EMAIL || 'Time Tracker <noreply@resend.dev>';
 const APP_NAME = process.env.APP_NAME || 'Time Tracker';
@@ -149,7 +156,8 @@ export async function sendEmail({ to, subject, html, text }) {
   }
 
   try {
-    const { data, error } = await resend.emails.send({
+    const client = getResendClient();
+    const { data, error } = await client.emails.send({
       from: FROM_EMAIL,
       to,
       subject,
