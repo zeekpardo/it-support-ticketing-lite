@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useOrganization } from '../../context/OrganizationContext'
 import { api, type MyAccessRequest } from '../../api/client'
+import { useAsync } from '../../hooks/useAsync'
 import { Heading, Subheading } from '@/components/ui/heading'
 import { Button } from '@/components/ui/button'
 import { Text } from '@/components/ui/text'
@@ -12,29 +13,13 @@ import { AccessRequestStatusBadge, ACCESS_REQUEST_STATUSES } from '@/components/
 export default function PortalMyRequests() {
   const navigate = useNavigate()
   const { currentOrg } = useOrganization()
-  const [requests, setRequests] = useState<MyAccessRequest[]>([])
   const [statusFilter, setStatusFilter] = useState('')
-  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (currentOrg) {
-      loadRequests()
-    }
-  }, [currentOrg, statusFilter])
-
-  const loadRequests = async () => {
-    setLoading(true)
-    try {
-      const data = await api.getMyAccessRequests({
-        status: statusFilter || undefined
-      })
-      setRequests(data)
-    } catch (error) {
-      console.error('Failed to load requests:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { data: requests, loading } = useAsync<MyAccessRequest[]>(
+    () => api.getMyAccessRequests({ status: statusFilter || undefined }),
+    [currentOrg, statusFilter],
+    { immediate: !!currentOrg }
+  )
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-US', {
@@ -88,7 +73,7 @@ export default function PortalMyRequests() {
         </Select>
       </div>
 
-      {requests.length === 0 ? (
+      {(!requests || requests.length === 0) ? (
         <div className="rounded-xl bg-white p-12 text-center shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
           <ClipboardDocumentListIcon className="mx-auto h-12 w-12 text-zinc-400" />
           <Subheading className="mt-4">No requests yet</Subheading>

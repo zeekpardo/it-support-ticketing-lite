@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useOrganization } from '../../context/OrganizationContext'
 import { api } from '../../api/client'
+import { useAsync } from '../../hooks/useAsync'
 import { StatusBadge, PriorityBadge } from '../../components/tickets'
 import { Heading, Subheading } from '@/components/ui/heading'
 import { Text } from '@/components/ui/text'
@@ -36,26 +36,11 @@ interface DashboardData {
 
 export default function PortalDashboard() {
   const { currentOrg } = useOrganization()
-  const [data, setData] = useState<DashboardData | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (currentOrg) {
-      loadDashboard()
-    }
-  }, [currentOrg])
-
-  const loadDashboard = async () => {
-    setLoading(true)
-    try {
-      const dashboardData = await api.getPortalDashboard()
-      setData(dashboardData)
-    } catch (error) {
-      console.error('Failed to load dashboard:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { data, loading } = useAsync<DashboardData>(
+    () => api.getPortalDashboard(),
+    [currentOrg],
+    { immediate: !!currentOrg }
+  )
 
   if (!currentOrg) {
     return (

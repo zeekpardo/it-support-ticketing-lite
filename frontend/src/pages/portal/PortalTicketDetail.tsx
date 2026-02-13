@@ -69,10 +69,10 @@ export default function PortalTicketDetail() {
     }
   }
 
-  const handleAddMessage = async (content: string) => {
+  const handleAddMessage = async (content: string, _isInternal: boolean, files?: File[]) => {
     if (!ticket) return
     try {
-      const comment = await api.addPortalMessage(ticket.id, content)
+      const comment = await api.addPortalMessage(ticket.id, content, files)
       setTicket({ ...ticket, comments: [...ticket.comments, comment] })
     } catch (error) {
       console.error('Failed to add message:', error)
@@ -158,7 +158,7 @@ export default function PortalTicketDetail() {
           <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10">
             <TicketComments
               comments={ticket.comments}
-              onAddComment={(content) => handleAddMessage(content)}
+              onAddComment={handleAddMessage}
               isStaff={false}
               mentionableMembers={mentionableMembers}
             />

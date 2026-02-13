@@ -325,30 +325,33 @@ model SupportTicket {
 }
 
 model TicketAttachment {
-  id           String        @id @default(cuid())
-  ticketId     String        @map("ticket_id")
-  ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  fileName     String        @map("file_name")
-  fileSize     Int           @map("file_size")
-  fileType     String        @map("file_type")
-  fileUrl      String        @map("file_url")
-  uploadedById String        @map("uploaded_by_id")
-  uploadedBy   Member        @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
-  createdAt    DateTime      @default(now()) @map("created_at")
+  id           String         @id @default(cuid())
+  ticketId     String         @map("ticket_id")
+  ticket       SupportTicket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  commentId    String?        @map("comment_id")
+  comment      TicketComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  fileName     String         @map("file_name")
+  fileSize     Int            @map("file_size")
+  fileType     String         @map("file_type")
+  fileUrl      String         @map("file_url")
+  uploadedById String         @map("uploaded_by_id")
+  uploadedBy   Member         @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  createdAt    DateTime       @default(now()) @map("created_at")
 
   @@map("ticket_attachments")
 }
 
 model TicketComment {
-  id         String        @id @default(cuid())
-  ticketId   String        @map("ticket_id")
-  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  authorId   String        @map("author_id")
-  author     Member        @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  content    String
-  isInternal Boolean       @default(false) @map("is_internal")
-  createdAt  DateTime      @default(now()) @map("created_at")
-  updatedAt  DateTime      @updatedAt @map("updated_at")
+  id          String             @id @default(cuid())
+  ticketId    String             @map("ticket_id")
+  ticket      SupportTicket      @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId    String             @map("author_id")
+  author      Member             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content     String
+  isInternal  Boolean            @default(false) @map("is_internal")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+  attachments TicketAttachment[]
 
   @@index([ticketId, isInternal])
   @@map("ticket_comments")

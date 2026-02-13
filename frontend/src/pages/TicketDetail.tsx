@@ -143,10 +143,10 @@ export default function TicketDetail() {
     }
   }
 
-  const handleAddComment = async (content: string, isInternal: boolean) => {
+  const handleAddComment = async (content: string, isInternal: boolean, files?: File[]) => {
     if (!ticket) return
     try {
-      const comment = await api.addTicketComment(ticket.id, { content, isInternal })
+      const comment = await api.addTicketComment(ticket.id, { content, isInternal, files })
       setTicket({ ...ticket, comments: [...ticket.comments, comment] })
     } catch (error) {
       console.error('Failed to add comment:', error)

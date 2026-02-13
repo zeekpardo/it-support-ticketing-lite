@@ -106,7 +106,8 @@ router.get('/tickets/:id', asyncHandler(async (req, res) => {
         include: {
           author: {
             select: MEMBER_WITH_ROLE_AND_USER_BRIEF
-          }
+          },
+          attachments: true
         }
       },
       attachments: {
@@ -307,92 +308,120 @@ router.post('/tickets/:id/attachments', (req, res) => {
   });
 });
 
-// Add public message to ticket
-router.post('/tickets/:id/messages', asyncHandler(async (req, res) => {
-  const { content } = req.body;
-
-  if (!content) {
-    throw new ValidationError('Content is required');
-  }
-
-  // Verify client owns this ticket
-  const ticket = await prisma.supportTicket.findFirst({
-    where: {
-      id: req.params.id,
-      organizationId: req.organization.id,
-      clientId: req.membership.id
-    },
-    select: {
-      id: true,
-      subject: true,
-      ownerId: true,
+// Add public message to ticket (supports file attachments via multipart/form-data)
+router.post('/tickets/:id/messages', (req, res) => {
+  uploadAttachments(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
     }
-  });
 
-  if (!ticket) {
-    throw new NotFoundError('Ticket not found');
-  }
+    try {
+      const { content } = req.body;
 
-  const comment = await prisma.ticketComment.create({
-    data: {
-      ticketId: req.params.id,
-      authorId: req.membership.id,
-      content,
-      isInternal: false // Client comments are always public
-    },
-    include: {
-      author: {
-        select: MEMBER_WITH_ROLE_AND_USER_BRIEF
+      if (!content) {
+        return res.status(400).json({ error: 'Content is required' });
       }
-    }
-  });
 
-  // Send notifications (non-blocking)
-  try {
-    const authorName = comment.author.user.name;
-    const notificationData = {
-      ticketId: ticket.id,
-      ticketSubject: ticket.subject,
-      authorName,
-      commentId: comment.id,
-      commentContent: content, // For email notifications
-    };
-
-    // 1. Parse @mentions and notify mentioned staff members
-    const mentionedMemberIds = parseMentions(content);
-    if (mentionedMemberIds.length > 0) {
-      for (const memberId of mentionedMemberIds) {
-        if (memberId === req.membership.id) continue; // Don't notify self
-
-        await createNotification(prisma, {
-          type: 'MENTION',
-          recipientId: memberId,
+      // Verify client owns this ticket
+      const ticket = await prisma.supportTicket.findFirst({
+        where: {
+          id: req.params.id,
           organizationId: req.organization.id,
-          data: notificationData,
-          entityType: 'comment',
-          entityId: comment.id,
-        });
-      }
-    }
-
-    // 2. Notify ticket owner if they weren't mentioned
-    if (ticket.ownerId && !mentionedMemberIds.includes(ticket.ownerId)) {
-      await createNotification(prisma, {
-        type: 'TICKET_COMMENT',
-        recipientId: ticket.ownerId,
-        organizationId: req.organization.id,
-        data: notificationData,
-        entityType: 'comment',
-        entityId: comment.id,
+          clientId: req.membership.id
+        },
+        select: {
+          id: true,
+          subject: true,
+          ownerId: true,
+        }
       });
-    }
-  } catch (notifError) {
-    console.error('Error sending comment notifications:', notifError);
-    // Don't fail the request if notifications fail
-  }
 
-  res.status(201).json(comment);
-}));
+      if (!ticket) {
+        return res.status(404).json({ error: 'Ticket not found' });
+      }
+
+      const comment = await prisma.ticketComment.create({
+        data: {
+          ticketId: req.params.id,
+          authorId: req.membership.id,
+          content,
+          isInternal: false
+        },
+        include: {
+          author: {
+            select: MEMBER_WITH_ROLE_AND_USER_BRIEF
+          }
+        }
+      });
+
+      // Create attachments linked to this comment
+      let attachments = [];
+      if (req.files && req.files.length > 0) {
+        attachments = await Promise.all(
+          req.files.map(file =>
+            prisma.ticketAttachment.create({
+              data: {
+                ticketId: req.params.id,
+                commentId: comment.id,
+                fileName: file.originalname,
+                fileSize: file.size,
+                fileType: file.mimetype,
+                fileUrl: `/uploads/attachments/${file.filename}`,
+                uploadedById: req.membership.id
+              }
+            })
+          )
+        );
+      }
+
+      // Send notifications (non-blocking)
+      try {
+        const authorName = comment.author.user.name;
+        const notificationData = {
+          ticketId: ticket.id,
+          ticketSubject: ticket.subject,
+          authorName,
+          commentId: comment.id,
+          commentContent: content,
+        };
+
+        const mentionedMemberIds = parseMentions(content);
+        if (mentionedMemberIds.length > 0) {
+          for (const memberId of mentionedMemberIds) {
+            if (memberId === req.membership.id) continue;
+
+            await createNotification(prisma, {
+              type: 'MENTION',
+              recipientId: memberId,
+              organizationId: req.organization.id,
+              data: notificationData,
+              entityType: 'comment',
+              entityId: comment.id,
+            });
+          }
+        }
+
+        if (ticket.ownerId && !mentionedMemberIds.includes(ticket.ownerId)) {
+          await createNotification(prisma, {
+            type: 'TICKET_COMMENT',
+            recipientId: ticket.ownerId,
+            organizationId: req.organization.id,
+            data: notificationData,
+            entityType: 'comment',
+            entityId: comment.id,
+          });
+        }
+      } catch (notifError) {
+        console.error('Error sending comment notifications:', notifError);
+      }
+
+      res.status(201).json({ ...comment, attachments });
+    } catch (error) {
+      console.error('Error creating message:', error);
+      res.status(500).json({ error: 'Failed to create message' });
+    }
+  });
+});
 
 // Get mentionable members for a ticket (staff members that client can mention)
 router.get('/tickets/:id/mentionable-members', asyncHandler(async (req, res) => {
