@@ -1,4 +1,6 @@
-export const API_BASE = '/api'
+// Use environment variable for API URL in production, fallback to relative path for dev
+const apiBaseUrl = import.meta.env.VITE_API_URL || ''
+export const API_BASE = apiBaseUrl ? `${apiBaseUrl}/api` : '/api'
 
 export interface RequestOptions extends RequestInit {
   headers?: Record<string, string>
