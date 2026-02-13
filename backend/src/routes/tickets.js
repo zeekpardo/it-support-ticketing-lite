@@ -759,22 +759,6 @@ router.post('/:id/time-entries', requireStaff, async (req, res) => {
     }
 
     // Stop any running timers for this user
-    await prisma.timeEntry.updateMany({
-      where: {
-        userId: req.user.id,
-        organizationId: req.organization.id,
-        isRunning: true
-      },
-      data: {
-        isRunning: false,
-        endTime: new Date(),
-        durationMins: {
-          // This won't work with updateMany, we'll need to handle differently
-        }
-      }
-    });
-
-    // Actually, let's do this properly
     const runningEntries = await prisma.timeEntry.findMany({
       where: {
         userId: req.user.id,

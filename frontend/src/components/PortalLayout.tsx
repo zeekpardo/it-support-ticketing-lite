@@ -19,7 +19,6 @@ import { Dropdown, DropdownButton, DropdownItem, DropdownLabel, DropdownMenu, Dr
 import {
   HomeIcon,
   TicketIcon,
-  PlusCircleIcon,
   ArrowRightStartOnRectangleIcon,
   ChevronUpIcon,
   BuildingOfficeIcon,
@@ -48,7 +47,6 @@ export function PortalLayout({ children }: PortalLayoutProps) {
   const navItems = [
     { href: '/portal', label: 'Dashboard', icon: HomeIcon },
     { href: '/portal/tickets', label: 'My Tickets', icon: TicketIcon },
-    { href: '/portal/tickets/new', label: 'New Ticket', icon: PlusCircleIcon },
     { href: '/portal/catalog', label: 'Catalog', icon: ComputerDesktopIcon },
   ]
 
