@@ -28,6 +28,13 @@ export async function findMemberOrFail(memberId, organizationId, options = {}) {
   return member;
 }
 
+export async function createProjectAssignments(memberId, projectIds) {
+  if (!projectIds?.length) return;
+  await prisma.projectAssignment.createMany({
+    data: projectIds.map(projectId => ({ memberId, projectId })),
+  });
+}
+
 export async function findTimeEntryOrFail(entryId, organizationId, options = {}) {
   const entry = await prisma.timeEntry.findFirst({
     where: { id: entryId, organizationId },
@@ -35,4 +42,65 @@ export async function findTimeEntryOrFail(entryId, organizationId, options = {})
   });
   if (!entry) throw new NotFoundError('Time entry not found');
   return entry;
+}
+
+export async function findStageOrFail(stageId, projectId, organizationId, options = {}) {
+  const stage = await prisma.ticketStage.findFirst({
+    where: {
+      id: stageId,
+      projectId,
+      project: { organizationId },
+    },
+    ...options,
+  });
+  if (!stage) throw new NotFoundError('Stage not found');
+  return stage;
+}
+
+// Check if user has access to a project (assigned or admin)
+export async function hasProjectAccess(projectId, memberId, memberRole) {
+  if (memberRole === 'owner' || memberRole === 'manager') {
+    return true;
+  }
+  const assignment = await prisma.projectAssignment.findUnique({
+    where: { memberId_projectId: { memberId, projectId } }
+  });
+  return !!assignment;
+}
+
+export async function createTicketAttachments(ticketId, uploadedById, files, commentId = null, options = {}) {
+  if (!files || files.length === 0) return [];
+
+  return Promise.all(
+    files.map(file =>
+      prisma.ticketAttachment.create({
+        data: {
+          ticketId,
+          commentId,
+          fileName: file.originalname,
+          fileSize: file.size,
+          fileType: file.mimetype,
+          fileUrl: `/uploads/attachments/${file.filename}`,
+          uploadedById,
+        },
+        ...options,
+      })
+    )
+  );
+}
+
+// Check if user is a software owner for a project software
+export async function isSoftwareOwner(projectSoftwareId, memberId) {
+  const admin = await prisma.projectSoftwareAdmin.findFirst({
+    where: { projectSoftwareId, memberId, role: 'OWNER' }
+  });
+  return !!admin;
+}
+
+// Check if user is a software admin (owner or admin role)
+export async function isSoftwareAdmin(projectSoftwareId, memberId) {
+  const admin = await prisma.projectSoftwareAdmin.findFirst({
+    where: { projectSoftwareId, memberId }
+  });
+  return !!admin;
 }

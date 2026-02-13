@@ -59,3 +59,34 @@ export const PROJECT_SELECT = {
   projectCode: true,
   clientName: true,
 };
+
+// Project with active status (used in assignments)
+export const PROJECT_SELECT_ACTIVE = {
+  id: true,
+  name: true,
+  projectCode: true,
+  isActive: true,
+};
+
+// Ticket stage select
+export const STAGE_SELECT = {
+  id: true,
+  name: true,
+  slug: true,
+  color: true,
+  position: true,
+  isDefault: true,
+  isResolved: true,
+};
+
+// Project assignment with project info
+export const PROJECT_ASSIGNMENT_INCLUDE = {
+  project: {
+    select: {
+      id: true,
+      name: true,
+      projectCode: true,
+      isActive: true,
+    },
+  },
+};

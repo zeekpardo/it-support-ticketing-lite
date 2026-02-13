@@ -165,6 +165,89 @@ export async function notifyMultiple(prisma, { type, recipientIds, organizationI
 }
 
 /**
+ * Send comment notifications: mentions, ticket owner, and ticket client.
+ * Handles the full notification flow for a new comment on a ticket.
+ *
+ * @param {object} prisma - Prisma client instance
+ * @param {object} params
+ * @param {object} params.ticket - Ticket record (needs id, subject, ownerId, clientId)
+ * @param {object} params.comment - Created comment (needs id)
+ * @param {string} params.authorName - Display name of comment author
+ * @param {string} params.authorMemberId - Member ID of the comment author
+ * @param {string} params.content - Raw comment content (for mention parsing)
+ * @param {boolean} params.isInternal - Whether the comment is internal-only
+ * @param {string} params.organizationId - Organization ID
+ */
+export async function sendCommentNotifications(prisma, {
+  ticket,
+  comment,
+  authorName,
+  authorMemberId,
+  content,
+  isInternal,
+  organizationId,
+}) {
+  const notificationData = {
+    ticketId: ticket.id,
+    ticketSubject: ticket.subject,
+    authorName,
+    commentId: comment.id,
+    commentContent: content,
+  };
+
+  const mentionedMemberIds = parseMentions(content);
+  if (mentionedMemberIds.length > 0) {
+    const mentionedMembers = await prisma.member.findMany({
+      where: { id: { in: mentionedMemberIds } },
+      select: { id: true, role: true },
+    });
+
+    for (const member of mentionedMembers) {
+      if (member.id === authorMemberId) continue;
+
+      const isClient = member.role === 'client';
+      if (isClient && isInternal) continue;
+
+      await createNotification(prisma, {
+        type: isClient ? 'MENTION_CLIENT' : 'MENTION',
+        recipientId: member.id,
+        organizationId,
+        data: notificationData,
+        entityType: 'comment',
+        entityId: comment.id,
+      });
+    }
+  }
+
+  if (ticket.ownerId &&
+      ticket.ownerId !== authorMemberId &&
+      !mentionedMemberIds.includes(ticket.ownerId)) {
+    await createNotification(prisma, {
+      type: 'TICKET_COMMENT',
+      recipientId: ticket.ownerId,
+      organizationId,
+      data: notificationData,
+      entityType: 'comment',
+      entityId: comment.id,
+    });
+  }
+
+  if (!isInternal &&
+      ticket.clientId &&
+      ticket.clientId !== authorMemberId &&
+      !mentionedMemberIds.includes(ticket.clientId)) {
+    await createNotification(prisma, {
+      type: 'TICKET_COMMENT_CLIENT',
+      recipientId: ticket.clientId,
+      organizationId,
+      data: notificationData,
+      entityType: 'comment',
+      entityId: comment.id,
+    });
+  }
+}
+
+/**
  * Parse @mentions from comment content and extract member IDs
  *
  * @param {string} content - Comment content with @mentions

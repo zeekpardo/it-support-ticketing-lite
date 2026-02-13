@@ -1,10 +1,11 @@
 import express from 'express';
 import { prisma } from '../lib/auth.js';
 import { authenticate, requireOrganization, requireClient } from '../middleware/auth.js';
-import { createNotification, parseMentions } from '../services/notificationService.js';
+import { createNotification, sendCommentNotifications } from '../services/notificationService.js';
 import { uploadAttachments } from '../middleware/upload.js';
-import { asyncHandler } from '../middleware/asyncHandler.js';
+import { asyncHandler, withUpload } from '../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError, ForbiddenError } from '../utils/errors.js';
+import { createTicketAttachments } from '../utils/entityHelpers.js';
 import { USER_SELECT_BRIEF, PROJECT_SELECT_BRIEF, MEMBER_WITH_USER_BRIEF, MEMBER_WITH_ROLE_AND_USER_BRIEF } from '../utils/prismaFragments.js';
 
 const router = express.Router();
@@ -263,165 +264,84 @@ router.post('/tickets', asyncHandler(async (req, res) => {
 
 // Upload attachments to a portal ticket
 // POST /api/portal/tickets/:id/attachments
-router.post('/tickets/:id/attachments', (req, res) => {
-  uploadAttachments(req, res, async (err) => {
-    if (err) {
-      return res.status(400).json({ error: err.message });
-    }
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ error: 'No files provided' });
-    }
+router.post('/tickets/:id/attachments', withUpload(uploadAttachments, async (req, res) => {
+  if (!req.files || req.files.length === 0) {
+    throw new ValidationError('No files provided');
+  }
 
-    try {
-      const ticket = await prisma.supportTicket.findFirst({
-        where: {
-          id: req.params.id,
-          organizationId: req.organization.id,
-          clientId: req.membership.id
-        }
-      });
-
-      if (!ticket) {
-        return res.status(404).json({ error: 'Ticket not found' });
-      }
-
-      const attachments = await Promise.all(
-        req.files.map(file =>
-          prisma.ticketAttachment.create({
-            data: {
-              ticketId: req.params.id,
-              fileName: file.originalname,
-              fileSize: file.size,
-              fileType: file.mimetype,
-              fileUrl: `/uploads/attachments/${file.filename}`,
-              uploadedById: req.membership.id
-            }
-          })
-        )
-      );
-
-      res.status(201).json(attachments);
-    } catch (error) {
-      console.error('Error uploading attachments:', error);
-      res.status(500).json({ error: 'Failed to upload attachments' });
-    }
+  const ticket = await prisma.supportTicket.findFirst({
+    where: {
+      id: req.params.id,
+      organizationId: req.organization.id,
+      clientId: req.membership.id,
+    },
   });
-});
+
+  if (!ticket) {
+    throw new NotFoundError('Ticket not found');
+  }
+
+  const attachments = await createTicketAttachments(
+    req.params.id, req.membership.id, req.files
+  );
+
+  res.status(201).json(attachments);
+}));
 
 // Add public message to ticket (supports file attachments via multipart/form-data)
-router.post('/tickets/:id/messages', (req, res) => {
-  uploadAttachments(req, res, async (err) => {
-    if (err) {
-      return res.status(400).json({ error: err.message });
-    }
+router.post('/tickets/:id/messages', withUpload(uploadAttachments, async (req, res) => {
+  const { content } = req.body;
 
-    try {
-      const { content } = req.body;
+  if (!content) {
+    throw new ValidationError('Content is required');
+  }
 
-      if (!content) {
-        return res.status(400).json({ error: 'Content is required' });
-      }
-
-      // Verify client owns this ticket
-      const ticket = await prisma.supportTicket.findFirst({
-        where: {
-          id: req.params.id,
-          organizationId: req.organization.id,
-          clientId: req.membership.id
-        },
-        select: {
-          id: true,
-          subject: true,
-          ownerId: true,
-        }
-      });
-
-      if (!ticket) {
-        return res.status(404).json({ error: 'Ticket not found' });
-      }
-
-      const comment = await prisma.ticketComment.create({
-        data: {
-          ticketId: req.params.id,
-          authorId: req.membership.id,
-          content,
-          isInternal: false
-        },
-        include: {
-          author: {
-            select: MEMBER_WITH_ROLE_AND_USER_BRIEF
-          }
-        }
-      });
-
-      // Create attachments linked to this comment
-      let attachments = [];
-      if (req.files && req.files.length > 0) {
-        attachments = await Promise.all(
-          req.files.map(file =>
-            prisma.ticketAttachment.create({
-              data: {
-                ticketId: req.params.id,
-                commentId: comment.id,
-                fileName: file.originalname,
-                fileSize: file.size,
-                fileType: file.mimetype,
-                fileUrl: `/uploads/attachments/${file.filename}`,
-                uploadedById: req.membership.id
-              }
-            })
-          )
-        );
-      }
-
-      // Send notifications (non-blocking)
-      try {
-        const authorName = comment.author.user.name;
-        const notificationData = {
-          ticketId: ticket.id,
-          ticketSubject: ticket.subject,
-          authorName,
-          commentId: comment.id,
-          commentContent: content,
-        };
-
-        const mentionedMemberIds = parseMentions(content);
-        if (mentionedMemberIds.length > 0) {
-          for (const memberId of mentionedMemberIds) {
-            if (memberId === req.membership.id) continue;
-
-            await createNotification(prisma, {
-              type: 'MENTION',
-              recipientId: memberId,
-              organizationId: req.organization.id,
-              data: notificationData,
-              entityType: 'comment',
-              entityId: comment.id,
-            });
-          }
-        }
-
-        if (ticket.ownerId && !mentionedMemberIds.includes(ticket.ownerId)) {
-          await createNotification(prisma, {
-            type: 'TICKET_COMMENT',
-            recipientId: ticket.ownerId,
-            organizationId: req.organization.id,
-            data: notificationData,
-            entityType: 'comment',
-            entityId: comment.id,
-          });
-        }
-      } catch (notifError) {
-        console.error('Error sending comment notifications:', notifError);
-      }
-
-      res.status(201).json({ ...comment, attachments });
-    } catch (error) {
-      console.error('Error creating message:', error);
-      res.status(500).json({ error: 'Failed to create message' });
-    }
+  // Verify client owns this ticket
+  const ticket = await prisma.supportTicket.findFirst({
+    where: {
+      id: req.params.id,
+      organizationId: req.organization.id,
+      clientId: req.membership.id,
+    },
+    select: { id: true, subject: true, ownerId: true, clientId: true },
   });
-});
+
+  if (!ticket) {
+    throw new NotFoundError('Ticket not found');
+  }
+
+  const comment = await prisma.ticketComment.create({
+    data: {
+      ticketId: req.params.id,
+      authorId: req.membership.id,
+      content,
+      isInternal: false,
+    },
+    include: {
+      author: { select: MEMBER_WITH_ROLE_AND_USER_BRIEF },
+    },
+  });
+
+  const attachments = await createTicketAttachments(
+    req.params.id, req.membership.id, req.files, comment.id
+  );
+
+  try {
+    await sendCommentNotifications(prisma, {
+      ticket,
+      comment,
+      authorName: comment.author.user.name,
+      authorMemberId: req.membership.id,
+      content,
+      isInternal: false,
+      organizationId: req.organization.id,
+    });
+  } catch (notifError) {
+    console.error('Error sending comment notifications:', notifError);
+  }
+
+  res.status(201).json({ ...comment, attachments });
+}));
 
 // Get mentionable members for a ticket (staff members that client can mention)
 router.get('/tickets/:id/mentionable-members', asyncHandler(async (req, res) => {
