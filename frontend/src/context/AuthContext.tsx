@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { signIn, signUp, signOut, useSession, admin } from '../lib/auth-client'
+import { signIn, signUp, signOut, useSession, admin, getSession } from '../lib/auth-client'
 
 interface User {
   id: string
@@ -51,6 +51,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (result.error) {
       throw new Error(result.error.message || 'Registration failed')
+    }
+
+    // Ensure the user has an authenticated session before onboarding actions
+    // like organization.create, which require authorization.
+    const sessionResult = await getSession()
+    if (!sessionResult?.data?.session) {
+      const signInResult = await signIn.email({ email, password })
+      if (signInResult.error) {
+        throw new Error(signInResult.error.message || 'Account created. Please sign in to continue.')
+      }
     }
   }
 
