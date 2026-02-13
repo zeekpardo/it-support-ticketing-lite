@@ -49,7 +49,7 @@ export default function Register() {
         <div className="rounded-xl bg-white p-8 shadow-lg ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
           <div className="text-center">
             <Heading>Create account</Heading>
-            <Text className="mt-1">Get started with TimeTracker</Text>
+            <Text className="mt-1">Get started with Groovi Support</Text>
           </div>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-6">

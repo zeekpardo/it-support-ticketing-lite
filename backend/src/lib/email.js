@@ -9,8 +9,8 @@ function getResendClient() {
   return resend;
 }
 
-const FROM_EMAIL = process.env.FROM_EMAIL || 'Time Tracker <noreply@resend.dev>';
-const APP_NAME = process.env.APP_NAME || 'Time Tracker';
+const FROM_EMAIL = process.env.FROM_EMAIL || 'Groovi Support <noreply@resend.dev>';
+const APP_NAME = process.env.APP_NAME || 'Groovi Support';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 // ==========================================

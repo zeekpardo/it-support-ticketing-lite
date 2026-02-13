@@ -1,6 +1,6 @@
-# TimeTracker
+# Groovi Support
 
-A multi-tenant time tracking application with team management, project tracking, and reporting capabilities.
+A multi-tenant support ticket management application with team management, project tracking, and reporting capabilities.
 
 ## Features
 

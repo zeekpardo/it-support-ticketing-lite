@@ -15,19 +15,19 @@ async function sendTestEmail() {
 
   try {
     const { data, error } = await resend.emails.send({
-      from: process.env.FROM_EMAIL || 'Time Tracker <noreply@resend.dev>',
+      from: process.env.FROM_EMAIL || 'Groovi Support <noreply@resend.dev>',
       to: 'zeekpardo@gmail.com',
-      subject: 'Test Email from Time Tracker',
+      subject: 'Test Email from Groovi Support',
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>🎉 Test Email Successful!</h2>
-          <p>This is a test email from the Time Tracker application.</p>
+          <p>This is a test email from the Groovi Support application.</p>
           <p>If you're seeing this, your Resend integration is working correctly.</p>
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;" />
           <p style="color: #9ca3af; font-size: 12px;">Sent at: ${new Date().toISOString()}</p>
         </div>
       `,
-      text: 'Test Email Successful!\n\nThis is a test email from the Time Tracker application.\n\nIf you\'re seeing this, your Resend integration is working correctly.'
+      text: 'Test Email Successful!\n\nThis is a test email from the Groovi Support application.\n\nIf you\'re seeing this, your Resend integration is working correctly.'
     });
 
     if (error) {

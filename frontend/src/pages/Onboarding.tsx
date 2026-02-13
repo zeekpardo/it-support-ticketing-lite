@@ -59,7 +59,7 @@ export default function Onboarding() {
         <div className="w-full max-w-md">
           <div className="rounded-xl bg-white p-8 shadow-lg ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
             <div className="text-center">
-              <Heading>Welcome to TimeTracker!</Heading>
+              <Heading>Welcome to Groovi Support!</Heading>
               <Text className="mt-1">Let's get you set up</Text>
             </div>
 
