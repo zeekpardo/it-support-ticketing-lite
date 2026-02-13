@@ -4,6 +4,9 @@
   "description": "Time tracking API with SQLite, Better Auth, and multi-tenancy",
   "main": "src/index.js",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "prisma generate && prisma db push && node src/index.js",
