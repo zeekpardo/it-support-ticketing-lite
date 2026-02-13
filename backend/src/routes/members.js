@@ -3,6 +3,10 @@ import crypto from 'crypto';
 import { prisma } from '../lib/auth.js';
 import { authenticate, requireOrganization, requireOwner, requireAdmin, requireStaff } from '../middleware/auth.js';
 import { uploadAvatar, deleteUploadedFile } from '../middleware/upload.js';
+import { asyncHandler } from '../middleware/asyncHandler.js';
+import { NotFoundError, ValidationError, ForbiddenError, ConflictError } from '../utils/errors.js';
+import { findMemberOrFail, findProjectOrFail } from '../utils/entityHelpers.js';
+import { USER_SELECT, MEMBER_WITH_USER } from '../utils/prismaFragments.js';
 
 const router = express.Router();
 
@@ -11,93 +15,88 @@ const generateId = () => crypto.randomBytes(16).toString('hex');
 
 // Create a new user and add them directly to the organization
 // POST /api/members/create-user
-router.post('/create-user', authenticate, requireOrganization, requireOwner, async (req, res) => {
-  try {
-    const { name, email, phone, password, role, projectIds } = req.body;
+router.post('/create-user', authenticate, requireOrganization, requireOwner, asyncHandler(async (req, res) => {
+  const { name, email, phone, password, role, projectIds } = req.body;
 
-    // Validate required fields
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Name, email, and password are required' });
-    }
+  // Validate required fields
+  if (!name || !email || !password) {
+    throw new ValidationError('Name, email, and password are required');
+  }
 
-    // Validate role
-    const validRoles = ['manager', 'member', 'client'];
-    if (role && !validRoles.includes(role)) {
-      return res.status(400).json({ error: 'Invalid role. Must be manager, member, or client' });
-    }
+  // Validate role
+  const validRoles = ['manager', 'member', 'client'];
+  if (role && !validRoles.includes(role)) {
+    throw new ValidationError('Invalid role. Must be manager, member, or client');
+  }
 
-    // Require project selection for clients
-    if (role === 'client' && (!projectIds || projectIds.length === 0)) {
-      return res.status(400).json({ error: 'At least one project must be selected for client users' });
-    }
+  // Require project selection for clients
+  if (role === 'client' && (!projectIds || projectIds.length === 0)) {
+    throw new ValidationError('At least one project must be selected for client users');
+  }
 
-    // Check if user is a super admin
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Only super admins can create users directly' });
-    }
+  // Check if user is a super admin
+  if (req.user.role !== 'admin') {
+    throw new ForbiddenError('Only super admins can create users directly');
+  }
 
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email }
+  // Check if user already exists
+  const existingUser = await prisma.user.findUnique({
+    where: { email }
+  });
+
+  if (existingUser) {
+    // User exists - check if they're already a member of this org
+    const existingMember = await prisma.member.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId: req.organization.id,
+          userId: existingUser.id
+        }
+      }
     });
 
-    if (existingUser) {
-      // User exists - check if they're already a member of this org
-      const existingMember = await prisma.member.findUnique({
-        where: {
-          organizationId_userId: {
-            organizationId: req.organization.id,
-            userId: existingUser.id
-          }
-        }
-      });
+    if (existingMember) {
+      throw new ValidationError('User is already a member of this organization');
+    }
 
-      if (existingMember) {
-        return res.status(400).json({ error: 'User is already a member of this organization' });
+    // Add existing user to organization
+    const member = await prisma.member.create({
+      data: {
+        id: generateId(),
+        organizationId: req.organization.id,
+        userId: existingUser.id,
+        role: role || 'member'
+      },
+      include: {
+        user: { select: USER_SELECT }
       }
+    });
 
-      // Add existing user to organization
-      const member = await prisma.member.create({
-        data: {
-          id: generateId(),
-          organizationId: req.organization.id,
-          userId: existingUser.id,
-          role: role || 'member'
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true
-            }
-          }
-        }
-      });
-
-      // Create project assignments for clients
-      if (role === 'client' && projectIds && projectIds.length > 0) {
-        await prisma.projectAssignment.createMany({
-          data: projectIds.map(projectId => ({
-            memberId: member.id,
-            projectId
-          }))
-        });
-      }
-
-      return res.json({
-        success: true,
-        message: 'Existing user added to organization',
-        member
+    // Create project assignments for clients
+    if (role === 'client' && projectIds && projectIds.length > 0) {
+      await prisma.projectAssignment.createMany({
+        data: projectIds.map(projectId => ({
+          memberId: member.id,
+          projectId
+        }))
       });
     }
 
-    // Create new user directly via Prisma (since Better Auth admin API requires specific setup)
-    // Hash password using Better Auth's internal method
-    const { hashPassword } = await import('better-auth/crypto');
-    const hashedPassword = await hashPassword(password);
+    return res.json({
+      success: true,
+      message: 'Existing user added to organization',
+      member
+    });
+  }
 
-    const userId = generateId();
+  // Create new user directly via Prisma (since Better Auth admin API requires specific setup)
+  // Hash password using Better Auth's internal method
+  const { hashPassword } = await import('better-auth/crypto');
+  const hashedPassword = await hashPassword(password);
+
+  const userId = generateId();
+
+  try {
     const newUser = await prisma.user.create({
       data: {
         id: userId,
@@ -129,13 +128,7 @@ router.post('/create-user', authenticate, requireOrganization, requireOwner, asy
         role: role || 'member'
       },
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        }
+        user: { select: USER_SELECT }
       }
     });
 
@@ -155,27 +148,16 @@ router.post('/create-user', authenticate, requireOrganization, requireOwner, asy
       member
     });
   } catch (error) {
-    console.error('Create user error:', error);
-
-    // Handle unique constraint violation
     if (error.code === 'P2002') {
       const field = error.meta?.target?.[0] || 'field';
       if (field === 'email') {
-        return res.status(400).json({
-          error: 'A user with this email already exists. Use "Send Invitation" to invite them to this organization instead.'
-        });
+        throw new ConflictError('A user with this email already exists. Use "Send Invitation" to invite them to this organization instead.');
       }
-      return res.status(400).json({ error: `A record with this ${field} already exists` });
+      throw new ConflictError(`A record with this ${field} already exists`);
     }
-
-    // Handle foreign key constraint (e.g., organization doesn't exist)
-    if (error.code === 'P2003') {
-      return res.status(400).json({ error: 'Invalid organization or user reference' });
-    }
-
-    res.status(500).json({ error: error.message || 'Failed to create user' });
+    throw error;
   }
-});
+}));
 
 // ==========================================
 // Project Assignment Endpoints
@@ -183,290 +165,205 @@ router.post('/create-user', authenticate, requireOrganization, requireOwner, asy
 
 // Get all clients with their project assignments
 // GET /api/members/clients
-router.get('/clients', authenticate, requireOrganization, requireAdmin, async (req, res) => {
-  try {
-    const clients = await prisma.member.findMany({
-      where: {
-        organizationId: req.organization.id,
-        role: 'client'
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        },
-        projectAssignments: {
-          include: {
-            project: {
-              select: {
-                id: true,
-                name: true,
-                projectCode: true,
-                isActive: true
-              }
+router.get('/clients', authenticate, requireOrganization, requireAdmin, asyncHandler(async (req, res) => {
+  const clients = await prisma.member.findMany({
+    where: {
+      organizationId: req.organization.id,
+      role: 'client'
+    },
+    include: {
+      user: { select: USER_SELECT },
+      projectAssignments: {
+        include: {
+          project: {
+            select: {
+              id: true,
+              name: true,
+              projectCode: true,
+              isActive: true
             }
           }
         }
-      },
-      orderBy: {
-        createdAt: 'desc'
       }
-    });
+    },
+    orderBy: {
+      createdAt: 'desc'
+    }
+  });
 
-    res.json(clients);
-  } catch (error) {
-    console.error('Error fetching clients:', error);
-    res.status(500).json({ error: 'Failed to fetch clients' });
-  }
-});
+  res.json(clients);
+}));
 
 // Get all staff members (non-clients) for ticket assignment
 // GET /api/members/staff
-router.get('/staff', authenticate, requireOrganization, requireStaff, async (req, res) => {
-  try {
-    const staff = await prisma.member.findMany({
-      where: {
-        organizationId: req.organization.id,
-        role: { in: ['owner', 'manager', 'member'] }
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        }
-      },
-      orderBy: {
-        user: { name: 'asc' }
-      }
-    });
+router.get('/staff', authenticate, requireOrganization, requireStaff, asyncHandler(async (req, res) => {
+  const staff = await prisma.member.findMany({
+    where: {
+      organizationId: req.organization.id,
+      role: { in: ['owner', 'manager', 'member'] }
+    },
+    include: {
+      user: { select: USER_SELECT }
+    },
+    orderBy: {
+      user: { name: 'asc' }
+    }
+  });
 
-    res.json(staff);
-  } catch (error) {
-    console.error('Error fetching staff:', error);
-    res.status(500).json({ error: 'Failed to fetch staff' });
-  }
-});
+  res.json(staff);
+}));
 
 // Get project assignments for a specific member
 // GET /api/members/:memberId/projects
-router.get('/:memberId/projects', authenticate, requireOrganization, requireAdmin, async (req, res) => {
-  try {
-    const { memberId } = req.params;
+router.get('/:memberId/projects', authenticate, requireOrganization, requireAdmin, asyncHandler(async (req, res) => {
+  const { memberId } = req.params;
 
-    // Verify member belongs to this organization
-    const member = await prisma.member.findFirst({
-      where: {
-        id: memberId,
-        organizationId: req.organization.id
-      }
-    });
+  // Verify member belongs to this organization
+  await findMemberOrFail(memberId, req.organization.id);
 
-    if (!member) {
-      return res.status(404).json({ error: 'Member not found' });
-    }
-
-    const assignments = await prisma.projectAssignment.findMany({
-      where: { memberId },
-      include: {
-        project: {
-          select: {
-            id: true,
-            name: true,
-            projectCode: true,
-            isActive: true
-          }
+  const assignments = await prisma.projectAssignment.findMany({
+    where: { memberId },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          projectCode: true,
+          isActive: true
         }
       }
-    });
+    }
+  });
 
-    res.json(assignments);
-  } catch (error) {
-    console.error('Error fetching member projects:', error);
-    res.status(500).json({ error: 'Failed to fetch project assignments' });
-  }
-});
+  res.json(assignments);
+}));
 
 // Assign a project to a member (typically a client)
 // POST /api/members/:memberId/projects
-router.post('/:memberId/projects', authenticate, requireOrganization, requireAdmin, async (req, res) => {
-  try {
-    const { memberId } = req.params;
-    const { projectId } = req.body;
+router.post('/:memberId/projects', authenticate, requireOrganization, requireAdmin, asyncHandler(async (req, res) => {
+  const { memberId } = req.params;
+  const { projectId } = req.body;
 
-    if (!projectId) {
-      return res.status(400).json({ error: 'Project ID is required' });
+  if (!projectId) {
+    throw new ValidationError('Project ID is required');
+  }
+
+  // Verify member belongs to this organization
+  await findMemberOrFail(memberId, req.organization.id);
+
+  // Verify project belongs to this organization
+  await findProjectOrFail(projectId, req.organization.id);
+
+  // Check if assignment already exists
+  const existingAssignment = await prisma.projectAssignment.findUnique({
+    where: {
+      memberId_projectId: { memberId, projectId }
     }
+  });
 
-    // Verify member belongs to this organization
-    const member = await prisma.member.findFirst({
-      where: {
-        id: memberId,
-        organizationId: req.organization.id
-      }
-    });
+  if (existingAssignment) {
+    throw new ValidationError('Project is already assigned to this member');
+  }
 
-    if (!member) {
-      return res.status(404).json({ error: 'Member not found' });
-    }
-
-    // Verify project belongs to this organization
-    const project = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        organizationId: req.organization.id
-      }
-    });
-
-    if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
-    }
-
-    // Check if assignment already exists
-    const existingAssignment = await prisma.projectAssignment.findUnique({
-      where: {
-        memberId_projectId: { memberId, projectId }
-      }
-    });
-
-    if (existingAssignment) {
-      return res.status(400).json({ error: 'Project is already assigned to this member' });
-    }
-
-    const assignment = await prisma.projectAssignment.create({
-      data: {
-        memberId,
-        projectId
-      },
-      include: {
-        project: {
-          select: {
-            id: true,
-            name: true,
-            projectCode: true,
-            isActive: true
-          }
+  const assignment = await prisma.projectAssignment.create({
+    data: {
+      memberId,
+      projectId
+    },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          projectCode: true,
+          isActive: true
         }
       }
-    });
+    }
+  });
 
-    res.status(201).json(assignment);
-  } catch (error) {
-    console.error('Error assigning project:', error);
-    res.status(500).json({ error: 'Failed to assign project' });
-  }
-});
+  res.status(201).json(assignment);
+}));
 
 // Remove a project assignment from a member
 // DELETE /api/members/:memberId/projects/:projectId
-router.delete('/:memberId/projects/:projectId', authenticate, requireOrganization, requireAdmin, async (req, res) => {
+router.delete('/:memberId/projects/:projectId', authenticate, requireOrganization, requireAdmin, asyncHandler(async (req, res) => {
+  const { memberId, projectId } = req.params;
+
+  // Verify member belongs to this organization
+  await findMemberOrFail(memberId, req.organization.id);
+
+  // Delete the assignment
   try {
-    const { memberId, projectId } = req.params;
-
-    // Verify member belongs to this organization
-    const member = await prisma.member.findFirst({
-      where: {
-        id: memberId,
-        organizationId: req.organization.id
-      }
-    });
-
-    if (!member) {
-      return res.status(404).json({ error: 'Member not found' });
-    }
-
-    // Delete the assignment
     await prisma.projectAssignment.delete({
       where: {
         memberId_projectId: { memberId, projectId }
       }
     });
-
-    res.json({ message: 'Project assignment removed' });
   } catch (error) {
-    console.error('Error removing project assignment:', error);
-
     if (error.code === 'P2025') {
-      return res.status(404).json({ error: 'Project assignment not found' });
+      throw new NotFoundError('Project assignment not found');
     }
-
-    res.status(500).json({ error: 'Failed to remove project assignment' });
+    throw error;
   }
-});
+
+  res.json({ message: 'Project assignment removed' });
+}));
 
 // Bulk update project assignments for a member
 // PUT /api/members/:memberId/projects
-router.put('/:memberId/projects', authenticate, requireOrganization, requireAdmin, async (req, res) => {
-  try {
-    const { memberId } = req.params;
-    const { projectIds } = req.body;
+router.put('/:memberId/projects', authenticate, requireOrganization, requireAdmin, asyncHandler(async (req, res) => {
+  const { memberId } = req.params;
+  const { projectIds } = req.body;
 
-    if (!Array.isArray(projectIds)) {
-      return res.status(400).json({ error: 'projectIds must be an array' });
+  if (!Array.isArray(projectIds)) {
+    throw new ValidationError('projectIds must be an array');
+  }
+
+  // Verify member belongs to this organization
+  await findMemberOrFail(memberId, req.organization.id);
+
+  // Verify all projects belong to this organization
+  const projects = await prisma.project.findMany({
+    where: {
+      id: { in: projectIds },
+      organizationId: req.organization.id
     }
+  });
 
-    // Verify member belongs to this organization
-    const member = await prisma.member.findFirst({
-      where: {
-        id: memberId,
-        organizationId: req.organization.id
-      }
-    });
+  if (projects.length !== projectIds.length) {
+    throw new ValidationError('One or more projects not found');
+  }
 
-    if (!member) {
-      return res.status(404).json({ error: 'Member not found' });
-    }
+  // Delete all existing assignments and create new ones in a transaction
+  await prisma.$transaction([
+    prisma.projectAssignment.deleteMany({
+      where: { memberId }
+    }),
+    ...projectIds.map(projectId =>
+      prisma.projectAssignment.create({
+        data: { memberId, projectId }
+      })
+    )
+  ]);
 
-    // Verify all projects belong to this organization
-    const projects = await prisma.project.findMany({
-      where: {
-        id: { in: projectIds },
-        organizationId: req.organization.id
-      }
-    });
-
-    if (projects.length !== projectIds.length) {
-      return res.status(400).json({ error: 'One or more projects not found' });
-    }
-
-    // Delete all existing assignments and create new ones in a transaction
-    await prisma.$transaction([
-      prisma.projectAssignment.deleteMany({
-        where: { memberId }
-      }),
-      ...projectIds.map(projectId =>
-        prisma.projectAssignment.create({
-          data: { memberId, projectId }
-        })
-      )
-    ]);
-
-    // Fetch updated assignments
-    const assignments = await prisma.projectAssignment.findMany({
-      where: { memberId },
-      include: {
-        project: {
-          select: {
-            id: true,
-            name: true,
-            projectCode: true,
-            isActive: true
-          }
+  // Fetch updated assignments
+  const assignments = await prisma.projectAssignment.findMany({
+    where: { memberId },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          projectCode: true,
+          isActive: true
         }
       }
-    });
+    }
+  });
 
-    res.json(assignments);
-  } catch (error) {
-    console.error('Error updating project assignments:', error);
-    res.status(500).json({ error: 'Failed to update project assignments' });
-  }
-});
+  res.json(assignments);
+}));
 
 // ==========================================
 // Client Detail Endpoint
@@ -474,133 +371,128 @@ router.put('/:memberId/projects', authenticate, requireOrganization, requireAdmi
 
 // Get a single client with their tickets and software access
 // GET /api/members/clients/:memberId
-router.get('/clients/:memberId', authenticate, requireOrganization, requireAdmin, async (req, res) => {
-  try {
-    const { memberId } = req.params;
+router.get('/clients/:memberId', authenticate, requireOrganization, requireAdmin, asyncHandler(async (req, res) => {
+  const { memberId } = req.params;
 
-    // Get client with user info and project assignments
-    const client = await prisma.member.findFirst({
-      where: {
-        id: memberId,
-        organizationId: req.organization.id,
-        role: 'client'
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true
-          }
-        },
-        projectAssignments: {
-          include: {
-            project: {
-              select: {
-                id: true,
-                name: true,
-                projectCode: true,
-                isActive: true
-              }
-            }
-          }
-        }
-      }
-    });
-
-    if (!client) {
-      return res.status(404).json({ error: 'Client not found' });
-    }
-
-    // Get all tickets for this client
-    const tickets = await prisma.supportTicket.findMany({
-      where: {
-        clientId: memberId,
-        organizationId: req.organization.id
-      },
-      include: {
-        project: {
-          select: {
-            id: true,
-            name: true,
-            projectCode: true
-          }
-        },
-        owner: {
-          select: {
-            id: true,
-            user: {
-              select: {
-                id: true,
-                name: true
-              }
-            }
-          }
+  // Get client with user info and project assignments
+  const client = await prisma.member.findFirst({
+    where: {
+      id: memberId,
+      organizationId: req.organization.id,
+      role: 'client'
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true
         }
       },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
-
-    // Get all software access requests for this client
-    const softwareAccess = await prisma.softwareAccessRequest.findMany({
-      where: {
-        requesterId: memberId,
-        projectSoftware: {
+      projectAssignments: {
+        include: {
           project: {
-            organizationId: req.organization.id
-          }
-        }
-      },
-      include: {
-        projectSoftware: {
-          include: {
-            software: {
-              select: {
-                id: true,
-                name: true,
-                iconUrl: true,
-                vendor: true
-              }
-            },
-            project: {
-              select: {
-                id: true,
-                name: true,
-                projectCode: true
-              }
-            }
-          }
-        },
-        reviewer: {
-          select: {
-            id: true,
-            user: {
-              select: {
-                id: true,
-                name: true
-              }
+            select: {
+              id: true,
+              name: true,
+              projectCode: true,
+              isActive: true
             }
           }
         }
-      },
-      orderBy: {
-        createdAt: 'desc'
       }
-    });
+    }
+  });
 
-    res.json({
-      ...client,
-      tickets,
-      softwareAccess
-    });
-  } catch (error) {
-    console.error('Error fetching client details:', error);
-    res.status(500).json({ error: 'Failed to fetch client details' });
+  if (!client) {
+    throw new NotFoundError('Client not found');
   }
-});
+
+  // Get all tickets for this client
+  const tickets = await prisma.supportTicket.findMany({
+    where: {
+      clientId: memberId,
+      organizationId: req.organization.id
+    },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          projectCode: true
+        }
+      },
+      owner: {
+        select: {
+          id: true,
+          user: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        }
+      }
+    },
+    orderBy: {
+      createdAt: 'desc'
+    }
+  });
+
+  // Get all software access requests for this client
+  const softwareAccess = await prisma.softwareAccessRequest.findMany({
+    where: {
+      requesterId: memberId,
+      projectSoftware: {
+        project: {
+          organizationId: req.organization.id
+        }
+      }
+    },
+    include: {
+      projectSoftware: {
+        include: {
+          software: {
+            select: {
+              id: true,
+              name: true,
+              iconUrl: true,
+              vendor: true
+            }
+          },
+          project: {
+            select: {
+              id: true,
+              name: true,
+              projectCode: true
+            }
+          }
+        }
+      },
+      reviewer: {
+        select: {
+          id: true,
+          user: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        }
+      }
+    },
+    orderBy: {
+      createdAt: 'desc'
+    }
+  });
+
+  res.json({
+    ...client,
+    tickets,
+    softwareAccess
+  });
+}));
 
 // ==========================================
 // User Profile Endpoints
@@ -608,52 +500,42 @@ router.get('/clients/:memberId', authenticate, requireOrganization, requireAdmin
 
 // Update current user's profile (phone number)
 // PUT /api/members/profile
-router.put('/profile', authenticate, async (req, res) => {
-  try {
-    const { phone } = req.body;
+router.put('/profile', authenticate, asyncHandler(async (req, res) => {
+  const { phone } = req.body;
 
-    const updatedUser = await prisma.user.update({
-      where: { id: req.user.id },
-      data: { phone: phone || null },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true
-      }
-    });
+  const updatedUser = await prisma.user.update({
+    where: { id: req.user.id },
+    data: { phone: phone || null },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true
+    }
+  });
 
-    res.json(updatedUser);
-  } catch (error) {
-    console.error('Error updating profile:', error);
-    res.status(500).json({ error: 'Failed to update profile' });
-  }
-});
+  res.json(updatedUser);
+}));
 
 // Get current user's profile
 // GET /api/members/profile
-router.get('/profile', authenticate, async (req, res) => {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true
-      }
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+router.get('/profile', authenticate, asyncHandler(async (req, res) => {
+  const user = await prisma.user.findUnique({
+    where: { id: req.user.id },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true
     }
+  });
 
-    res.json(user);
-  } catch (error) {
-    console.error('Error fetching profile:', error);
-    res.status(500).json({ error: 'Failed to fetch profile' });
+  if (!user) {
+    throw new NotFoundError('User not found');
   }
-});
+
+  res.json(user);
+}));
 
 // Upload profile photo
 // POST /api/members/profile/avatar
@@ -694,27 +576,22 @@ router.post('/profile/avatar', authenticate, (req, res) => {
 
 // Delete profile photo
 // DELETE /api/members/profile/avatar
-router.delete('/profile/avatar', authenticate, async (req, res) => {
-  try {
-    const currentUser = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      select: { image: true }
-    });
+router.delete('/profile/avatar', authenticate, asyncHandler(async (req, res) => {
+  const currentUser = await prisma.user.findUnique({
+    where: { id: req.user.id },
+    select: { image: true }
+  });
 
-    if (currentUser?.image?.startsWith('/uploads/')) {
-      deleteUploadedFile(currentUser.image);
-    }
-
-    await prisma.user.update({
-      where: { id: req.user.id },
-      data: { image: null }
-    });
-
-    res.json({ message: 'Avatar removed' });
-  } catch (error) {
-    console.error('Error removing avatar:', error);
-    res.status(500).json({ error: 'Failed to remove avatar' });
+  if (currentUser?.image?.startsWith('/uploads/')) {
+    deleteUploadedFile(currentUser.image);
   }
-});
+
+  await prisma.user.update({
+    where: { id: req.user.id },
+    data: { image: null }
+  });
+
+  res.json({ message: 'Avatar removed' });
+}));
 
 export default router;

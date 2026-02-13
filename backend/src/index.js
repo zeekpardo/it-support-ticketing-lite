@@ -4,6 +4,7 @@ import path from 'path';
 import dotenv from 'dotenv';
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from './lib/auth.js';
+import { AppError } from './utils/errors.js';
 import timeEntriesRoutes from './routes/timeEntries.js';
 import projectsRoutes from './routes/projects.js';
 import reportsRoutes from './routes/reports.js';
@@ -79,7 +80,33 @@ app.get('/api/health', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  if (err instanceof AppError) {
+    console.error(`${err.name}: ${err.message}`);
+    return res.status(err.statusCode).json({ error: err.message });
+  }
+
+  if (err.code === 'P2002') {
+    const field = err.meta?.target?.[0] || 'field';
+    console.error(`Prisma unique constraint violation on ${field}`);
+    return res.status(400).json({ error: `A record with this ${field} already exists` });
+  }
+
+  if (err.code === 'P2025') {
+    console.error('Prisma record not found:', err.message);
+    return res.status(404).json({ error: 'Record not found' });
+  }
+
+  if (err.code === 'P2003') {
+    console.error('Prisma foreign key constraint:', err.message);
+    return res.status(400).json({ error: 'Invalid reference' });
+  }
+
+  if (err.name === 'MulterError') {
+    console.error('Upload error:', err.message);
+    return res.status(400).json({ error: err.message });
+  }
+
+  console.error('Unhandled error:', err.stack || err);
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
