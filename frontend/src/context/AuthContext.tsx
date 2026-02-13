@@ -43,24 +43,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const register = async (email: string, password: string, name: string) => {
+    console.log('[Auth] Starting registration...')
     const result = await signUp.email({
       email,
       password,
       name
     })
 
+    console.log('[Auth] Signup result:', result)
+
     if (result.error) {
+      console.error('[Auth] Signup failed:', result.error)
       throw new Error(result.error.message || 'Registration failed')
     }
 
     // Ensure the user has an authenticated session before onboarding actions
     // like organization.create, which require authorization.
+    console.log('[Auth] Checking session after signup...')
     const sessionResult = await getSession()
+    console.log('[Auth] Session result:', sessionResult)
+
     if (!sessionResult?.data?.session) {
+      console.log('[Auth] No session found, signing in...')
       const signInResult = await signIn.email({ email, password })
+      console.log('[Auth] Sign-in result:', signInResult)
+
       if (signInResult.error) {
+        console.error('[Auth] Sign-in failed:', signInResult.error)
         throw new Error(signInResult.error.message || 'Account created. Please sign in to continue.')
       }
+
+      // Verify session was created
+      const finalSession = await getSession()
+      console.log('[Auth] Final session check:', finalSession)
     }
   }
 
