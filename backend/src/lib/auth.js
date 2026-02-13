@@ -76,8 +76,9 @@ export const auth = betterAuth({
   advanced: {
     defaultCookieAttributes: {
       // Railway frontend/backend are cross-site in production, so cookies
-      // must be SameSite=None to be sent on auth API requests.
-      sameSite: isDev ? 'lax' : 'none'
+      // must be SameSite=None and Secure=true to be sent on auth API requests.
+      sameSite: isDev ? 'lax' : 'none',
+      secure: !isDev // Required when sameSite is 'none'
     }
   },
 
