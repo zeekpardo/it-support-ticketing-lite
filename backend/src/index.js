@@ -26,12 +26,29 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+const normalizeOrigin = (value) => {
+  if (!value || typeof value !== 'string') return null;
+  const input = value.trim();
+  if (!input) return null;
+
+  try {
+    const parsed = new URL(input);
+    return parsed.origin.toLowerCase();
+  } catch {
+    return input.replace(/\/+$/, '').toLowerCase();
+  }
+};
+
 // CORS configuration
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
   process.env.FRONTEND_URL
-].filter(Boolean);
+]
+  .map(normalizeOrigin)
+  .filter(Boolean);
+
+const allowedOriginSet = new Set(allowedOrigins);
 
 // Allow Chrome extension origins (matches any extension ID for development)
 app.use(cors({
@@ -40,7 +57,8 @@ app.use(cors({
     if (!origin) return callback(null, true);
 
     // Allow listed origins
-    if (allowedOrigins.includes(origin)) {
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (normalizedOrigin && allowedOriginSet.has(normalizedOrigin)) {
       return callback(null, true);
     }
 
@@ -49,6 +67,7 @@ app.use(cors({
       return callback(null, true);
     }
 
+    console.error('CORS blocked origin:', origin, 'Allowed origins:', Array.from(allowedOriginSet));
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true

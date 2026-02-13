@@ -7,6 +7,18 @@ import { sendVerificationEmail, sendPasswordResetEmail, sendInvitationEmail, sen
 
 // Environment configuration
 const isDev = process.env.NODE_ENV !== 'production';
+const normalizeOrigin = (value) => {
+  if (!value || typeof value !== 'string') return null;
+  const input = value.trim();
+  if (!input) return null;
+
+  try {
+    const parsed = new URL(input);
+    return parsed.origin;
+  } catch {
+    return input.replace(/\/+$/, '');
+  }
+};
 
 const prisma = new PrismaClient();
 
@@ -175,7 +187,7 @@ export const auth = betterAuth({
     'http://localhost:3000',
     process.env.FRONTEND_URL, // Production frontend
     'chrome-extension://cjcjnghodjkdjpilglboecgfellnnnfi' // Chrome extension
-  ].filter(Boolean)
+  ].map(normalizeOrigin).filter(Boolean)
 });
 
 export { prisma };
