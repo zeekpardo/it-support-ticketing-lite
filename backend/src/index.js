@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 import dotenv from 'dotenv';
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from './lib/auth.js';
@@ -54,6 +55,9 @@ app.all('/api/auth/*', toNodeHandler(auth));
 
 // JSON parsing for other routes
 app.use(express.json());
+
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // API Routes
 app.use('/api/time-entries', timeEntriesRoutes);

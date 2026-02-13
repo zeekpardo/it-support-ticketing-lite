@@ -2,6 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import { prisma } from '../lib/auth.js';
 import { authenticate, requireOrganization, requireOwner, requireAdmin, requireStaff } from '../middleware/auth.js';
+import { uploadAvatar, deleteUploadedFile } from '../middleware/upload.js';
 
 const router = express.Router();
 
@@ -651,6 +652,68 @@ router.get('/profile', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error fetching profile:', error);
     res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+});
+
+// Upload profile photo
+// POST /api/members/profile/avatar
+router.post('/profile/avatar', authenticate, (req, res) => {
+  uploadAvatar(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file provided' });
+    }
+
+    try {
+      const imageUrl = `/uploads/avatars/${req.file.filename}`;
+
+      const currentUser = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { image: true }
+      });
+
+      if (currentUser?.image?.startsWith('/uploads/')) {
+        deleteUploadedFile(currentUser.image);
+      }
+
+      const updatedUser = await prisma.user.update({
+        where: { id: req.user.id },
+        data: { image: imageUrl },
+        select: { id: true, name: true, email: true, phone: true, image: true }
+      });
+
+      res.json(updatedUser);
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      res.status(500).json({ error: 'Failed to upload avatar' });
+    }
+  });
+});
+
+// Delete profile photo
+// DELETE /api/members/profile/avatar
+router.delete('/profile/avatar', authenticate, async (req, res) => {
+  try {
+    const currentUser = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { image: true }
+    });
+
+    if (currentUser?.image?.startsWith('/uploads/')) {
+      deleteUploadedFile(currentUser.image);
+    }
+
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { image: null }
+    });
+
+    res.json({ message: 'Avatar removed' });
+  } catch (error) {
+    console.error('Error removing avatar:', error);
+    res.status(500).json({ error: 'Failed to remove avatar' });
   }
 });
 

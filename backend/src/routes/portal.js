@@ -2,6 +2,7 @@ import express from 'express';
 import { prisma } from '../lib/auth.js';
 import { authenticate, requireOrganization, requireClient } from '../middleware/auth.js';
 import { createNotification, parseMentions } from '../services/notificationService.js';
+import { uploadAttachments } from '../middleware/upload.js';
 
 const router = express.Router();
 
@@ -286,6 +287,53 @@ router.post('/tickets', async (req, res) => {
     console.error('Error creating ticket:', error);
     res.status(500).json({ error: 'Failed to create ticket' });
   }
+});
+
+// Upload attachments to a portal ticket
+// POST /api/portal/tickets/:id/attachments
+router.post('/tickets/:id/attachments', (req, res) => {
+  uploadAttachments(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No files provided' });
+    }
+
+    try {
+      const ticket = await prisma.supportTicket.findFirst({
+        where: {
+          id: req.params.id,
+          organizationId: req.organization.id,
+          clientId: req.membership.id
+        }
+      });
+
+      if (!ticket) {
+        return res.status(404).json({ error: 'Ticket not found' });
+      }
+
+      const attachments = await Promise.all(
+        req.files.map(file =>
+          prisma.ticketAttachment.create({
+            data: {
+              ticketId: req.params.id,
+              fileName: file.originalname,
+              fileSize: file.size,
+              fileType: file.mimetype,
+              fileUrl: `/uploads/attachments/${file.filename}`,
+              uploadedById: req.membership.id
+            }
+          })
+        )
+      );
+
+      res.status(201).json(attachments);
+    } catch (error) {
+      console.error('Error uploading attachments:', error);
+      res.status(500).json({ error: 'Failed to upload attachments' });
+    }
+  });
 });
 
 // Add public message to ticket

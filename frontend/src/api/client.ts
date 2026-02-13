@@ -244,6 +244,28 @@ class ApiClient {
     return response.json()
   }
 
+  async upload<T>(endpoint: string, formData: FormData): Promise<T> {
+    const headers: Record<string, string> = {}
+
+    if (this.organizationId) {
+      headers['X-Organization-Id'] = this.organizationId
+    }
+
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+      credentials: 'include'
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Upload failed' }))
+      throw new Error(error.error || 'Upload failed')
+    }
+
+    return response.json()
+  }
+
   // Time Entries
   async getTimeEntries(filters: {
     startDate?: string
@@ -590,6 +612,12 @@ class ApiClient {
     })
   }
 
+  async uploadTicketAttachments(ticketId: string, files: File[]) {
+    const formData = new FormData()
+    files.forEach(file => formData.append('attachments', file))
+    return this.upload<any[]>(`/tickets/${ticketId}/attachments`, formData)
+  }
+
   // === PORTAL (Client) ===
 
   async getPortalProjects() {
@@ -625,6 +653,12 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(data)
     })
+  }
+
+  async uploadPortalTicketAttachments(ticketId: string, files: File[]) {
+    const formData = new FormData()
+    files.forEach(file => formData.append('attachments', file))
+    return this.upload<any[]>(`/portal/tickets/${ticketId}/attachments`, formData)
   }
 
   async addPortalMessage(ticketId: string, content: string) {
@@ -788,6 +822,18 @@ class ApiClient {
     })
   }
 
+  async uploadAvatar(file: File) {
+    const formData = new FormData()
+    formData.append('avatar', file)
+    return this.upload<{ id: string; name: string; email: string; phone: string | null; image: string }>('/members/profile/avatar', formData)
+  }
+
+  async removeAvatar() {
+    return this.request<{ message: string }>('/members/profile/avatar', {
+      method: 'DELETE'
+    })
+  }
+
   // === SUPER ADMIN ===
 
   // Get all users with their organization memberships and project assignments
@@ -883,6 +929,12 @@ class ApiClient {
       method: 'PUT',
       body: JSON.stringify(data)
     })
+  }
+
+  async uploadSoftwareIcon(softwareId: string, file: File) {
+    const formData = new FormData()
+    formData.append('icon', file)
+    return this.upload<GlobalSoftware>(`/super-admin/software/${softwareId}/icon`, formData)
   }
 
   async deleteSuperAdminSoftware(id: string) {

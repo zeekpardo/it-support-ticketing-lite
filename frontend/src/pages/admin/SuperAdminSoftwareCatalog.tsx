@@ -8,7 +8,8 @@ import { Select } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Text } from '@/components/ui/text'
 import { Textarea } from '@/components/ui/textarea'
-import { Field, FieldGroup, Label } from '@/components/ui/fieldset'
+import { Field, FieldGroup, Label, Description } from '@/components/ui/fieldset'
+import { FileUpload } from '@/components/ui/file-upload'
 import { Dialog, DialogTitle, DialogDescription, DialogBody, DialogActions } from '@/components/ui/dialog'
 import {
   Table,
@@ -54,6 +55,7 @@ export default function SuperAdminSoftwareCatalog() {
   })
   const [formError, setFormError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [iconFile, setIconFile] = useState<File | null>(null)
 
   // Delete confirmation
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -114,6 +116,7 @@ export default function SuperAdminSoftwareCatalog() {
       categoryId: ''
     })
     setFormError('')
+    setIconFile(null)
     setShowModal(true)
   }
 
@@ -129,6 +132,7 @@ export default function SuperAdminSoftwareCatalog() {
       categoryId: item.categoryId || ''
     })
     setFormError('')
+    setIconFile(null)
     setShowModal(true)
   }
 
@@ -141,17 +145,22 @@ export default function SuperAdminSoftwareCatalog() {
       const data = {
         name: formData.name,
         description: formData.description || undefined,
-        iconUrl: formData.iconUrl || undefined,
+        iconUrl: iconFile ? undefined : (formData.iconUrl || undefined),
         vendor: formData.vendor || undefined,
         websiteUrl: formData.websiteUrl || undefined,
         notes: formData.notes || undefined,
         categoryId: formData.categoryId || undefined
       }
 
+      let software
       if (editingId) {
-        await api.updateSuperAdminSoftware(editingId, data)
+        software = await api.updateSuperAdminSoftware(editingId, data)
       } else {
-        await api.createSuperAdminSoftware(data)
+        software = await api.createSuperAdminSoftware(data)
+      }
+
+      if (iconFile && software.id) {
+        await api.uploadSoftwareIcon(software.id, iconFile)
       }
 
       setShowModal(false)
@@ -484,13 +493,41 @@ export default function SuperAdminSoftwareCatalog() {
                 </div>
 
                 <Field>
-                  <Label>Icon URL</Label>
-                  <Input
-                    type="url"
-                    value={formData.iconUrl}
-                    onChange={(e) => setFormData({ ...formData, iconUrl: e.target.value })}
-                    placeholder="https://example.com/icon.png"
-                  />
+                  <Label>Icon</Label>
+                  <Description>Upload an icon image or paste a URL</Description>
+                  <div className="flex items-start gap-4">
+                    {(formData.iconUrl || iconFile) && (
+                      <img
+                        src={iconFile ? URL.createObjectURL(iconFile) : formData.iconUrl}
+                        alt="Icon preview"
+                        className="h-12 w-12 rounded-lg object-cover ring-1 ring-zinc-200 dark:ring-zinc-700 shrink-0"
+                      />
+                    )}
+                    <div className="flex-1 space-y-2">
+                      <FileUpload
+                        accept="image/*"
+                        compact
+                        maxSizeMB={1}
+                        label="Upload icon"
+                        description="Max 1MB"
+                        onFilesSelected={(files) => {
+                          setIconFile(files[0])
+                          setFormData({ ...formData, iconUrl: '' })
+                        }}
+                      />
+                      <div className="text-center text-xs text-zinc-400">or</div>
+                      <Input
+                        type="url"
+                        value={iconFile ? '' : formData.iconUrl}
+                        onChange={(e) => {
+                          setIconFile(null)
+                          setFormData({ ...formData, iconUrl: e.target.value })
+                        }}
+                        placeholder="https://example.com/icon.png"
+                        disabled={!!iconFile}
+                      />
+                    </div>
+                  </div>
                 </Field>
 
                 <Field>

@@ -2,6 +2,7 @@ import express from 'express';
 import { prisma } from '../lib/auth.js';
 import { authenticate, requireOrganization, requireStaff, requireAdmin } from '../middleware/auth.js';
 import { createNotification, notifyMultiple, parseMentions } from '../services/notificationService.js';
+import { uploadAttachments, deleteUploadedFile } from '../middleware/upload.js';
 
 const router = express.Router();
 
@@ -837,6 +838,60 @@ router.get('/:id/attachments', requireStaff, async (req, res) => {
   }
 });
 
+// Upload ticket attachments
+// POST /api/tickets/:id/attachments
+router.post('/:id/attachments', requireStaff, (req, res) => {
+  uploadAttachments(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No files provided' });
+    }
+
+    try {
+      const ticket = await prisma.supportTicket.findFirst({
+        where: {
+          id: req.params.id,
+          organizationId: req.organization.id
+        }
+      });
+
+      if (!ticket) {
+        return res.status(404).json({ error: 'Ticket not found' });
+      }
+
+      const attachments = await Promise.all(
+        req.files.map(file =>
+          prisma.ticketAttachment.create({
+            data: {
+              ticketId: req.params.id,
+              fileName: file.originalname,
+              fileSize: file.size,
+              fileType: file.mimetype,
+              fileUrl: `/uploads/attachments/${file.filename}`,
+              uploadedById: req.membership.id
+            },
+            include: {
+              uploadedBy: {
+                select: {
+                  id: true,
+                  user: { select: { id: true, name: true } }
+                }
+              }
+            }
+          })
+        )
+      );
+
+      res.status(201).json(attachments);
+    } catch (error) {
+      console.error('Error uploading attachments:', error);
+      res.status(500).json({ error: 'Failed to upload attachments' });
+    }
+  });
+});
+
 // Delete attachment
 router.delete('/:id/attachments/:attachmentId', requireStaff, async (req, res) => {
   try {
@@ -860,6 +915,10 @@ router.delete('/:id/attachments/:attachmentId', requireStaff, async (req, res) =
 
     if (!attachment) {
       return res.status(404).json({ error: 'Attachment not found' });
+    }
+
+    if (attachment.fileUrl?.startsWith('/uploads/')) {
+      deleteUploadedFile(attachment.fileUrl);
     }
 
     await prisma.ticketAttachment.delete({

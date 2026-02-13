@@ -1,6 +1,7 @@
 import express from 'express';
 import { prisma } from '../lib/auth.js';
 import { authenticate } from '../middleware/auth.js';
+import { uploadIcon, deleteUploadedFile } from '../middleware/upload.js';
 
 const router = express.Router();
 
@@ -369,6 +370,51 @@ router.put('/software/:id', authenticate, requireSuperAdmin, async (req, res) =>
     console.error('Error updating software:', error);
     res.status(500).json({ error: 'Failed to update software' });
   }
+});
+
+// Upload software icon
+// POST /api/super-admin/software/:id/icon
+router.post('/software/:id/icon', authenticate, requireSuperAdmin, (req, res) => {
+  uploadIcon(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file provided' });
+    }
+
+    try {
+      const { id } = req.params;
+
+      const existing = await prisma.softwareCatalog.findUnique({
+        where: { id },
+        select: { iconUrl: true }
+      });
+
+      if (!existing) {
+        return res.status(404).json({ error: 'Software not found' });
+      }
+
+      if (existing.iconUrl?.startsWith('/uploads/')) {
+        deleteUploadedFile(existing.iconUrl);
+      }
+
+      const iconUrl = `/uploads/icons/${req.file.filename}`;
+
+      const software = await prisma.softwareCatalog.update({
+        where: { id },
+        data: { iconUrl },
+        include: {
+          category: true
+        }
+      });
+
+      res.json(software);
+    } catch (error) {
+      console.error('Error uploading icon:', error);
+      res.status(500).json({ error: 'Failed to upload icon' });
+    }
+  });
 });
 
 // Delete software

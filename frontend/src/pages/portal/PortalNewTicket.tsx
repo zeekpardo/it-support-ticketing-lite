@@ -40,7 +40,7 @@ export default function PortalNewTicket() {
   const handleSubmit = async (data: any) => {
     try {
       const ticket = await api.submitPortalTicket(data)
-      navigate(`/portal/tickets/${ticket.id}`)
+      return ticket
     } catch (error) {
       console.error('Failed to submit ticket:', error)
       throw error
@@ -110,6 +110,9 @@ export default function PortalNewTicket() {
           onSubmit={handleSubmit}
           showPriority={true}
           showContactFields={false}
+          showAttachments={true}
+          onUploadAttachments={(ticketId, files) => api.uploadPortalTicketAttachments(ticketId, files)}
+          onSuccess={(ticket) => navigate(`/portal/tickets/${ticket.id}`)}
         />
       </div>
     </div>

@@ -4,6 +4,7 @@ import { Input } from '../ui/input'
 import { Select } from '../ui/select'
 import { Textarea } from '../ui/textarea'
 import { Field, FieldGroup, Label, Description } from '../ui/fieldset'
+import { FileUpload } from '../ui/file-upload'
 
 interface TicketFormData {
   projectId: string
@@ -26,12 +27,15 @@ interface Project {
 
 interface TicketFormProps {
   projects: Project[]
-  onSubmit: (data: TicketFormData) => Promise<void>
+  onSubmit: (data: TicketFormData) => Promise<any>
   initialData?: Partial<TicketFormData>
   isLoading?: boolean
   showPriority?: boolean
   showContactFields?: boolean
   preselectedProjectId?: string
+  showAttachments?: boolean
+  onUploadAttachments?: (ticketId: string, files: File[]) => Promise<any>
+  onSuccess?: (ticket: any) => void
 }
 
 const REQUEST_TYPES = [
@@ -57,7 +61,10 @@ export function TicketForm({
   isLoading,
   showPriority = false,
   showContactFields = true,
-  preselectedProjectId
+  preselectedProjectId,
+  showAttachments = false,
+  onUploadAttachments,
+  onSuccess
 }: TicketFormProps) {
   // Auto-select project if only one is available
   const autoSelectedProjectId = projects.length === 1 ? projects[0].id : undefined
@@ -85,6 +92,7 @@ export function TicketForm({
 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([])
 
   const handleChange = (field: keyof TicketFormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -119,7 +127,18 @@ export function TicketForm({
             description: formData.description,
             screenRecordingLink: formData.screenRecordingLink
           }
-      await onSubmit(submitData as TicketFormData)
+      const result = await onSubmit(submitData as TicketFormData)
+
+      // Upload attachments if any were selected
+      if (attachmentFiles.length > 0 && onUploadAttachments && result?.id) {
+        try {
+          await onUploadAttachments(result.id, attachmentFiles)
+        } catch (attachErr) {
+          console.error('Attachment upload failed:', attachErr)
+        }
+      }
+
+      onSuccess?.(result)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit ticket')
     } finally {
@@ -268,6 +287,22 @@ export function TicketForm({
               placeholder="https://..."
             />
           </Field>
+
+          {showAttachments && (
+            <Field>
+              <Label>Attachments (optional)</Label>
+              <Description>Upload screenshots or relevant files. Max 5 files, 10MB each.</Description>
+              <FileUpload
+                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
+                multiple
+                maxFiles={5}
+                maxSizeMB={10}
+                files={attachmentFiles}
+                onFilesSelected={(newFiles) => setAttachmentFiles(prev => [...prev, ...newFiles])}
+                onRemoveFile={(index) => setAttachmentFiles(prev => prev.filter((_, i) => i !== index))}
+              />
+            </Field>
+          )}
         </FieldGroup>
       </div>
 

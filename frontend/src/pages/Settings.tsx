@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Field, FieldGroup, Label, Description } from '@/components/ui/fieldset'
 import { Divider } from '@/components/ui/divider'
+import { Avatar } from '@/components/ui/avatar'
+import { FileUpload } from '@/components/ui/file-upload'
 import { CheckCircleIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline'
 
 export default function Settings() {
@@ -19,6 +21,7 @@ export default function Settings() {
   const [profileLoading, setProfileLoading] = useState(false)
   const [profileSuccess, setProfileSuccess] = useState('')
   const [profileError, setProfileError] = useState('')
+  const [avatarUploading, setAvatarUploading] = useState(false)
 
   // Load user profile on mount
   useEffect(() => {
@@ -160,6 +163,57 @@ export default function Settings() {
               {profileError}
             </div>
           )}
+
+          <div className="mb-6">
+            <Label>Profile Photo</Label>
+            <div className="mt-2 flex items-center gap-6">
+              <Avatar
+                src={user?.image}
+                initials={user?.name?.charAt(0).toUpperCase()}
+                className="size-16"
+              />
+              <div className="flex-1">
+                <FileUpload
+                  accept="image/*"
+                  compact
+                  maxSizeMB={2}
+                  label={avatarUploading ? 'Uploading...' : 'Upload photo'}
+                  description="JPEG, PNG, GIF or WebP. Max 2MB."
+                  onFilesSelected={async (files) => {
+                    setAvatarUploading(true)
+                    setProfileError('')
+                    try {
+                      const result = await api.uploadAvatar(files[0])
+                      await authClient.updateUser({ image: result.image })
+                      setProfileSuccess('Profile photo updated')
+                    } catch (err) {
+                      setProfileError(err instanceof Error ? err.message : 'Upload failed')
+                    } finally {
+                      setAvatarUploading(false)
+                    }
+                  }}
+                />
+                {user?.image && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setProfileError('')
+                      try {
+                        await api.removeAvatar()
+                        await authClient.updateUser({ image: '' })
+                        setProfileSuccess('Profile photo removed')
+                      } catch (err) {
+                        setProfileError(err instanceof Error ? err.message : 'Failed to remove photo')
+                      }
+                    }}
+                    className="mt-1 text-sm text-red-600 hover:text-red-500"
+                  >
+                    Remove photo
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
 
           <FieldGroup>
             <Field>
