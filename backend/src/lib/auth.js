@@ -75,10 +75,12 @@ export const auth = betterAuth({
   }),
   advanced: {
     defaultCookieAttributes: {
-      // Railway frontend/backend are cross-site in production, so cookies
-      // must be SameSite=None and Secure=true to be sent on auth API requests.
-      sameSite: isDev ? 'lax' : 'none',
-      secure: !isDev // Required when sameSite is 'none'
+      // Using custom domain (app.groovi.support + api.groovi.support)
+      // Cookies work as first-party, so we can use the more secure 'lax' instead of 'none'
+      sameSite: 'lax',
+      secure: !isDev, // Required for HTTPS
+      // Set domain to .groovi.support to share cookies across subdomains
+      domain: isDev ? undefined : '.groovi.support'
     }
   },
 
@@ -193,7 +195,8 @@ export const auth = betterAuth({
   trustedOrigins: [
     'http://localhost:5173', // Vite dev server
     'http://localhost:3000',
-    process.env.FRONTEND_URL, // Production frontend
+    process.env.FRONTEND_URL, // Production frontend (app.groovi.support)
+    'https://app.groovi.support', // Production custom domain
     'chrome-extension://cjcjnghodjkdjpilglboecgfellnnnfi' // Chrome extension
   ].map(normalizeOrigin).filter(Boolean)
 });
