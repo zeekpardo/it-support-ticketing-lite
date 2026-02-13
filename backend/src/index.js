@@ -103,6 +103,17 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Email configuration check (for debugging)
+app.get('/api/email-config', (req, res) => {
+  res.json({
+    hasResendKey: !!process.env.RESEND_API_KEY,
+    fromEmail: process.env.FROM_EMAIL || 'Not set',
+    frontendUrl: process.env.FRONTEND_URL || 'Not set',
+    appName: process.env.APP_NAME || 'Not set',
+    nodeEnv: process.env.NODE_ENV || 'Not set'
+  });
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   if (err instanceof AppError) {
