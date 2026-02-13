@@ -5,6 +5,9 @@ const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 export const authClient = createAuthClient({
   baseURL: apiUrl,
+  fetchOptions: {
+    credentials: 'include'
+  },
   plugins: [
     adminClient(),
     organizationClient(),

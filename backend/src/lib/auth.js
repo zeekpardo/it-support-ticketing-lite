@@ -73,6 +73,13 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: 'postgresql'
   }),
+  advanced: {
+    defaultCookieAttributes: {
+      // Railway frontend/backend are cross-site in production, so cookies
+      // must be SameSite=None to be sent on auth API requests.
+      sameSite: isDev ? 'lax' : 'none'
+    }
+  },
 
   // Email & Password Authentication
   emailAndPassword: {
