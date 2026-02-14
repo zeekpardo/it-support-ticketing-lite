@@ -2,7 +2,6 @@ import { ReactNode } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useOrganization } from '../context/OrganizationContext'
-import { TimerBanner } from './TimerBanner'
 import {
   Sidebar,
   SidebarBody,
@@ -228,7 +227,6 @@ export function Layout({ children }: LayoutProps) {
           </Button>
         </div>
       )}
-      <TimerBanner />
       {/* Desktop header with notifications */}
       <div className="hidden lg:flex items-center justify-end px-6 pt-4 pb-2">
         <NotificationBell />

@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useOrganization } from '../context/OrganizationContext'
 import { useTimer } from '../context/TimerContext'
 import { api } from '../api/client'
-import { TicketComments, TicketTimeEntries, TICKET_STATUSES, PRIORITY_LEVELS } from '../components/tickets'
+import { TicketComments, TicketTimer, TICKET_STATUSES, PRIORITY_LEVELS } from '../components/tickets'
 import { Heading, Subheading } from '@/components/ui/heading'
 import { Button } from '@/components/ui/button'
 import { Text } from '@/components/ui/text'
@@ -59,8 +59,8 @@ interface MentionableMember {
 export default function TicketDetail() {
   const { projectId, ticketId } = useParams<{ projectId: string; ticketId: string }>()
   const navigate = useNavigate()
-  const { currentOrg, isAdmin } = useOrganization()
-  const { runningTimer, startTimer, stopTimer: stopGlobalTimer, refreshTimer, isLoading: timerLoading } = useTimer()
+  const { currentOrg, isAdmin, isStaff } = useOrganization()
+  const { runningTimer, startTimer, stopTimer: stopGlobalTimer } = useTimer()
   const [ticket, setTicket] = useState<Ticket | null>(null)
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
   const [mentionableMembers, setMentionableMembers] = useState<MentionableMember[]>([])
@@ -90,6 +90,45 @@ export default function TicketDetail() {
       setLoading(false)
     }
   }
+
+  // Keep a ref to the latest runningTimer for cleanup functions
+  const runningTimerRef = useRef(runningTimer)
+  useEffect(() => {
+    runningTimerRef.current = runningTimer
+  }, [runningTimer])
+
+  // Auto-start/stop timer based on ticket navigation (staff only)
+  const hasAutoStarted = useRef(false)
+  useEffect(() => {
+    if (!isStaff || !ticket) return
+
+    // Don't auto-start if already running on this ticket
+    if (runningTimer?.ticketId === ticket.id) {
+      hasAutoStarted.current = true
+      return
+    }
+
+    // Auto-start (backend auto-stops any other running timer)
+    if (!hasAutoStarted.current) {
+      hasAutoStarted.current = true
+      startTimer(ticket.id)
+        .then(() => loadData())
+        .catch(err => console.error('Auto-start timer failed:', err))
+    }
+
+    return () => {
+      hasAutoStarted.current = false
+    }
+  }, [ticket?.id, isStaff])
+
+  // Auto-stop when leaving the page or switching tickets
+  useEffect(() => {
+    return () => {
+      if (isStaff && runningTimerRef.current?.ticketId === ticketId) {
+        stopGlobalTimer().catch(err => console.error('Auto-stop timer failed:', err))
+      }
+    }
+  }, [ticketId, isStaff])
 
   const handleStatusChange = async (newStatus: string) => {
     if (!ticket) return
@@ -154,31 +193,6 @@ export default function TicketDetail() {
     }
   }
 
-  const handleStartTimer = async () => {
-    if (!ticket) return
-    try {
-      await startTimer(ticket.id)
-      // Reload ticket to get updated time entries
-      const ticketData = await api.getTicket(ticket.id)
-      setTicket(ticketData)
-    } catch (error) {
-      console.error('Failed to start timer:', error)
-    }
-  }
-
-  const handleStopTimer = async () => {
-    if (!ticket) return
-    try {
-      await stopGlobalTimer()
-      await refreshTimer()
-      // Reload ticket to get updated time entries and total
-      const ticketData = await api.getTicket(ticket.id)
-      setTicket(ticketData)
-    } catch (error) {
-      console.error('Failed to stop timer:', error)
-    }
-  }
-
   const handleDelete = async () => {
     if (!ticket || !confirm('Are you sure you want to delete this ticket?')) return
     try {
@@ -212,11 +226,6 @@ export default function TicketDetail() {
       </div>
     )
   }
-
-  // Check if this ticket has the running timer
-  const hasRunningTimerOnThisTicket = runningTimer?.ticketId === ticket.id
-  // Check if any timer is running (to disable start button)
-  const anyTimerRunning = !!runningTimer
 
   return (
     <div className="space-y-6">
@@ -274,19 +283,6 @@ export default function TicketDetail() {
             )}
           </div>
 
-          {/* Time Entries */}
-          <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10">
-            <TicketTimeEntries
-              timeEntries={ticket.timeEntries}
-              totalMinutes={ticket.totalTimeMinutes}
-              onStartTimer={handleStartTimer}
-              onStopTimer={handleStopTimer}
-              hasRunningTimer={hasRunningTimerOnThisTicket}
-              isLoading={timerLoading}
-              disableStart={anyTimerRunning && !hasRunningTimerOnThisTicket}
-            />
-          </div>
-
           {/* Comments */}
           <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10">
             <TicketComments
@@ -300,6 +296,17 @@ export default function TicketDetail() {
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {/* Timer Widget */}
+          {isStaff && (
+            <TicketTimer
+              ticketId={ticket.id}
+              timeEntries={ticket.timeEntries}
+              totalMinutes={ticket.totalTimeMinutes}
+              onTimerStarted={loadData}
+              onTimerStopped={loadData}
+            />
+          )}
+
           {/* Status & Assignment */}
           <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10 space-y-4">
             <Field>
