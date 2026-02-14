@@ -45,7 +45,7 @@ async function fetchReceivedEmail(emailId) {
  * Those must be fetched via GET /emails/receiving/{email_id}.
  */
 export async function processInboundEmail(payload) {
-  const { email_id, from, to: toArray, subject, message_id } = payload;
+  const { email_id, from, to: toArray, subject, message_id, attachments = [] } = payload;
   const to = Array.isArray(toArray) ? toArray[0] : toArray;
 
   console.log('[InboundEmail] Processing email from:', from, 'to:', to, 'email_id:', email_id);
