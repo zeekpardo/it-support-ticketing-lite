@@ -10,7 +10,7 @@ import { Text } from '@/components/ui/text'
 import { Select } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Field, Label } from '@/components/ui/fieldset'
-import { ArrowLeftIcon, TrashIcon, LinkIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, TrashIcon, LinkIcon, PaperClipIcon } from '@heroicons/react/24/outline'
 
 interface Ticket {
   id: string
@@ -41,6 +41,14 @@ interface Ticket {
     user: { id: string; name: string; email: string }
   } | null
   comments: any[]
+  attachments: {
+    id: string
+    fileName: string
+    fileSize: number
+    fileType: string
+    fileUrl: string
+    createdAt: string
+  }[]
   timeEntries: any[]
   totalTimeMinutes: number
 }
@@ -282,6 +290,43 @@ export default function TicketDetail() {
               </div>
             )}
           </div>
+
+          {/* Attachments */}
+          {ticket.attachments && ticket.attachments.length > 0 && (
+            <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10">
+              <h3 className="text-sm font-semibold text-zinc-900 dark:text-white flex items-center gap-2 mb-3">
+                <PaperClipIcon className="w-4 h-4" />
+                Attachments ({ticket.attachments.length})
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {ticket.attachments.map(att => (
+                  <a
+                    key={att.id}
+                    href={att.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group block rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden hover:border-blue-400 dark:hover:border-blue-500 transition-colors"
+                  >
+                    {att.fileType.startsWith('image/') ? (
+                      <img
+                        src={att.fileUrl}
+                        alt={att.fileName}
+                        className="w-full h-32 object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-32 flex items-center justify-center bg-zinc-50 dark:bg-zinc-900">
+                        <PaperClipIcon className="w-8 h-8 text-zinc-400" />
+                      </div>
+                    )}
+                    <div className="p-2">
+                      <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate">{att.fileName}</p>
+                      <p className="text-xs text-zinc-500">{(att.fileSize / 1024).toFixed(0)} KB</p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Comments */}
           <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10">

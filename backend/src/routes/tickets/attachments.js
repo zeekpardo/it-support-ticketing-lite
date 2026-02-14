@@ -6,10 +6,11 @@ import { uploadAttachments, deleteUploadedFile } from '../../middleware/upload.j
 import { NotFoundError, ValidationError } from '../../utils/errors.js';
 import { findTicketOrFail, createTicketAttachments } from '../../utils/entityHelpers.js';
 import { MEMBER_WITH_USER_BRIEF } from '../../utils/prismaFragments.js';
+import { getPresignedUrl, deleteFile } from '../../lib/storage.js';
 
 const router = express.Router();
 
-// Get ticket attachments
+// Get ticket attachments (with presigned URLs for S3 files)
 router.get('/:id/attachments', requireStaff, asyncHandler(async (req, res) => {
   await findTicketOrFail(req.params.id, req.organization.id);
 
@@ -21,7 +22,21 @@ router.get('/:id/attachments', requireStaff, asyncHandler(async (req, res) => {
     },
   });
 
-  res.json(attachments);
+  // Generate presigned URLs for S3-stored files
+  const withUrls = await Promise.all(attachments.map(async (att) => {
+    if (att.fileUrl.startsWith('s3:')) {
+      const key = att.fileUrl.slice(3);
+      try {
+        const url = await getPresignedUrl(key);
+        return { ...att, fileUrl: url };
+      } catch {
+        return att;
+      }
+    }
+    return att;
+  }));
+
+  res.json(withUrls);
 }));
 
 // Upload ticket attachments
@@ -58,7 +73,10 @@ router.delete('/:id/attachments/:attachmentId', requireStaff, asyncHandler(async
     throw new NotFoundError('Attachment not found');
   }
 
-  if (attachment.fileUrl?.startsWith('/uploads/')) {
+  // Delete file from appropriate storage
+  if (attachment.fileUrl.startsWith('s3:')) {
+    await deleteFile(attachment.fileUrl.slice(3));
+  } else if (attachment.fileUrl?.startsWith('/uploads/')) {
     deleteUploadedFile(attachment.fileUrl);
   }
 

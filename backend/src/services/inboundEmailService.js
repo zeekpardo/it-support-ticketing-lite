@@ -1,5 +1,6 @@
 import { prisma } from '../lib/auth.js';
 import { sanitizeEmailBody } from '../utils/htmlSanitizer.js';
+import { isStorageConfigured, uploadFile, generateAttachmentKey } from '../lib/storage.js';
 import crypto from 'crypto';
 
 const generateId = () => crypto.randomBytes(16).toString('hex');
@@ -143,7 +144,7 @@ export async function processInboundEmail(payload) {
     }
 
     // Create ticket from email (pass all recipients for participant tracking)
-    await createTicketFromEmail(inboundEmail, emailRule, attachments, { allToAddresses, allCcAddresses, from });
+    await createTicketFromEmail(inboundEmail, emailRule, attachments, { allToAddresses, allCcAddresses, from, emailId: email_id });
     console.log('[InboundEmail] Successfully created ticket');
   } catch (error) {
     console.error('[InboundEmail] Processing failed:', error);
@@ -211,7 +212,7 @@ async function findMatchingEmailRule(toAddress, fromAddress) {
 /**
  * Create a support ticket from an inbound email
  */
-async function createTicketFromEmail(inboundEmail, emailRule, attachments, { allToAddresses = [], allCcAddresses = [], from: rawFrom } = {}) {
+async function createTicketFromEmail(inboundEmail, emailRule, attachments, { allToAddresses = [], allCcAddresses = [], from: rawFrom, emailId } = {}) {
   const { from, fromName, subject, htmlBody, textBody } = inboundEmail;
   const { project } = emailRule;
   const EMAIL_DOMAIN = process.env.EMAIL_DOMAIN || 'groovi.support';
@@ -276,7 +277,11 @@ async function createTicketFromEmail(inboundEmail, emailRule, attachments, { all
     primaryClientId: client.id,
   });
 
-  // TODO: Handle attachments (save to disk, create TicketAttachment records)
+  // Download and store email attachments
+  if (emailId && isStorageConfigured()) {
+    await downloadAndStoreAttachments(emailId, ticket.id, client.id);
+  }
+
   // TODO: Send notification to assignee if any
 
   console.log('[InboundEmail] Created ticket:', ticket.id);
@@ -566,6 +571,69 @@ async function storeEmailParticipants(ticketId, { from, toAddresses, ccAddresses
 
   if (uniqueParticipants.length > 1) {
     console.log(`[InboundEmail] Stored ${uniqueParticipants.length} email participants for ticket`);
+  }
+}
+
+/**
+ * Download attachments from Resend and upload to S3 bucket.
+ * Creates TicketAttachment records for each file.
+ */
+async function downloadAndStoreAttachments(emailId, ticketId, uploadedById) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return;
+
+  try {
+    // Fetch attachment metadata with download URLs from Resend
+    const response = await fetch(`https://api.resend.com/emails/receiving/${emailId}/attachments`, {
+      headers: { 'Authorization': `Bearer ${apiKey}` },
+    });
+
+    if (!response.ok) {
+      console.warn('[InboundEmail] Failed to fetch attachments:', response.status);
+      return;
+    }
+
+    const result = await response.json();
+    const attachments = result.data || result || [];
+
+    if (!Array.isArray(attachments) || attachments.length === 0) return;
+
+    for (const att of attachments) {
+      try {
+        if (!att.download_url) continue;
+
+        // Download the file from Resend's signed URL
+        const fileResponse = await fetch(att.download_url);
+        if (!fileResponse.ok) {
+          console.warn('[InboundEmail] Failed to download attachment:', att.filename, fileResponse.status);
+          continue;
+        }
+
+        const buffer = Buffer.from(await fileResponse.arrayBuffer());
+        const key = generateAttachmentKey(ticketId, att.filename || 'attachment');
+
+        // Upload to S3 bucket
+        await uploadFile(buffer, key, att.content_type || 'application/octet-stream');
+
+        // Create database record (store S3 key as fileUrl with s3: prefix)
+        await prisma.ticketAttachment.create({
+          data: {
+            ticketId,
+            fileName: att.filename || 'attachment',
+            fileSize: att.size || buffer.length,
+            fileType: att.content_type || 'application/octet-stream',
+            fileUrl: `s3:${key}`,
+            uploadedById,
+          },
+        });
+
+        console.log('[InboundEmail] Stored attachment:', att.filename);
+      } catch (err) {
+        console.error('[InboundEmail] Failed to store attachment:', att.filename, err.message);
+      }
+    }
+  } catch (err) {
+    console.error('[InboundEmail] Attachment processing failed:', err.message);
   }
 }
 

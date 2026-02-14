@@ -96,14 +96,18 @@ export function sanitizeEmailBody(body) {
     // Stop at "On ... wrote:" patterns (email threading)
     if (/^On .+ wrote:$/i.test(trimmed)) break;
 
-    // Stop at common mobile signatures that indicate the end of content
+    // Stop at common mobile/email client signatures
     if (/^Sent from my /i.test(trimmed)) break;
     if (/^Get Outlook for /i.test(trimmed)) break;
+    if (/^Outlook for (iOS|Android)/i.test(trimmed)) break;
 
     cleanLines.push(line);
   }
 
   cleaned = cleanLines.join('\n').trim();
+
+  // Remove trailing orphaned words from split signatures (e.g., lone "Get" from "Get Outlook for iOS")
+  cleaned = cleaned.replace(/\nGet\s*$/i, '').trim();
 
   return cleaned || '(Empty message)';
 }

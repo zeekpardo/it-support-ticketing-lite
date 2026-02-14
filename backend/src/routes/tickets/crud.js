@@ -5,6 +5,7 @@ import { asyncHandler } from '../../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError } from '../../utils/errors.js';
 import { findTicketOrFail } from '../../utils/entityHelpers.js';
 import { createNotification } from '../../services/notificationService.js';
+import { getPresignedUrl } from '../../lib/storage.js';
 import {
   USER_SELECT, USER_SELECT_BRIEF, MEMBER_WITH_USER, MEMBER_WITH_USER_BRIEF,
   MEMBER_WITH_ROLE_AND_USER, PROJECT_SELECT_BRIEF, STAGE_SELECT,
@@ -93,8 +94,26 @@ router.get('/:id', requireStaff, asyncHandler(async (req, res) => {
     0
   );
 
+  // Resolve presigned URLs for S3-stored attachments
+  const resolveUrl = async (att) => {
+    if (att.fileUrl?.startsWith('s3:')) {
+      try {
+        return { ...att, fileUrl: await getPresignedUrl(att.fileUrl.slice(3)) };
+      } catch { return att; }
+    }
+    return att;
+  };
+
+  const attachments = await Promise.all(ticket.attachments.map(resolveUrl));
+  const comments = await Promise.all(ticket.comments.map(async (c) => ({
+    ...c,
+    attachments: c.attachments ? await Promise.all(c.attachments.map(resolveUrl)) : [],
+  })));
+
   res.json({
     ...ticket,
+    attachments,
+    comments,
     totalTimeMinutes: totalMinutes,
   });
 }));
