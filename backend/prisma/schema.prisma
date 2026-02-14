@@ -137,6 +137,9 @@ model Member {
   // Notification relations
   notifications Notification[]
 
+  // Email participant relations
+  emailParticipations TicketEmailParticipant[]
+
   @@unique([organizationId, userId])
   @@map("members")
 }
@@ -294,6 +297,24 @@ model OutboundEmail {
   @@map("outbound_emails")
 }
 
+model TicketEmailParticipant {
+  id       String        @id @default(cuid())
+  ticketId String        @map("ticket_id")
+  ticket   SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  email    String
+  name     String?
+  memberId String?       @map("member_id")
+  member   Member?       @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  type     String        // 'from', 'to', 'cc'
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([ticketId, email])
+  @@index([ticketId])
+  @@index([email])
+  @@map("ticket_email_participants")
+}
+
 model TimeEntry {
   id             String         @id @default(cuid())
   organizationId String         @map("organization_id")
@@ -407,8 +428,9 @@ model SupportTicket {
   timeEntries TimeEntry[]
 
   // Email integration
-  inboundEmail   InboundEmail?
-  outboundEmails OutboundEmail[]
+  inboundEmail        InboundEmail?
+  outboundEmails      OutboundEmail[]
+  emailParticipants   TicketEmailParticipant[]
 
   @@index([organizationId, status])
   @@index([organizationId, stageId])

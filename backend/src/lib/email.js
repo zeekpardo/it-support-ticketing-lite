@@ -160,10 +160,10 @@ function buildTextEmail({ greeting: greetingName, paragraphs = [], quote, button
 /**
  * Send an email using Resend with optional threading headers
  */
-export async function sendEmail({ to, subject, html, text, messageId, references, inReplyTo }) {
+export async function sendEmail({ to, cc, subject, html, text, messageId, references, inReplyTo }) {
   if (!process.env.RESEND_API_KEY) {
     console.log('[Email] No RESEND_API_KEY set, logging email instead:');
-    console.log({ to, subject, text: text?.substring(0, 200), messageId });
+    console.log({ to, cc, subject, text: text?.substring(0, 200), messageId });
     return { success: true, mock: true };
   }
 
@@ -185,6 +185,7 @@ export async function sendEmail({ to, subject, html, text, messageId, references
     const { data, error } = await client.emails.send({
       from: FROM_EMAIL,
       to,
+      ...(cc && cc.length > 0 && { cc }),
       subject,
       html,
       text,
@@ -722,9 +723,24 @@ export async function sendThreadedTicketReply({
   const references = allMessageIds.join(' ') || undefined;
   const inReplyTo = allMessageIds[allMessageIds.length - 1] || undefined;
 
+  // Get all email participants for this ticket (CC them on the reply)
+  const participants = await prisma.ticketEmailParticipant.findMany({
+    where: { ticketId },
+    select: { email: true },
+  });
+
+  // CC all participants except the primary recipient and our own domain
+  const ccAddresses = participants
+    .map(p => p.email)
+    .filter(email =>
+      email.toLowerCase() !== to.toLowerCase() &&
+      !email.toLowerCase().endsWith(`@${EMAIL_DOMAIN}`)
+    );
+
   // Send natural email reply (no "X commented" wrapper, no View Ticket button)
   const result = await sendEmail({
     to,
+    cc: ccAddresses.length > 0 ? ccAddresses : undefined,
     subject: `Re: ${ticketSubject}`,
     messageId,
     references,

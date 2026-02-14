@@ -36,6 +36,7 @@ async function fetchReceivedEmail(emailId) {
  *   email_id: "...",
  *   from: "Name <sender@example.com>",
  *   to: ["help@groovi.support"],
+ *   cc: ["person@example.com"],
  *   subject: "Need help with...",
  *   message_id: "<...>",
  *   attachments: [{ id, filename, content_type }]
@@ -45,8 +46,10 @@ async function fetchReceivedEmail(emailId) {
  * Those must be fetched via GET /emails/receiving/{email_id}.
  */
 export async function processInboundEmail(payload) {
-  const { email_id, from, to: toArray, subject, message_id, attachments = [] } = payload;
+  const { email_id, from, to: toArray, cc: ccArray, subject, message_id, attachments = [] } = payload;
   const to = Array.isArray(toArray) ? toArray[0] : toArray;
+  const allToAddresses = Array.isArray(toArray) ? toArray : (toArray ? [toArray] : []);
+  const allCcAddresses = Array.isArray(ccArray) ? ccArray : (ccArray ? [ccArray] : []);
 
   console.log('[InboundEmail] Processing email from:', from, 'to:', to, 'email_id:', email_id);
 
@@ -139,8 +142,8 @@ export async function processInboundEmail(payload) {
       return;
     }
 
-    // Create ticket from email
-    await createTicketFromEmail(inboundEmail, emailRule, attachments);
+    // Create ticket from email (pass all recipients for participant tracking)
+    await createTicketFromEmail(inboundEmail, emailRule, attachments, { allToAddresses, allCcAddresses, from });
     console.log('[InboundEmail] Successfully created ticket');
   } catch (error) {
     console.error('[InboundEmail] Processing failed:', error);
@@ -208,9 +211,10 @@ async function findMatchingEmailRule(toAddress, fromAddress) {
 /**
  * Create a support ticket from an inbound email
  */
-async function createTicketFromEmail(inboundEmail, emailRule, attachments) {
+async function createTicketFromEmail(inboundEmail, emailRule, attachments, { allToAddresses = [], allCcAddresses = [], from: rawFrom } = {}) {
   const { from, fromName, subject, htmlBody, textBody } = inboundEmail;
   const { project } = emailRule;
+  const EMAIL_DOMAIN = process.env.EMAIL_DOMAIN || 'groovi.support';
 
   // Parse sender name into first/last name
   const { firstName, lastName } = parseFullName(fromName || from);
@@ -261,8 +265,18 @@ async function createTicketFromEmail(inboundEmail, emailRule, attachments) {
     },
   });
 
+  // Store email participants (sender + TO recipients + CC recipients)
+  await storeEmailParticipants(ticket.id, {
+    from: rawFrom || from,
+    toAddresses: allToAddresses,
+    ccAddresses: allCcAddresses,
+    emailDomain: EMAIL_DOMAIN,
+    organizationId: project.organizationId,
+    projectId: project.id,
+    primaryClientId: client.id,
+  });
+
   // TODO: Handle attachments (save to disk, create TicketAttachment records)
-  // TODO: Send confirmation email to client
   // TODO: Send notification to assignee if any
 
   console.log('[InboundEmail] Created ticket:', ticket.id);
@@ -286,14 +300,25 @@ async function handleEmailReply(inboundEmail, inReplyToMessageId) {
   });
 
   if (!outboundEmail?.ticket) {
-    // Not a reply to our outbound email
-    return false;
+    // Not a reply to our outbound email — also check if sender is a known participant
+    const participant = await prisma.ticketEmailParticipant.findFirst({
+      where: { email: inboundEmail.from.toLowerCase() },
+      include: { ticket: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!participant?.ticket) {
+      return false;
+    }
+
+    // Found by participant lookup — continue with that ticket
+    return handleParticipantReply(inboundEmail, participant.ticket, participant.memberId);
   }
 
   const ticket = outboundEmail.ticket;
 
-  // Find client member by email in the ticket's organization
-  const client = await prisma.member.findFirst({
+  // Find client member by email — or auto-create if they're a known participant
+  let client = await prisma.member.findFirst({
     where: {
       organizationId: ticket.organizationId,
       user: { email: inboundEmail.from },
@@ -301,9 +326,25 @@ async function handleEmailReply(inboundEmail, inReplyToMessageId) {
   });
 
   if (!client) {
-    console.warn('[InboundEmail] Reply from unknown email:', inboundEmail.from);
-    // Could auto-create client here too, but for safety we'll skip replies from unknown senders
-    return false;
+    // Check if they're a known email participant on this ticket
+    const participant = await prisma.ticketEmailParticipant.findUnique({
+      where: { ticketId_email: { ticketId: ticket.id, email: inboundEmail.from.toLowerCase() } },
+    });
+
+    if (participant) {
+      // Auto-create client for known participant
+      const { firstName, lastName } = parseFullName(inboundEmail.fromName || inboundEmail.from);
+      client = await findOrCreateClient(inboundEmail.from, firstName, lastName, ticket.organizationId, ticket.projectId);
+
+      // Update participant with member ID
+      await prisma.ticketEmailParticipant.update({
+        where: { id: participant.id },
+        data: { memberId: client.id },
+      });
+    } else {
+      console.warn('[InboundEmail] Reply from unknown email:', inboundEmail.from);
+      return false;
+    }
   }
 
   // Sanitize content
@@ -329,9 +370,46 @@ async function handleEmailReply(inboundEmail, inReplyToMessageId) {
     },
   });
 
-  // TODO: Send notifications to ticket owner/watchers
-
   console.log('[InboundEmail] Created comment from reply:', comment.id, 'on ticket:', ticket.id);
+  return true;
+}
+
+/**
+ * Handle a reply from a known email participant (fallback when threading headers don't match outbound emails)
+ */
+async function handleParticipantReply(inboundEmail, ticket, memberId) {
+  let client;
+
+  if (memberId) {
+    client = await prisma.member.findUnique({ where: { id: memberId } });
+  }
+
+  if (!client) {
+    const { firstName, lastName } = parseFullName(inboundEmail.fromName || inboundEmail.from);
+    client = await findOrCreateClient(inboundEmail.from, firstName, lastName, ticket.organizationId, ticket.projectId);
+  }
+
+  const content = sanitizeEmailBody(inboundEmail.htmlBody || inboundEmail.textBody || '');
+
+  const comment = await prisma.ticketComment.create({
+    data: {
+      ticketId: ticket.id,
+      authorId: client.id,
+      content,
+      isInternal: false,
+    },
+  });
+
+  await prisma.inboundEmail.update({
+    where: { id: inboundEmail.id },
+    data: {
+      commentId: comment.id,
+      status: 'PROCESSED',
+      processedAt: new Date(),
+    },
+  });
+
+  console.log('[InboundEmail] Created comment from participant reply:', comment.id, 'on ticket:', ticket.id);
   return true;
 }
 
@@ -408,6 +486,86 @@ async function ensureProjectAssignment(memberId, projectId) {
       data: { memberId, projectId },
     });
     console.log('[InboundEmail] Assigned client to project');
+  }
+}
+
+/**
+ * Store all email participants (FROM, TO, CC) for a ticket.
+ * Creates client accounts for external participants and tracks them for threaded replies.
+ */
+async function storeEmailParticipants(ticketId, { from, toAddresses, ccAddresses, emailDomain, organizationId, projectId, primaryClientId }) {
+  const participants = [];
+
+  // Add the sender as 'from' participant
+  const fromAddress = parseEmailAddress(from);
+  const fromNameParsed = parseEmailName(from);
+  if (fromAddress) {
+    participants.push({ email: fromAddress, name: fromNameParsed, type: 'from', memberId: primaryClientId });
+  }
+
+  // Add TO recipients (excluding our own domain)
+  for (const addr of toAddresses) {
+    const email = parseEmailAddress(addr);
+    const name = parseEmailName(addr);
+    if (email && !email.toLowerCase().endsWith(`@${emailDomain}`)) {
+      participants.push({ email, name, type: 'to' });
+    }
+  }
+
+  // Add CC recipients (excluding our own domain)
+  for (const addr of ccAddresses) {
+    const email = parseEmailAddress(addr);
+    const name = parseEmailName(addr);
+    if (email && !email.toLowerCase().endsWith(`@${emailDomain}`)) {
+      participants.push({ email, name, type: 'cc' });
+    }
+  }
+
+  // Deduplicate by email (sender takes priority)
+  const seen = new Set();
+  const uniqueParticipants = [];
+  for (const p of participants) {
+    const key = p.email.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueParticipants.push(p);
+    }
+  }
+
+  // Create participant records and client accounts for non-sender participants
+  for (const p of uniqueParticipants) {
+    let memberId = p.memberId || null;
+
+    // For TO/CC participants without a memberId, find or create a client account
+    if (!memberId && p.type !== 'from') {
+      try {
+        const { firstName, lastName } = parseFullName(p.name || p.email);
+        const member = await findOrCreateClient(p.email, firstName, lastName, organizationId, projectId);
+        memberId = member.id;
+      } catch (err) {
+        console.warn('[InboundEmail] Could not create client for participant:', p.email, err.message);
+      }
+    }
+
+    try {
+      await prisma.ticketEmailParticipant.upsert({
+        where: { ticketId_email: { ticketId, email: p.email.toLowerCase() } },
+        create: {
+          ticketId,
+          email: p.email.toLowerCase(),
+          name: p.name || null,
+          memberId,
+          type: p.type,
+        },
+        update: {},  // Don't overwrite if already exists
+      });
+    } catch (err) {
+      console.warn('[InboundEmail] Could not store participant:', p.email, err.message);
+    }
+  }
+
+  if (uniqueParticipants.length > 1) {
+    console.log(`[InboundEmail] Stored ${uniqueParticipants.length} email participants for ticket`);
   }
 }
 
