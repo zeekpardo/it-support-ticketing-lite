@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { prisma } from './auth.js';
 
 // Lazy-load Resend client to avoid initialization errors when API key is not set
 let resend = null;
@@ -12,6 +13,17 @@ function getResendClient() {
 const FROM_EMAIL = process.env.FROM_EMAIL || 'Groovi Support <noreply@resend.dev>';
 const APP_NAME = process.env.APP_NAME || 'Groovi Support';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+const EMAIL_DOMAIN = process.env.EMAIL_DOMAIN || 'groovi.support';
+
+/**
+ * Generate a unique Message-ID for email threading
+ * Format: <ticketId.timestamp.random@domain>
+ */
+function generateMessageId(ticketId, type = 'ticket') {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(7);
+  return `<${ticketId}.${timestamp}.${random}@${EMAIL_DOMAIN}>`;
+}
 
 // ==========================================
 // Email Template System (DRY & Modular)
@@ -146,23 +158,37 @@ function buildTextEmail({ greeting: greetingName, paragraphs = [], quote, button
 }
 
 /**
- * Send an email using Resend
+ * Send an email using Resend with optional threading headers
  */
-export async function sendEmail({ to, subject, html, text }) {
+export async function sendEmail({ to, subject, html, text, messageId, references, inReplyTo }) {
   if (!process.env.RESEND_API_KEY) {
     console.log('[Email] No RESEND_API_KEY set, logging email instead:');
-    console.log({ to, subject, text: text?.substring(0, 200) });
+    console.log({ to, subject, text: text?.substring(0, 200), messageId });
     return { success: true, mock: true };
   }
 
   try {
     const client = getResendClient();
+
+    // Build headers for email threading
+    const headers = {};
+    if (messageId) {
+      headers['Message-ID'] = messageId;
+    }
+    if (references) {
+      headers['References'] = references;
+    }
+    if (inReplyTo) {
+      headers['In-Reply-To'] = inReplyTo;
+    }
+
     const { data, error } = await client.emails.send({
       from: FROM_EMAIL,
       to,
       subject,
       html,
-      text
+      text,
+      ...(Object.keys(headers).length > 0 && { headers })
     });
 
     if (error) {
@@ -170,7 +196,7 @@ export async function sendEmail({ to, subject, html, text }) {
       return { success: false, error };
     }
 
-    console.log('[Email] Sent successfully:', data?.id);
+    console.log('[Email] Sent successfully:', data?.id, messageId ? `(Message-ID: ${messageId})` : '');
     return { success: true, id: data?.id };
   } catch (err) {
     console.error('[Email] Error:', err);
@@ -440,9 +466,25 @@ export async function sendTicketSubmittedEmail({ to, recipientName, projectName,
     ? description.substring(0, 500) + '...'
     : description;
 
-  return sendEmail({
+  // Generate Message-ID for threading
+  const messageId = generateMessageId(ticketId, 'submitted');
+
+  // Get previous outbound emails for this ticket for threading
+  const previousEmails = await prisma.outboundEmail.findMany({
+    where: { ticketId },
+    orderBy: { sentAt: 'asc' },
+    select: { messageId: true }
+  });
+
+  const references = previousEmails.map(e => e.messageId).join(' ');
+  const inReplyTo = previousEmails[previousEmails.length - 1]?.messageId;
+
+  const result = await sendEmail({
     to,
     subject: `Request received: ${ticketSubject}`,
+    messageId,
+    references,
+    inReplyTo,
     html: buildHtmlEmail({
       greeting: recipientName,
       paragraphs: [
@@ -477,6 +519,22 @@ export async function sendTicketSubmittedEmail({ to, recipientName, projectName,
       buttonUrl: ticketUrl
     })
   });
+
+  // Store outbound email for future threading
+  if (result.success && !result.mock) {
+    await prisma.outboundEmail.create({
+      data: {
+        messageId,
+        ticketId,
+        to,
+        subject: `Request received: ${ticketSubject}`,
+        emailType: 'ticket_submitted',
+        sentAt: new Date(),
+      }
+    });
+  }
+
+  return result;
 }
 
 /**

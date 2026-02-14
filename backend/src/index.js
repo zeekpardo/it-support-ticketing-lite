@@ -19,6 +19,8 @@ import projectSoftwareRoutes from './routes/project-software.js';
 import portalSoftwareRoutes from './routes/portal-software.js';
 import importRoutes from './routes/import.js';
 import notificationsRoutes from './routes/notifications.js';
+import inboundEmailWebhook from './routes/webhooks/inbound-email.js';
+import emailRulesRoutes from './routes/email-rules.js';
 import { startCronJobs } from './services/cronService.js';
 
 dotenv.config();
@@ -76,6 +78,9 @@ app.use(cors({
 // Better Auth handler - must be before express.json() for auth routes
 app.all('/api/auth/*', toNodeHandler(auth));
 
+// Webhook routes (before express.json() for raw body access)
+app.use('/api/webhooks/inbound-email', inboundEmailWebhook);
+
 // JSON parsing for other routes
 app.use(express.json());
 
@@ -97,6 +102,7 @@ app.use('/api/software', projectSoftwareRoutes);
 app.use('/api/portal/software', portalSoftwareRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/email-rules', emailRulesRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

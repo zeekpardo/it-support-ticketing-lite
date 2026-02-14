@@ -36,6 +36,9 @@ import AcceptInvitation from './pages/AcceptInvitation'
 // Project Software pages
 import ProjectSoftwareCatalog from './pages/admin/ProjectSoftwareCatalog'
 import ProjectSoftwareDetail from './pages/admin/ProjectSoftwareDetail'
+// Email Management pages
+import ProjectEmailRules from './pages/admin/ProjectEmailRules'
+import InboundEmailLogs from './pages/admin/InboundEmailLogs'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth()
@@ -308,6 +311,26 @@ function AppRoutes() {
           <ProtectedRoute>
             <AdminRoute>
               <AdminMembers />
+            </AdminRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/email-rules"
+        element={
+          <ProtectedRoute>
+            <AdminRoute>
+              <ProjectEmailRules />
+            </AdminRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/email-logs"
+        element={
+          <ProtectedRoute>
+            <AdminRoute>
+              <InboundEmailLogs />
             </AdminRoute>
           </ProtectedRoute>
         }
