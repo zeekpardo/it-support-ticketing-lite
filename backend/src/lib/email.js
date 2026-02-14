@@ -678,6 +678,86 @@ export async function sendRenewalReminderEmail({
 }
 
 // ==========================================
+// Threaded Email Replies
+// ==========================================
+
+/**
+ * Send a threaded email reply for email-originated tickets.
+ * Used when smart channel detection determines the client prefers email.
+ * Sends a natural email (just the comment content) with proper threading headers.
+ */
+export async function sendThreadedTicketReply({
+  ticketId, to, recipientName, ticketSubject, commentContent, commentId
+}) {
+  const displayContent = prepareCommentContent(commentContent);
+  const messageId = generateMessageId(ticketId, 'reply');
+
+  // Build threading chain from ALL emails on this ticket
+  // 1. The initial inbound email (created the ticket)
+  const initialInbound = await prisma.inboundEmail.findUnique({
+    where: { ticketId },
+    select: { messageId: true },
+  });
+
+  // 2. Inbound email replies (linked via comments on this ticket)
+  const inboundReplies = await prisma.inboundEmail.findMany({
+    where: { comment: { ticketId }, status: 'PROCESSED' },
+    select: { messageId: true },
+  });
+
+  // 3. Previous outbound emails
+  const outboundEmails = await prisma.outboundEmail.findMany({
+    where: { ticketId },
+    orderBy: { sentAt: 'asc' },
+    select: { messageId: true },
+  });
+
+  // Combine all message IDs for References header
+  const allMessageIds = [
+    initialInbound?.messageId,
+    ...inboundReplies.map(e => e.messageId),
+    ...outboundEmails.map(e => e.messageId),
+  ].filter(Boolean);
+
+  const references = allMessageIds.join(' ') || undefined;
+  const inReplyTo = allMessageIds[allMessageIds.length - 1] || undefined;
+
+  // Send natural email reply (no "X commented" wrapper, no View Ticket button)
+  const result = await sendEmail({
+    to,
+    subject: `Re: ${ticketSubject}`,
+    messageId,
+    references,
+    inReplyTo,
+    html: buildHtmlEmail({
+      greeting: recipientName,
+      paragraphs: [displayContent],
+    }),
+    text: buildTextEmail({
+      greeting: recipientName,
+      paragraphs: [displayContent],
+    }),
+  });
+
+  // Store outbound email for future threading + reply routing
+  if (result.success && !result.mock) {
+    await prisma.outboundEmail.create({
+      data: {
+        messageId,
+        ticketId,
+        commentId: commentId || null,
+        to,
+        subject: `Re: ${ticketSubject}`,
+        emailType: 'ticket_reply',
+        sentAt: new Date(),
+      },
+    });
+  }
+
+  return result;
+}
+
+// ==========================================
 // User Account Emails
 // ==========================================
 

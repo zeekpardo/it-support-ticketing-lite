@@ -7,6 +7,8 @@
  */
 
 import { NOTIFICATION_TYPES } from './notificationTypes.js';
+import { sendThreadedTicketReply } from '../lib/email.js';
+import { prisma } from '../lib/auth.js';
 
 /**
  * Create a single notification (with optional email)
@@ -165,6 +167,35 @@ export async function notifyMultiple(prisma, { type, recipientIds, organizationI
 }
 
 /**
+ * Determine the client's preferred communication channel for a ticket.
+ * Checks the client's most recent interaction to decide email vs portal.
+ *
+ * @param {string} ticketId - The ticket ID
+ * @param {string} clientMemberId - The client's member ID
+ * @returns {Promise<'email'|'portal'>} The detected channel
+ */
+async function getClientChannel(ticketId, clientMemberId) {
+  // Check client's most recent comment on this ticket
+  const lastClientComment = await prisma.ticketComment.findFirst({
+    where: { ticketId, authorId: clientMemberId },
+    orderBy: { createdAt: 'desc' },
+    include: { inboundEmail: true },
+  });
+
+  if (lastClientComment) {
+    // If their last comment has an inbound email, they're using email
+    return lastClientComment.inboundEmail ? 'email' : 'portal';
+  }
+
+  // No comments from client yet — check how the ticket was created
+  const ticketInboundEmail = await prisma.inboundEmail.findUnique({
+    where: { ticketId },
+  });
+
+  return ticketInboundEmail ? 'email' : 'portal';
+}
+
+/**
  * Send comment notifications: mentions, ticket owner, and ticket client.
  * Handles the full notification flow for a new comment on a ticket.
  *
@@ -208,14 +239,48 @@ export async function sendCommentNotifications(prisma, {
       const isClient = member.role === 'client';
       if (isClient && isInternal) continue;
 
-      await createNotification(prisma, {
-        type: isClient ? 'MENTION_CLIENT' : 'MENTION',
-        recipientId: member.id,
-        organizationId,
-        data: notificationData,
-        entityType: 'comment',
-        entityId: comment.id,
-      });
+      if (isClient) {
+        // Client mention: apply smart channel detection
+        const channel = await getClientChannel(ticket.id, member.id);
+
+        await createNotification(prisma, {
+          type: 'MENTION_CLIENT',
+          recipientId: member.id,
+          organizationId,
+          data: notificationData,
+          entityType: 'comment',
+          entityId: comment.id,
+          sendEmail: false,
+        });
+
+        if (channel === 'email') {
+          const clientMember = await prisma.member.findUnique({
+            where: { id: member.id },
+            include: { user: { select: { email: true, name: true } } },
+          });
+
+          if (clientMember?.user?.email) {
+            await sendThreadedTicketReply({
+              ticketId: ticket.id,
+              to: clientMember.user.email,
+              recipientName: clientMember.user.name,
+              ticketSubject: ticket.subject,
+              commentContent: content,
+              commentId: comment.id,
+            });
+          }
+        }
+      } else {
+        // Staff mention: always send notification-style email
+        await createNotification(prisma, {
+          type: 'MENTION',
+          recipientId: member.id,
+          organizationId,
+          data: notificationData,
+          entityType: 'comment',
+          entityId: comment.id,
+        });
+      }
     }
   }
 
@@ -236,6 +301,9 @@ export async function sendCommentNotifications(prisma, {
       ticket.clientId &&
       ticket.clientId !== authorMemberId &&
       !mentionedMemberIds.includes(ticket.clientId)) {
+    const channel = await getClientChannel(ticket.id, ticket.clientId);
+
+    // Always create in-app notification (no email — handled separately based on channel)
     await createNotification(prisma, {
       type: 'TICKET_COMMENT_CLIENT',
       recipientId: ticket.clientId,
@@ -243,7 +311,28 @@ export async function sendCommentNotifications(prisma, {
       data: notificationData,
       entityType: 'comment',
       entityId: comment.id,
+      sendEmail: false,
     });
+
+    if (channel === 'email') {
+      // Email channel: send threaded email reply (natural email format)
+      const clientMember = await prisma.member.findUnique({
+        where: { id: ticket.clientId },
+        include: { user: { select: { email: true, name: true } } },
+      });
+
+      if (clientMember?.user?.email) {
+        await sendThreadedTicketReply({
+          ticketId: ticket.id,
+          to: clientMember.user.email,
+          recipientName: clientMember.user.name,
+          ticketSubject: ticket.subject,
+          commentContent: content,
+          commentId: comment.id,
+        });
+      }
+    }
+    // Portal channel: in-app notification only (no email)
   }
 }
 
