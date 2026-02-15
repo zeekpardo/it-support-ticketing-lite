@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import { prisma } from '../lib/auth.js';
 import { authenticate, requireOrganization, requireAdmin } from '../middleware/auth.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
@@ -219,6 +220,53 @@ router.get('/:id/stats', asyncHandler(async (req, res) => {
       uniqueUsers,
     },
   });
+}));
+
+// Generate client signup link for a project
+router.post('/:id/signup-link', requireAdmin, asyncHandler(async (req, res) => {
+  await findProjectOrFail(req.params.id, req.organization.id);
+
+  const token = crypto.randomBytes(16).toString('hex');
+  await prisma.project.update({
+    where: { id: req.params.id },
+    data: { clientSignupToken: token, clientSignupEnabled: true },
+  });
+
+  res.json({ token, enabled: true });
+}));
+
+// Toggle client signup link enabled/disabled
+router.patch('/:id/signup-link', requireAdmin, asyncHandler(async (req, res) => {
+  const { enabled } = req.body;
+  if (typeof enabled !== 'boolean') {
+    throw new ValidationError('enabled must be a boolean');
+  }
+
+  const project = await findProjectOrFail(req.params.id, req.organization.id);
+
+  const data = { clientSignupEnabled: enabled };
+  if (enabled && !project.clientSignupToken) {
+    data.clientSignupToken = crypto.randomBytes(16).toString('hex');
+  }
+
+  const updated = await prisma.project.update({
+    where: { id: req.params.id },
+    data,
+  });
+
+  res.json({ token: updated.clientSignupToken, enabled: updated.clientSignupEnabled });
+}));
+
+// Delete/revoke client signup link
+router.delete('/:id/signup-link', requireAdmin, asyncHandler(async (req, res) => {
+  await findProjectOrFail(req.params.id, req.organization.id);
+
+  await prisma.project.update({
+    where: { id: req.params.id },
+    data: { clientSignupToken: null, clientSignupEnabled: false },
+  });
+
+  res.json({ success: true });
 }));
 
 export { DEFAULT_STAGES };

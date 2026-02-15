@@ -1,4 +1,4 @@
-import { request } from './base'
+import { request, publicRequest } from './base'
 import type { TicketStage } from './types'
 
 // ==========================================
@@ -109,5 +109,43 @@ export async function deleteStage(projectId: string, stageId: string, moveTicket
   return request<{ message: string }>(`/projects/${projectId}/stages/${stageId}`, {
     method: 'DELETE',
     body: JSON.stringify({ moveTicketsToStageId })
+  })
+}
+
+// ==========================================
+// Client Signup Links
+// ==========================================
+
+export async function generateSignupLink(projectId: string) {
+  return request<{ token: string; enabled: boolean }>(`/projects/${projectId}/signup-link`, {
+    method: 'POST',
+  })
+}
+
+export async function toggleSignupLink(projectId: string, enabled: boolean) {
+  return request<{ token: string; enabled: boolean }>(`/projects/${projectId}/signup-link`, {
+    method: 'PATCH',
+    body: JSON.stringify({ enabled }),
+  })
+}
+
+export async function deleteSignupLink(projectId: string) {
+  return request<{ success: boolean }>(`/projects/${projectId}/signup-link`, {
+    method: 'DELETE',
+  })
+}
+
+export async function getSignupInfo(token: string) {
+  return publicRequest<{
+    organizationName: string
+    projectName: string
+    branding: { appName: string; primaryColor: string; logoUrl: string | null }
+  }>(`/client-signup/${token}`)
+}
+
+export async function submitClientSignup(token: string, data: { name: string; email: string; password: string }) {
+  return publicRequest<{ success: boolean; message?: string }>(`/client-signup/${token}`, {
+    method: 'POST',
+    body: JSON.stringify(data),
   })
 }

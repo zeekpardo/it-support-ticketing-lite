@@ -2,7 +2,12 @@ import { Select } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Field, Label } from '@/components/ui/fieldset'
 import { TICKET_STATUSES } from './StatusBadge'
-import { PRIORITY_LEVELS } from './TicketForm'
+const PRIORITY_OPTIONS = [
+  { value: 'LOW', label: 'Low' },
+  { value: 'MEDIUM', label: 'Medium' },
+  { value: 'HIGH', label: 'High' },
+  { value: 'URGENT', label: 'Urgent' },
+]
 import type { Ticket, StaffMember } from '../../hooks/useTicketDetail'
 
 interface TicketAssignmentProps {
@@ -25,8 +30,8 @@ export function TicketAssignment({
   onDueDateChange,
 }: TicketAssignmentProps) {
   return (
-    <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10 space-y-4">
-      <Field>
+    <div className="flex flex-wrap items-end gap-4">
+      <Field className="min-w-0">
         <Label>Status</Label>
         <Select
           value={ticket.status}
@@ -41,14 +46,14 @@ export function TicketAssignment({
         </Select>
       </Field>
 
-      <Field>
+      <Field className="min-w-0">
         <Label>Priority</Label>
         <Select
           value={ticket.priorityLevel}
           onChange={e => onPriorityChange(e.target.value)}
           disabled={saving}
         >
-          {PRIORITY_LEVELS.map(level => (
+          {PRIORITY_OPTIONS.map(level => (
             <option key={level.value} value={level.value}>
               {level.label}
             </option>
@@ -56,7 +61,7 @@ export function TicketAssignment({
         </Select>
       </Field>
 
-      <Field>
+      <Field className="min-w-0">
         <Label>Assigned To</Label>
         <Select
           value={ticket.owner?.id || ''}
@@ -72,7 +77,7 @@ export function TicketAssignment({
         </Select>
       </Field>
 
-      <Field>
+      <Field className="min-w-0">
         <Label>Due Date</Label>
         <Input
           type="date"

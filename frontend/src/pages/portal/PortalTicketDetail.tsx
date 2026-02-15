@@ -5,9 +5,7 @@ import { api } from '../../api/client'
 import { TicketComments, PriorityBadge, StatusBadge } from '../../components/tickets'
 import { Heading, Subheading } from '@/components/ui/heading'
 import { Text } from '@/components/ui/text'
-import { ArrowLeftIcon, LinkIcon } from '@heroicons/react/24/outline'
-import { EmailContent } from '../../components/EmailContent'
-import { safeHref } from '../../utils/sanitize'
+import { ArrowLeftIcon } from '@heroicons/react/24/outline'
 
 interface Ticket {
   id: string
@@ -155,30 +153,8 @@ export default function PortalTicketDetail() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Description */}
-          <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10">
-            <Subheading>Your Request</Subheading>
-            <div className="mt-3">
-              <EmailContent text={ticket.description} html={ticket.descriptionHtml} />
-            </div>
-            {safeHref(ticket.screenRecordingLink) && (
-              <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
-                <a
-                  href={safeHref(ticket.screenRecordingLink)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
-                >
-                  <LinkIcon className="w-4 h-4" />
-                  View Screen Recording
-                </a>
-              </div>
-            )}
-          </div>
-
-          {/* Messages */}
+        {/* Main Content — Unified Thread */}
+        <div className="lg:col-span-2">
           <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10">
             <TicketComments
               comments={ticket.comments}
@@ -186,6 +162,15 @@ export default function PortalTicketDetail() {
               onImageUpload={handleImageUpload}
               isStaff={false}
               mentionableMembers={mentionableMembers}
+              ticket={{
+                description: ticket.description,
+                descriptionHtml: ticket.descriptionHtml,
+                firstName: ticket.firstName,
+                lastName: ticket.lastName,
+                email: ticket.email,
+                createdAt: ticket.createdAt,
+                attachments: ticket.attachments,
+              }}
             />
           </div>
         </div>

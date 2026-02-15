@@ -91,6 +91,11 @@ class ApiClient {
   deleteProject = projectsApi.deleteProject
   getProjectStats = projectsApi.getProjectStats
 
+  // === Client Signup Links ===
+  generateSignupLink = projectsApi.generateSignupLink
+  toggleSignupLink = projectsApi.toggleSignupLink
+  deleteSignupLink = projectsApi.deleteSignupLink
+
   // === Project Stages ===
   getProjectStages = projectsApi.getProjectStages
   createStage = projectsApi.createStage

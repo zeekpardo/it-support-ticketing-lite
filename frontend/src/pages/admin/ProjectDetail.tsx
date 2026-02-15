@@ -15,6 +15,9 @@ import {
   FolderIcon,
   UserIcon,
   ArrowUpTrayIcon,
+  LinkIcon,
+  ClipboardIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline'
 import { ClientImportWizard } from '@/components/import/ClientImportWizard'
 
@@ -42,6 +45,8 @@ interface Project {
   dueDateMediumDays?: number | null
   dueDateHighDays?: number | null
   dueDateUrgentDays?: number | null
+  clientSignupToken?: string | null
+  clientSignupEnabled?: boolean
   _count?: {
     timeEntries: number
     tickets: number
@@ -59,6 +64,8 @@ export default function ProjectDetail() {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showImportWizard, setShowImportWizard] = useState(false)
+  const [signupLinkLoading, setSignupLinkLoading] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     if (currentOrg && id) {
@@ -77,6 +84,57 @@ export default function ProjectDetail() {
       console.error('Failed to load project:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const signupUrl = project?.clientSignupToken
+    ? `${window.location.origin}/join/${project.clientSignupToken}`
+    : null
+
+  const handleCopyLink = () => {
+    if (signupUrl) {
+      navigator.clipboard.writeText(signupUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const handleGenerateLink = async () => {
+    if (!id) return
+    setSignupLinkLoading(true)
+    try {
+      const result = await api.generateSignupLink(id)
+      setProject((prev) => prev ? { ...prev, clientSignupToken: result.token, clientSignupEnabled: result.enabled } : prev)
+    } catch (error) {
+      console.error('Failed to generate signup link:', error)
+    } finally {
+      setSignupLinkLoading(false)
+    }
+  }
+
+  const handleToggleLink = async (enabled: boolean) => {
+    if (!id) return
+    setSignupLinkLoading(true)
+    try {
+      const result = await api.toggleSignupLink(id, enabled)
+      setProject((prev) => prev ? { ...prev, clientSignupToken: result.token, clientSignupEnabled: result.enabled } : prev)
+    } catch (error) {
+      console.error('Failed to toggle signup link:', error)
+    } finally {
+      setSignupLinkLoading(false)
+    }
+  }
+
+  const handleDeleteLink = async () => {
+    if (!id || !confirm('This will permanently revoke the signup link. Continue?')) return
+    setSignupLinkLoading(true)
+    try {
+      await api.deleteSignupLink(id)
+      setProject((prev) => prev ? { ...prev, clientSignupToken: null, clientSignupEnabled: false } : prev)
+    } catch (error) {
+      console.error('Failed to delete signup link:', error)
+    } finally {
+      setSignupLinkLoading(false)
     }
   }
 
@@ -312,6 +370,88 @@ export default function ProjectDetail() {
                 Edit Project
               </Link>
             </div>
+          </div>
+
+          {/* Client Signup Link */}
+          <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
+            <div className="flex items-center gap-2">
+              <LinkIcon className="h-5 w-5 text-zinc-400" />
+              <Subheading>Client Signup Link</Subheading>
+            </div>
+            <Text className="mt-1 text-sm text-zinc-500">
+              Share this link so clients can sign up and access this project.
+            </Text>
+
+            {!project.clientSignupToken ? (
+              <Button
+                outline
+                className="mt-4 w-full"
+                onClick={handleGenerateLink}
+                disabled={signupLinkLoading}
+              >
+                {signupLinkLoading ? 'Generating...' : 'Generate Link'}
+              </Button>
+            ) : (
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Badge color={project.clientSignupEnabled ? 'green' : 'zinc'}>
+                    {project.clientSignupEnabled ? 'Enabled' : 'Disabled'}
+                  </Badge>
+                </div>
+
+                <div
+                  className={`flex items-center gap-2 rounded-lg border p-2 text-xs ${
+                    project.clientSignupEnabled
+                      ? 'border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900'
+                      : 'border-zinc-200 bg-zinc-100 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-500'
+                  }`}
+                >
+                  <span className="min-w-0 flex-1 truncate font-mono">{signupUrl}</span>
+                  <Button
+                    plain
+                    onClick={handleCopyLink}
+                    title="Copy link"
+                    className="shrink-0"
+                  >
+                    <ClipboardIcon className="h-4 w-4 text-zinc-400 hover:text-blue-500" />
+                  </Button>
+                </div>
+                {copied && (
+                  <Text className="text-xs text-green-600">Copied!</Text>
+                )}
+
+                <div className="flex gap-2">
+                  <Button
+                    outline
+                    className="flex-1"
+                    onClick={() => handleToggleLink(!project.clientSignupEnabled)}
+                    disabled={signupLinkLoading}
+                  >
+                    {project.clientSignupEnabled ? 'Disable' : 'Enable'}
+                  </Button>
+                  <Button
+                    outline
+                    onClick={() => {
+                      if (confirm('Generate a new link? The current link will stop working.')) {
+                        handleGenerateLink()
+                      }
+                    }}
+                    disabled={signupLinkLoading}
+                    title="Regenerate link"
+                  >
+                    <ArrowPathIcon className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    outline
+                    onClick={handleDeleteLink}
+                    disabled={signupLinkLoading}
+                    title="Delete link"
+                  >
+                    <TrashIcon className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

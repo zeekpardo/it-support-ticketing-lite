@@ -54,10 +54,9 @@ export function TicketTimer({ timeEntries, totalMinutes, timerRunning, elapsedSe
               onClick={onStop}
               disabled={timerLoading}
               color="red"
-              className="flex items-center gap-1"
+              title="Stop timer"
             >
               <StopIcon className="w-4 h-4" />
-              Stop
             </Button>
           </div>
         </div>
@@ -68,10 +67,9 @@ export function TicketTimer({ timeEntries, totalMinutes, timerRunning, elapsedSe
             onClick={onStart}
             disabled={timerLoading}
             outline
-            className="flex items-center gap-1"
+            title="Start timer"
           >
             <PlayIcon className="w-4 h-4" />
-            Start
           </Button>
         </div>
       )}

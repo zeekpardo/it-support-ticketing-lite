@@ -103,38 +103,15 @@ export function useTicketDetail(ticketId: string | undefined, projectId: string 
     timerIdRef.current = timerId
   }, [timerId])
 
-  // Auto-start timer when entering ticket (staff only)
-  const hasAutoStarted = useRef(false)
+  // Restore running timer from server data (don't auto-start)
   useEffect(() => {
     if (!isStaff || !ticket) return
-
-    if (!hasAutoStarted.current) {
-      hasAutoStarted.current = true
-      setTimerLoading(true)
-      api.startTicketTimer(ticket.id)
-        .then((entry: any) => {
-          setTimerId(entry.id)
-          setTimerStartTime(entry.startTime)
-          loadData()
-        })
-        .catch((err: unknown) => console.error('Auto-start timer failed:', err))
-        .finally(() => setTimerLoading(false))
-    }
-
-    return () => {
-      hasAutoStarted.current = false
+    const running = ticket.timeEntries.find((e: any) => e.isRunning)
+    if (running) {
+      setTimerId(running.id)
+      setTimerStartTime(running.startTime)
     }
   }, [ticket?.id, isStaff])
-
-  // Auto-stop when leaving the page or switching tickets
-  useEffect(() => {
-    return () => {
-      const id = timerIdRef.current
-      if (isStaff && id) {
-        api.stopTimer(id).catch((err: unknown) => console.error('Auto-stop timer failed:', err))
-      }
-    }
-  }, [ticketId, isStaff])
 
   // Elapsed time counter
   useEffect(() => {

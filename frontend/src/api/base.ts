@@ -46,6 +46,25 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
   return response.json()
 }
 
+export async function publicRequest<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...options.headers
+  }
+
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    ...options,
+    headers,
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Request failed' }))
+    throw new Error(error.error || 'Request failed')
+  }
+
+  return response.json()
+}
+
 export async function upload<T>(endpoint: string, formData: FormData): Promise<T> {
   const headers: Record<string, string> = {}
 

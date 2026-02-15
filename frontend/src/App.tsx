@@ -13,6 +13,7 @@ import Onboarding from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
 import AcceptInvitation from './pages/AcceptInvitation'
 import ResetPassword from './pages/ResetPassword'
+import ClientSignup from './pages/ClientSignup'
 
 // Lazy-loaded staff pages
 const Projects = lazy(() => import('./pages/Projects'))
@@ -185,6 +186,7 @@ function AppRoutes() {
       {/* Public routes that handle their own state */}
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/accept-invitation" element={<AcceptInvitation />} />
+      <Route path="/join/:token" element={<ClientSignup />} />
 
       {/* Protected routes */}
       <Route

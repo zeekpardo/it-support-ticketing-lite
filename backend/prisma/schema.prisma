@@ -215,6 +215,10 @@ model Project {
   autoReplyEnabled Boolean @default(false) @map("auto_reply_enabled")
   autoReplyHtml    String? @map("auto_reply_html") @db.Text
 
+  // Public client signup link
+  clientSignupToken   String?  @unique @map("client_signup_token")
+  clientSignupEnabled Boolean  @default(false) @map("client_signup_enabled")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
