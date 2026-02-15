@@ -130,6 +130,21 @@ export async function updateMemberProjects(memberId: string, projectIds: string[
 }
 
 // ==========================================
+// Invitation Project Assignments
+// ==========================================
+
+export async function getInvitationProjects() {
+  return request<Record<string, Array<{ id: string; name: string; projectCode: string }>>>('/members/invitations/projects')
+}
+
+export async function saveInvitationProjects(invitationId: string, projectIds: string[]) {
+  return request<{ success: boolean }>(`/members/invitations/${invitationId}/projects`, {
+    method: 'POST',
+    body: JSON.stringify({ projectIds })
+  })
+}
+
+// ==========================================
 // Profile
 // ==========================================
 

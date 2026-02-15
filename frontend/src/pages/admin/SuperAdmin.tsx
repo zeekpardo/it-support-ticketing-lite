@@ -3,8 +3,9 @@ import {
   UsersIcon,
   Square3Stack3DIcon,
   TagIcon,
+  BuildingOffice2Icon,
 } from '@heroicons/react/24/outline'
-import { UsersTab, SoftwareTab, CategoriesTab } from './super-admin'
+import { UsersTab, SoftwareTab, CategoriesTab, AccountsTab } from './super-admin'
 import type { TabType } from './super-admin'
 import { useTabbedPage } from '../../hooks/useTabbedPage'
 
@@ -41,7 +42,7 @@ function TabButton({
 // ==========================================
 
 export default function SuperAdmin() {
-  const tabs = useTabbedPage({ tabs: ['users', 'software', 'categories'] as const satisfies readonly TabType[], defaultTab: 'users' })
+  const tabs = useTabbedPage({ tabs: ['users', 'software', 'categories', 'accounts'] as const satisfies readonly TabType[], defaultTab: 'users' })
 
   return (
     <div className="space-y-6">
@@ -62,6 +63,10 @@ export default function SuperAdmin() {
             <TagIcon className="h-4 w-4" />
             Categories
           </TabButton>
+          <TabButton active={tabs.active ==='accounts'} onClick={() => tabs.set('accounts')}>
+            <BuildingOffice2Icon className="h-4 w-4" />
+            Accounts
+          </TabButton>
         </nav>
       </div>
 
@@ -69,6 +74,7 @@ export default function SuperAdmin() {
       {tabs.active ==='users' && <UsersTab />}
       {tabs.active ==='software' && <SoftwareTab />}
       {tabs.active ==='categories' && <CategoriesTab />}
+      {tabs.active ==='accounts' && <AccountsTab />}
     </div>
   )
 }

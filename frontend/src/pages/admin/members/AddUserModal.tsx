@@ -20,7 +20,7 @@ interface AddUserModalProps {
   onClose: () => void
   onSuccess: () => void
   isSuperAdmin: boolean
-  inviteMember: (email: string, role: string) => Promise<unknown>
+  inviteMember: (email: string, role: string) => Promise<string>
 }
 
 export default function AddUserModal({ open, onClose, onSuccess, isSuperAdmin, inviteMember }: AddUserModalProps) {
@@ -67,10 +67,8 @@ export default function AddUserModal({ open, onClose, onSuccess, isSuperAdmin, i
 
   const handleRoleChange = (newRole: 'manager' | 'member' | 'client') => {
     setRole(newRole)
-    if (newRole !== 'client') {
-      setProjectIds([])
-    } else if (isSuperAdmin) {
-      setAddMode('create')
+    if (newRole === 'client' && !isSuperAdmin && addMode === 'create') {
+      setAddMode('invite')
     }
   }
 
@@ -80,15 +78,17 @@ export default function AddUserModal({ open, onClose, onSuccess, isSuperAdmin, i
     setLoading(true)
 
     try {
-      if (role === 'client' && addMode === 'create' && projectIds.length === 0) {
+      if (role === 'client' && projectIds.length === 0) {
         throw new Error('Please select at least one project for the client')
-      }
-      if (role === 'client' && addMode === 'invite') {
-        throw new Error('Clients must be created directly with project assignments. Please use "Create User" mode.')
       }
 
       if (addMode === 'invite') {
-        await inviteMember(email, role)
+        const invitationId = await inviteMember(email, role)
+
+        // Save project assignments for the invitation if any were selected
+        if (projectIds.length > 0) {
+          await api.saveInvitationProjects(invitationId, projectIds)
+        }
       } else {
         if (!name.trim()) throw new Error('Name is required')
         if (!phone.trim()) throw new Error('Phone number is required')
@@ -112,6 +112,9 @@ export default function AddUserModal({ open, onClose, onSuccess, isSuperAdmin, i
       setLoading(false)
     }
   }
+
+  const showProjectSelection = addMode === 'invite' || (addMode === 'create' && role === 'client')
+  const projectsRequired = role === 'client'
 
   return (
     <Dialog open={open} onClose={handleClose} size="md">
@@ -222,10 +225,14 @@ export default function AddUserModal({ open, onClose, onSuccess, isSuperAdmin, i
               </Description>
             </Field>
 
-            {role === 'client' && addMode === 'create' && (
+            {showProjectSelection && (
               <Field>
-                <Label>Project Access *</Label>
-                <Description className="mb-2">Select at least one project the client can access.</Description>
+                <Label>Project Access{projectsRequired ? ' *' : ''}</Label>
+                <Description className="mb-2">
+                  {projectsRequired
+                    ? 'Select at least one project the client can access.'
+                    : 'Optionally assign projects the user will have access to.'}
+                </Description>
                 <ProjectCheckboxList
                   projects={projects}
                   selectedIds={projectIds}
@@ -233,15 +240,6 @@ export default function AddUserModal({ open, onClose, onSuccess, isSuperAdmin, i
                   emptyMessage="No active projects available. Create a project first."
                 />
               </Field>
-            )}
-
-            {role === 'client' && addMode === 'invite' && (
-              <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
-                Clients cannot be invited via email because they require project assignments.
-                {isSuperAdmin
-                  ? ' Please use "Create User" mode instead.'
-                  : ' Please contact a super admin to create client accounts.'}
-              </div>
             )}
           </FieldGroup>
         </DialogBody>

@@ -145,6 +145,79 @@ router.post('/create-user', authenticate, requireOrganization, requireOwner, asy
   }
 }));
 
+// Get all invitation project assignments for pending invitations in this org
+// GET /api/members/invitations/projects
+router.get('/invitations/projects', authenticate, requireOrganization, requireAdmin, asyncHandler(async (req, res) => {
+  const invitationProjects = await prisma.invitationProject.findMany({
+    where: {
+      invitation: {
+        organizationId: req.organization.id,
+        status: 'pending'
+      }
+    },
+    include: {
+      project: {
+        select: { id: true, name: true, projectCode: true }
+      }
+    }
+  });
+
+  // Group by invitation ID
+  const grouped = {};
+  for (const ip of invitationProjects) {
+    if (!grouped[ip.invitationId]) grouped[ip.invitationId] = [];
+    grouped[ip.invitationId].push(ip.project);
+  }
+
+  res.json(grouped);
+}));
+
+// Save project assignments for a pending invitation
+// POST /api/members/invitations/:invitationId/projects
+router.post('/invitations/:invitationId/projects', authenticate, requireOrganization, requireAdmin, asyncHandler(async (req, res) => {
+  const { invitationId } = req.params;
+  const { projectIds } = req.body;
+
+  if (!projectIds || !Array.isArray(projectIds) || projectIds.length === 0) {
+    throw new ValidationError('At least one project ID is required');
+  }
+
+  // Verify invitation exists, belongs to this org, and is still pending
+  const invitation = await prisma.invitation.findFirst({
+    where: {
+      id: invitationId,
+      organizationId: req.organization.id,
+      status: 'pending'
+    }
+  });
+
+  if (!invitation) {
+    throw new NotFoundError('Pending invitation not found');
+  }
+
+  // Verify all projects belong to this organization
+  const projects = await prisma.project.findMany({
+    where: {
+      id: { in: projectIds },
+      organizationId: req.organization.id
+    }
+  });
+
+  if (projects.length !== projectIds.length) {
+    throw new ValidationError('One or more projects not found in this organization');
+  }
+
+  // Delete existing invitation projects and create new ones (atomic)
+  await prisma.$transaction([
+    prisma.invitationProject.deleteMany({ where: { invitationId } }),
+    ...projectIds.map(projectId =>
+      prisma.invitationProject.create({ data: { invitationId, projectId } })
+    )
+  ]);
+
+  res.json({ success: true });
+}));
+
 // Get all clients with their project assignments
 // GET /api/members/clients
 router.get('/clients', authenticate, requireOrganization, requireAdmin, asyncHandler(async (req, res) => {

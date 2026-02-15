@@ -42,6 +42,7 @@ export type {
   MyAccessRequest
 } from './types'
 
+export type { SuperAdminAccount, SuperAdminAccountMember, AccountProject } from './superAdmin'
 export type { RequestOptions } from './base'
 
 // Import base helpers (used by the class)
@@ -149,6 +150,8 @@ class ApiClient {
   assignProject = membersApi.assignProject
   unassignProject = membersApi.unassignProject
   updateMemberProjects = membersApi.updateMemberProjects
+  getInvitationProjects = membersApi.getInvitationProjects
+  saveInvitationProjects = membersApi.saveInvitationProjects
   getProfile = membersApi.getProfile
   updateProfile = membersApi.updateProfile
   uploadAvatar = membersApi.uploadAvatar
@@ -157,6 +160,16 @@ class ApiClient {
 
   // === Super Admin ===
   getSuperAdminUsers = superAdminApi.getSuperAdminUsers
+
+  // Super Admin - Accounts
+  getSuperAdminAccounts = superAdminApi.getSuperAdminAccounts
+  getSuperAdminAccountMembers = superAdminApi.getSuperAdminAccountMembers
+  updateSuperAdminAccount = superAdminApi.updateSuperAdminAccount
+  updateSuperAdminAccountMember = superAdminApi.updateSuperAdminAccountMember
+  deleteSuperAdminAccount = superAdminApi.deleteSuperAdminAccount
+  getSuperAdminAccountProjects = superAdminApi.getSuperAdminAccountProjects
+  updateSuperAdminMemberProjects = superAdminApi.updateSuperAdminMemberProjects
+  removeSuperAdminAccountMember = superAdminApi.removeSuperAdminAccountMember
 
   // === Super Admin - Software Catalog ===
   getSuperAdminSoftware = softwareApi.getSuperAdminSoftware

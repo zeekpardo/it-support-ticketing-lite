@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useOrganization } from '../../context/OrganizationContext'
 import { useAuth } from '../../context/AuthContext'
 import { organization } from '../../lib/auth-client'
+import { api } from '../../api/client'
 import { Heading, Subheading } from '@/components/ui/heading'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
@@ -54,6 +55,7 @@ export default function AdminMembers() {
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [projectsMember, setProjectsMember] = useState<Member | null>(null)
+  const [invitationProjects, setInvitationProjects] = useState<Record<string, Array<{ id: string; name: string; projectCode: string }>>>({})
 
   useEffect(() => {
     if (currentOrg) loadMembers()
@@ -73,9 +75,16 @@ export default function AdminMembers() {
         query: { organizationId: currentOrg!.id }
       })
       if (invitesResult.data) {
-        setInvitations(
-          (invitesResult.data as Invitation[]).filter(inv => inv.status === 'pending')
-        )
+        const pending = (invitesResult.data as Invitation[]).filter(inv => inv.status === 'pending')
+        setInvitations(pending)
+
+        if (pending.length > 0) {
+          api.getInvitationProjects()
+            .then(setInvitationProjects)
+            .catch(err => console.error('Failed to load invitation projects:', err))
+        } else {
+          setInvitationProjects({})
+        }
       }
     } catch (error) {
       console.error('Failed to load members:', error)
@@ -225,36 +234,41 @@ export default function AdminMembers() {
                 <TableRow>
                   <TableHeader>Email</TableHeader>
                   <TableHeader>Role</TableHeader>
-                  <TableHeader>Status</TableHeader>
+                  <TableHeader>Projects</TableHeader>
                   <TableHeader>Expires</TableHeader>
                   <TableHeader className="w-[100px]">Actions</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {invitations.map((invitation) => (
-                  <TableRow key={invitation.id}>
-                    <TableCell className="font-medium">{invitation.email}</TableCell>
-                    <TableCell>
-                      <Badge color={ROLE_BADGE_COLORS[invitation.role] || 'zinc'}>
-                        {invitation.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge color="yellow">{invitation.status}</Badge>
-                    </TableCell>
-                    <TableCell className="text-zinc-500">
-                      {new Date(invitation.expiresAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        plain
-                        onClick={() => handleCancelInvitation(invitation.id)}
-                      >
-                        <TrashIcon className="h-4 w-4 text-zinc-400 hover:text-red-500" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {invitations.map((invitation) => {
+                  const projects = invitationProjects[invitation.id] || []
+                  return (
+                    <TableRow key={invitation.id}>
+                      <TableCell className="font-medium">{invitation.email}</TableCell>
+                      <TableCell>
+                        <Badge color={ROLE_BADGE_COLORS[invitation.role] || 'zinc'}>
+                          {invitation.role}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-zinc-500">
+                        {projects.length > 0
+                          ? projects.map(p => p.name).join(', ')
+                          : <span className="text-zinc-400">None</span>}
+                      </TableCell>
+                      <TableCell className="text-zinc-500">
+                        {new Date(invitation.expiresAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          plain
+                          onClick={() => handleCancelInvitation(invitation.id)}
+                        >
+                          <TrashIcon className="h-4 w-4 text-zinc-400 hover:text-red-500" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           </div>

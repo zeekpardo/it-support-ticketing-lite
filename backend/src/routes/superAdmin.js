@@ -3,6 +3,7 @@ import { authenticate } from '../middleware/auth.js';
 import usersRoutes from './superAdmin/users.js';
 import categoriesRoutes from './superAdmin/categories.js';
 import softwareRoutes from './superAdmin/software.js';
+import accountsRoutes from './superAdmin/accounts.js';
 
 const router = express.Router();
 
@@ -19,5 +20,6 @@ router.use((req, res, next) => {
 router.use('/users', usersRoutes);
 router.use('/software/categories', categoriesRoutes);
 router.use('/software', softwareRoutes);
+router.use('/accounts', accountsRoutes);
 
 export default router;

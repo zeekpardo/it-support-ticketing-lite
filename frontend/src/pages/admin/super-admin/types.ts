@@ -27,4 +27,4 @@ export interface User {
   members?: Membership[]
 }
 
-export type TabType = 'users' | 'software' | 'categories'
+export type TabType = 'users' | 'software' | 'categories' | 'accounts'

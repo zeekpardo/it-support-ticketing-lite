@@ -71,6 +71,43 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: 'postgresql'
   }),
+  databaseHooks: {
+    member: {
+      create: {
+        after: async (member) => {
+          try {
+            // When a member is created (e.g., from accepting an invitation),
+            // apply any pre-assigned project assignments from the invitation.
+            const user = await prisma.user.findUnique({ where: { id: member.userId } });
+            if (!user) return;
+
+            const invitation = await prisma.invitation.findFirst({
+              where: {
+                organizationId: member.organizationId,
+                email: user.email,
+                status: 'accepted'
+              },
+              orderBy: { createdAt: 'desc' },
+              include: { invitationProjects: true }
+            });
+
+            if (invitation?.invitationProjects?.length > 0) {
+              const projectIds = invitation.invitationProjects.map(ip => ip.projectId);
+              await prisma.projectAssignment.createMany({
+                data: projectIds.map(projectId => ({ memberId: member.id, projectId })),
+                skipDuplicates: true
+              });
+              await prisma.invitationProject.deleteMany({
+                where: { invitationId: invitation.id }
+              });
+            }
+          } catch (err) {
+            console.error('Failed to apply invitation project assignments:', err);
+          }
+        }
+      }
+    }
+  },
   advanced: {
     defaultCookieAttributes: {
       // Using custom domain (app.groovi.support + api.groovi.support)

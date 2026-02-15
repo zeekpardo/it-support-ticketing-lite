@@ -28,7 +28,7 @@ interface OrganizationContextType {
   isStaff: boolean
   selectOrganization: (org: Organization) => Promise<void>
   createOrganization: (name: string, slug: string) => Promise<Organization>
-  inviteMember: (email: string, role: string) => Promise<void>
+  inviteMember: (email: string, role: string) => Promise<string>
   removeMember: (memberId: string) => Promise<void>
   updateMemberRole: (memberId: string, role: string) => Promise<void>
   refreshOrganizations: () => Promise<void>
@@ -118,7 +118,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     throw new Error('Failed to create organization')
   }
 
-  const inviteMember = async (email: string, role: string) => {
+  const inviteMember = async (email: string, role: string): Promise<string> => {
     if (!currentOrg) throw new Error('No organization selected')
 
     const result = await organization.inviteMember({
@@ -130,6 +130,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     if (result.error) {
       throw new Error(result.error.message || 'Failed to invite member')
     }
+
+    return (result.data as { id: string }).id
   }
 
   const removeMember = async (memberId: string) => {

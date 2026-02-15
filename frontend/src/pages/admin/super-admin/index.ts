@@ -1,4 +1,5 @@
 export { UsersTab } from './UsersTab'
 export { SoftwareTab } from './SoftwareTab'
 export { CategoriesTab } from './CategoriesTab'
+export { AccountsTab } from './AccountsTab'
 export type { TabType, User, Membership } from './types'
