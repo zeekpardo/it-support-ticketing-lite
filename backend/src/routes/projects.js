@@ -27,6 +27,7 @@ const DEFAULT_STAGES = [
 const PROJECT_UPDATE_FIELDS = [
   'name', 'projectCode', 'clientName', 'description', 'isActive',
   'defaultAssigneeId', 'dueDateLowDays', 'dueDateMediumDays', 'dueDateHighDays', 'dueDateUrgentDays',
+  'autoReplyEnabled', 'autoReplyHtml',
 ];
 
 // Get all projects for organization

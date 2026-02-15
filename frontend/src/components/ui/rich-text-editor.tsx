@@ -24,6 +24,7 @@ export interface RichTextEditorRef {
   getText: () => string
   clear: () => void
   isEmpty: () => boolean
+  setContent: (html: string) => void
 }
 
 interface RichTextEditorProps {
@@ -31,6 +32,7 @@ interface RichTextEditorProps {
   placeholder?: string
   disabled?: boolean
   className?: string
+  initialContent?: string
   onUpdate?: (isEmpty: boolean) => void
   onImageUpload?: (file: File) => Promise<string | null>
 }
@@ -398,7 +400,7 @@ function createImageUploadPlugin(onImageUpload: (file: File) => Promise<string |
 }
 
 export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
-  ({ members = [], placeholder, disabled, className, onUpdate, onImageUpload }, ref) => {
+  ({ members = [], placeholder, disabled, className, initialContent, onUpdate, onImageUpload }, ref) => {
     const mentionSuggestion = useMemo(
       () => createMentionSuggestion(members),
       [members],
@@ -448,6 +450,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           placeholder: placeholder || 'Add a comment... Use @ to mention someone',
         }),
       ],
+      content: initialContent || '',
       editable: !disabled,
       onUpdate: ({ editor: e }) => {
         onUpdate?.(e.isEmpty)
@@ -483,6 +486,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       getText: () => (editor ? extractTextWithMentions(editor) : ''),
       clear: () => editor?.commands.clearContent(),
       isEmpty: () => editor?.isEmpty ?? true,
+      setContent: (html: string) => editor?.commands.setContent(html),
     }))
 
     if (!editor) {

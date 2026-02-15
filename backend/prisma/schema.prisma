@@ -193,6 +193,10 @@ model Project {
   dueDateHighDays   Int? @map("due_date_high_days")
   dueDateUrgentDays Int? @map("due_date_urgent_days")
 
+  // Auto-reply settings for email-originated tickets
+  autoReplyEnabled Boolean @default(false) @map("auto_reply_enabled")
+  autoReplyHtml    String? @map("auto_reply_html") @db.Text
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

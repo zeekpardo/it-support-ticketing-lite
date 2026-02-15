@@ -1,6 +1,8 @@
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react'
 import { api, Notification } from '../api/client'
 import { useOrganization } from './OrganizationContext'
+import { API_BASE } from '../api/base'
+import { getOrganizationId } from '../api/base'
 
 interface NotificationContextType {
   notifications: Notification[]
@@ -8,7 +10,6 @@ interface NotificationContextType {
   isLoading: boolean
   hasMore: boolean
   fetchNotifications: (reset?: boolean) => Promise<void>
-  fetchUnreadCount: () => Promise<void>
   markAsRead: (id: string) => Promise<void>
   markAllAsRead: () => Promise<void>
   deleteNotification: (id: string) => Promise<void>
@@ -16,7 +17,6 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | null>(null)
 
-const POLLING_INTERVAL = 30000 // 30 seconds
 const PAGE_SIZE = 20
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
@@ -26,20 +26,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [offset, setOffset] = useState(0)
-
-  const fetchUnreadCount = useCallback(async () => {
-    if (!currentOrg) {
-      setUnreadCount(0)
-      return
-    }
-
-    try {
-      const { count } = await api.getUnreadNotificationCount()
-      setUnreadCount(count)
-    } catch (error) {
-      console.error('Failed to fetch unread count:', error)
-    }
-  }, [currentOrg])
+  const eventSourceRef = useRef<EventSource | null>(null)
 
   const fetchNotifications = useCallback(async (reset = false) => {
     if (!currentOrg) {
@@ -76,7 +63,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     try {
       await api.markNotificationAsRead(id)
 
-      // Update local state
+      // Update local state immediately
       setNotifications(prev =>
         prev.map(n =>
           n.id === id ? { ...n, isRead: true, readAt: new Date().toISOString() } : n
@@ -93,7 +80,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     try {
       await api.markAllNotificationsAsRead()
 
-      // Update local state
+      // Update local state immediately
       setNotifications(prev =>
         prev.map(n => ({ ...n, isRead: true, readAt: new Date().toISOString() }))
       )
@@ -108,7 +95,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     try {
       await api.deleteNotification(id)
 
-      // Update local state
+      // Update local state immediately
       const notification = notifications.find(n => n.id === id)
       setNotifications(prev => prev.filter(n => n.id !== id))
       if (notification && !notification.isRead) {
@@ -120,24 +107,45 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, [notifications])
 
-  // Fetch unread count on org change
+  // SSE connection for real-time unread count
+  useEffect(() => {
+    if (!currentOrg) {
+      setUnreadCount(0)
+      return
+    }
+
+    const orgId = getOrganizationId()
+    const url = `${API_BASE}/notifications/stream${orgId ? `?orgId=${orgId}` : ''}`
+    const es = new EventSource(url, { withCredentials: true })
+    eventSourceRef.current = es
+
+    es.onmessage = (event) => {
+      try {
+        const { count } = JSON.parse(event.data)
+        setUnreadCount(count)
+      } catch {
+        // Ignore malformed messages
+      }
+    }
+
+    es.onerror = () => {
+      // EventSource auto-reconnects; nothing to do here
+    }
+
+    return () => {
+      es.close()
+      eventSourceRef.current = null
+    }
+  }, [currentOrg])
+
+  // Reset notification list when org changes
   useEffect(() => {
     if (currentOrg) {
-      fetchUnreadCount()
-      // Reset notifications when org changes
       setNotifications([])
       setOffset(0)
       setHasMore(true)
     }
-  }, [currentOrg, fetchUnreadCount])
-
-  // Poll for unread count
-  useEffect(() => {
-    if (!currentOrg) return
-
-    const interval = setInterval(fetchUnreadCount, POLLING_INTERVAL)
-    return () => clearInterval(interval)
-  }, [currentOrg, fetchUnreadCount])
+  }, [currentOrg])
 
   return (
     <NotificationContext.Provider
@@ -147,7 +155,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         isLoading,
         hasMore,
         fetchNotifications,
-        fetchUnreadCount,
         markAsRead,
         markAllAsRead,
         deleteNotification,

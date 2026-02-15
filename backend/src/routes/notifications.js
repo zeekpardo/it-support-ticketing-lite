@@ -4,12 +4,58 @@ import { authenticate, requireOrganization } from '../middleware/auth.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { NotFoundError } from '../utils/errors.js';
 import { getUnreadCount, markAsRead, markAllAsRead } from '../services/notificationService.js';
+import notificationEmitter from '../services/notificationEmitter.js';
 
 const router = express.Router();
+
+// EventSource can't set custom headers, so accept org ID via query param
+router.use((req, res, next) => {
+  if (req.query.orgId && !req.headers['x-organization-id']) {
+    req.headers['x-organization-id'] = req.query.orgId;
+  }
+  next();
+});
 
 // All routes require authentication and organization context
 router.use(authenticate);
 router.use(requireOrganization);
+
+/**
+ * GET /notifications/stream
+ * SSE endpoint — pushes unread count whenever it changes
+ */
+router.get('/stream', async (req, res) => {
+  const memberId = req.membership.id;
+  const organizationId = req.organization.id;
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+  });
+
+  // Send initial count immediately
+  const count = await getUnreadCount(prisma, memberId, organizationId);
+  res.write(`data: ${JSON.stringify({ count })}\n\n`);
+
+  // Push updates when this user's notifications change
+  const onChange = async ({ recipientId, organizationId: orgId }) => {
+    if (recipientId === memberId && orgId === organizationId) {
+      try {
+        const count = await getUnreadCount(prisma, memberId, organizationId);
+        res.write(`data: ${JSON.stringify({ count })}\n\n`);
+      } catch {
+        // Connection likely closed — listener will be cleaned up
+      }
+    }
+  };
+
+  notificationEmitter.on('change', onChange);
+
+  req.on('close', () => {
+    notificationEmitter.off('change', onChange);
+  });
+});
 
 /**
  * GET /notifications
@@ -70,6 +116,11 @@ router.put('/:id/read', asyncHandler(async (req, res) => {
     throw new NotFoundError('Notification not found or already read');
   }
 
+  notificationEmitter.emit('change', {
+    recipientId: req.membership.id,
+    organizationId: req.organization.id,
+  });
+
   res.json({ success: true });
 }));
 
@@ -83,6 +134,11 @@ router.put('/read-all', asyncHandler(async (req, res) => {
     req.membership.id,
     req.organization.id
   );
+
+  notificationEmitter.emit('change', {
+    recipientId: req.membership.id,
+    organizationId: req.organization.id,
+  });
 
   res.json({ success: true, count: result.count });
 }));
@@ -106,6 +162,13 @@ router.delete('/:id', asyncHandler(async (req, res) => {
   await prisma.notification.delete({
     where: { id: req.params.id },
   });
+
+  if (!notification.isRead) {
+    notificationEmitter.emit('change', {
+      recipientId: req.membership.id,
+      organizationId: req.organization.id,
+    });
+  }
 
   res.json({ success: true });
 }));

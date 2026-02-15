@@ -832,3 +832,50 @@ export async function sendWelcomeEmail({ to, name, organizationName, email, temp
     })
   });
 }
+
+/**
+ * Send auto-reply email for email-originated tickets.
+ * Sends a threaded reply to the client using the project's configured template.
+ */
+export async function sendAutoReplyEmail({ ticketId, to, ticketSubject, autoReplyHtml, inboundMessageId }) {
+  const messageId = generateMessageId(ticketId, 'auto-reply');
+
+  // Build threading chain: inbound email + any prior outbound emails
+  const previousOutbound = await prisma.outboundEmail.findMany({
+    where: { ticketId },
+    orderBy: { sentAt: 'asc' },
+    select: { messageId: true },
+  });
+
+  const allMessageIds = [
+    ...(inboundMessageId ? [inboundMessageId] : []),
+    ...previousOutbound.map((e) => e.messageId),
+  ];
+  const references = allMessageIds.join(' ');
+  const inReplyTo = allMessageIds[allMessageIds.length - 1];
+
+  const result = await sendEmail({
+    to,
+    subject: `Re: ${ticketSubject}`,
+    messageId,
+    references,
+    inReplyTo,
+    html: baseTemplate(autoReplyHtml),
+    text: '', // HTML-only; email clients will render HTML
+  });
+
+  if (result.success && !result.mock) {
+    await prisma.outboundEmail.create({
+      data: {
+        messageId,
+        ticketId,
+        to,
+        subject: `Re: ${ticketSubject}`,
+        emailType: 'auto_reply',
+        sentAt: new Date(),
+      },
+    });
+  }
+
+  return result;
+}

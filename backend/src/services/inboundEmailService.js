@@ -2,6 +2,7 @@ import { prisma } from '../lib/auth.js';
 import { sanitizeEmailBody, sanitizeEmailHtml } from '../utils/htmlSanitizer.js';
 import { isStorageConfigured, uploadFile, generateAttachmentKey } from '../lib/storage.js';
 import { createNotification } from './notificationService.js';
+import { sendAutoReplyEmail } from '../lib/email.js';
 import crypto from 'crypto';
 
 const generateId = () => crypto.randomBytes(16).toString('hex');
@@ -182,6 +183,8 @@ async function findMatchingEmailRule(toAddress, fromAddress) {
           dueDateMediumDays: true,
           dueDateHighDays: true,
           dueDateUrgentDays: true,
+          autoReplyEnabled: true,
+          autoReplyHtml: true,
         },
       },
     },
@@ -316,6 +319,21 @@ async function createTicketFromEmail(inboundEmail, emailRule, attachments, { all
       });
     } catch (notifError) {
       console.error('[InboundEmail] Error sending new ticket notification:', notifError);
+    }
+  }
+
+  // Send auto-reply to client if enabled for this project
+  if (project.autoReplyEnabled && project.autoReplyHtml) {
+    try {
+      await sendAutoReplyEmail({
+        ticketId: ticket.id,
+        to: from,
+        ticketSubject: subject || '(No Subject)',
+        autoReplyHtml: project.autoReplyHtml,
+        inboundMessageId: inboundEmail.messageId,
+      });
+    } catch (autoReplyError) {
+      console.error('[InboundEmail] Error sending auto-reply:', autoReplyError);
     }
   }
 

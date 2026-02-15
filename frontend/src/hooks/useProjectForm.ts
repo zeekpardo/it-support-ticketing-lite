@@ -13,6 +13,8 @@ interface ProjectFormData {
   dueDateHighDays: string
   dueDateUrgentDays: string
   isActive: boolean
+  autoReplyEnabled: boolean
+  autoReplyHtml: string
 }
 
 const INITIAL_FORM: ProjectFormData = {
@@ -26,6 +28,8 @@ const INITIAL_FORM: ProjectFormData = {
   dueDateHighDays: '',
   dueDateUrgentDays: '',
   isActive: true,
+  autoReplyEnabled: false,
+  autoReplyHtml: '',
 }
 
 interface Project {
@@ -40,6 +44,8 @@ interface Project {
   dueDateMediumDays?: number | null
   dueDateHighDays?: number | null
   dueDateUrgentDays?: number | null
+  autoReplyEnabled?: boolean
+  autoReplyHtml?: string | null
   _count?: { timeEntries: number }
 }
 
@@ -68,6 +74,8 @@ export function useProjectForm(projectId: string | undefined) {
       dueDateHighDays: data.dueDateHighDays?.toString() || '',
       dueDateUrgentDays: data.dueDateUrgentDays?.toString() || '',
       isActive: data.isActive,
+      autoReplyEnabled: data.autoReplyEnabled ?? false,
+      autoReplyHtml: data.autoReplyHtml || '',
     })
   }, [])
 
@@ -90,6 +98,8 @@ export function useProjectForm(projectId: string | undefined) {
         dueDateHighDays: parseDays(form.dueDateHighDays),
         dueDateUrgentDays: parseDays(form.dueDateUrgentDays),
         isActive: form.isActive,
+        autoReplyEnabled: form.autoReplyEnabled,
+        autoReplyHtml: form.autoReplyHtml || null,
       })
       navigate('/admin/projects')
     } catch (err) {
@@ -125,6 +135,7 @@ export function useProjectForm(projectId: string | undefined) {
     populateFromProject,
     error,
     saving,
+    setSaving,
     deleting,
     handleSubmit,
     handleDelete,

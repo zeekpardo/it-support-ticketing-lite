@@ -9,6 +9,7 @@
 import { NOTIFICATION_TYPES } from './notificationTypes.js';
 import { sendThreadedTicketReply } from '../lib/email.js';
 import { prisma } from '../lib/auth.js';
+import notificationEmitter from './notificationEmitter.js';
 
 /**
  * Create a single notification (with optional email)
@@ -43,6 +44,8 @@ export async function createNotification(prisma, { type, recipientId, organizati
       entityId: entityId || null,
     },
   });
+
+  notificationEmitter.emit('change', { recipientId, organizationId });
 
   // Send email notification if configured and enabled
   if (sendEmail && config.sendEmail) {
@@ -95,10 +98,19 @@ export async function createBulkNotifications(prisma, notifications) {
     };
   });
 
-  return prisma.notification.createMany({
+  const result = await prisma.notification.createMany({
     data: notificationData,
     skipDuplicates: true,
   });
+
+  // Emit change for each unique recipient
+  const recipients = new Set(notifications.map(n => `${n.recipientId}:${n.organizationId}`));
+  for (const key of recipients) {
+    const [recipientId, organizationId] = key.split(':');
+    notificationEmitter.emit('change', { recipientId, organizationId });
+  }
+
+  return result;
 }
 
 /**

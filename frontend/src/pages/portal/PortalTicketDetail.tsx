@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useOrganization } from '../../context/OrganizationContext'
 import { api } from '../../api/client'
@@ -71,11 +71,15 @@ export default function PortalTicketDetail() {
     }
   }
 
+  const inlineImageMap = useRef<Map<string, string>>(new Map())
+
   const handleImageUpload = useCallback(async (file: File): Promise<string | null> => {
     if (!ticket) return null
     try {
       const { key } = await api.uploadPortalInlineImage(ticket.id, file)
-      return `s3:${key}`
+      const blobUrl = URL.createObjectURL(file)
+      inlineImageMap.current.set(blobUrl, `s3:${key}`)
+      return blobUrl
     } catch (error) {
       console.error('Failed to upload image:', error)
       return null
@@ -85,7 +89,15 @@ export default function PortalTicketDetail() {
   const handleAddMessage = async (content: string, contentHtml: string, _isInternal: boolean, files?: File[]) => {
     if (!ticket) return
     try {
-      const comment = await api.addPortalMessage(ticket.id, content, contentHtml, files)
+      // Replace blob URLs with s3: references before submitting
+      let resolvedHtml = contentHtml
+      for (const [blobUrl, s3Key] of inlineImageMap.current.entries()) {
+        resolvedHtml = resolvedHtml.split(blobUrl).join(s3Key)
+        URL.revokeObjectURL(blobUrl)
+      }
+      inlineImageMap.current.clear()
+
+      const comment = await api.addPortalMessage(ticket.id, content, resolvedHtml, files)
       setTicket({ ...ticket, comments: [...ticket.comments, comment] })
     } catch (error) {
       console.error('Failed to add message:', error)

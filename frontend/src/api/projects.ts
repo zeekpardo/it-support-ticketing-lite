@@ -42,6 +42,8 @@ export async function updateProject(id: string, data: {
   dueDateMediumDays?: number | null
   dueDateHighDays?: number | null
   dueDateUrgentDays?: number | null
+  autoReplyEnabled?: boolean
+  autoReplyHtml?: string | null
 }) {
   return request<any>(`/projects/${id}`, {
     method: 'PUT',

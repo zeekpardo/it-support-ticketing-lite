@@ -243,11 +243,15 @@ export default function TicketDetail() {
     }
   }
 
+  const inlineImageMap = useRef<Map<string, string>>(new Map())
+
   const handleImageUpload = useCallback(async (file: File): Promise<string | null> => {
     if (!ticket) return null
     try {
       const { key } = await api.uploadInlineImage(ticket.id, file)
-      return `s3:${key}`
+      const blobUrl = URL.createObjectURL(file)
+      inlineImageMap.current.set(blobUrl, `s3:${key}`)
+      return blobUrl
     } catch (error) {
       console.error('Failed to upload image:', error)
       return null
@@ -257,7 +261,15 @@ export default function TicketDetail() {
   const handleAddComment = async (content: string, contentHtml: string, isInternal: boolean, files?: File[]) => {
     if (!ticket) return
     try {
-      const comment = await api.addTicketComment(ticket.id, { content, contentHtml, isInternal, files })
+      // Replace blob URLs with s3: references before submitting
+      let resolvedHtml = contentHtml
+      for (const [blobUrl, s3Key] of inlineImageMap.current.entries()) {
+        resolvedHtml = resolvedHtml.split(blobUrl).join(s3Key)
+        URL.revokeObjectURL(blobUrl)
+      }
+      inlineImageMap.current.clear()
+
+      const comment = await api.addTicketComment(ticket.id, { content, contentHtml: resolvedHtml, isInternal, files })
       setTicket({ ...ticket, comments: [...ticket.comments, comment] })
     } catch (error) {
       console.error('Failed to add comment:', error)
