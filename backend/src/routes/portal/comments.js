@@ -25,7 +25,7 @@ router.post('/:id/messages', withUpload(uploadAttachments, async (req, res) => {
       organizationId: req.organization.id,
       clientId: req.membership.id,
     },
-    select: { id: true, subject: true, ownerId: true, clientId: true },
+    select: { id: true, subject: true, ownerId: true, clientId: true, status: true },
   });
 
   if (!ticket) {
@@ -46,6 +46,14 @@ router.post('/:id/messages', withUpload(uploadAttachments, async (req, res) => {
       author: { select: MEMBER_WITH_ROLE_AND_USER_BRIEF },
     },
   });
+
+  // Auto-update ticket status to IN_PROGRESS when client responds
+  if (ticket.status !== 'IN_PROGRESS') {
+    await prisma.supportTicket.update({
+      where: { id: req.params.id },
+      data: { status: 'IN_PROGRESS' },
+    });
+  }
 
   const attachments = await createTicketAttachments(
     req.params.id, req.membership.id, req.files, comment.id

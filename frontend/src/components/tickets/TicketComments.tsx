@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { LockClosedIcon, GlobeAltIcon, PaperClipIcon, DocumentIcon } from '@heroicons/react/24/outline'
 import DOMPurify from 'dompurify'
 import { Button } from '../ui/button'
+import { SplitButton } from '../ui/split-button'
 import { Badge } from '../ui/badge'
 import { RichTextEditor, RichTextEditorRef } from '../ui/rich-text-editor'
 import { renderMentions } from '../ui/mention-textarea'
@@ -40,7 +41,7 @@ interface MentionMember {
 
 interface TicketCommentsProps {
   comments: Comment[]
-  onAddComment: (content: string, contentHtml: string, isInternal: boolean, files?: File[]) => Promise<void>
+  onAddComment: (content: string, contentHtml: string, isInternal: boolean, files?: File[], status?: string) => Promise<void>
   onImageUpload?: (file: File) => Promise<string | null>
   isStaff?: boolean
   isLoading?: boolean
@@ -72,8 +73,7 @@ export function TicketComments({ comments, onAddComment, onImageUpload, isStaff 
   const [files, setFiles] = useState<File[]>([])
   const [showUpload, setShowUpload] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmitWithStatus = async (status?: string) => {
     const editor = editorRef.current
     if (!editor) return
 
@@ -84,7 +84,7 @@ export function TicketComments({ comments, onAddComment, onImageUpload, isStaff 
 
     setSubmitting(true)
     try {
-      await onAddComment(text, html, isInternal, files.length > 0 ? files : undefined)
+      await onAddComment(text, html, isInternal, files.length > 0 ? files : undefined, status)
       editor.clear()
       setEditorEmpty(true)
       setIsInternal(false)
@@ -182,7 +182,7 @@ export function TicketComments({ comments, onAddComment, onImageUpload, isStaff 
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={(e) => { e.preventDefault(); handleSubmitWithStatus(isStaff && !isInternal ? 'RESOLVED' : undefined) }} className="space-y-3">
         <RichTextEditor
           ref={editorRef}
           members={mentionableMembers}
@@ -241,9 +241,28 @@ export function TicketComments({ comments, onAddComment, onImageUpload, isStaff 
             </button>
           </div>
 
-          <Button type="submit" disabled={(editorEmpty && files.length === 0) || submitting || isLoading}>
-            {submitting ? 'Sending...' : 'Add Comment'}
-          </Button>
+          {isStaff && !isInternal ? (
+            <SplitButton
+              options={[
+                { label: 'Send & Resolve', value: 'RESOLVED' },
+                { label: 'Send as Waiting', value: 'WAITING_FOR_INFO' },
+                { label: 'Send as Review', value: 'REVIEW' },
+              ]}
+              defaultValue="RESOLVED"
+              onAction={handleSubmitWithStatus}
+              disabled={(editorEmpty && files.length === 0) || isLoading}
+              loading={submitting}
+              loadingLabel="Sending..."
+            />
+          ) : (
+            <Button
+              type="button"
+              onClick={() => handleSubmitWithStatus(undefined)}
+              disabled={(editorEmpty && files.length === 0) || submitting || isLoading}
+            >
+              {submitting ? 'Sending...' : (isStaff ? 'Add Internal Note' : 'Send')}
+            </Button>
+          )}
         </div>
       </form>
     </div>

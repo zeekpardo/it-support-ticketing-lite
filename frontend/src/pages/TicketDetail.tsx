@@ -19,7 +19,6 @@ export default function TicketDetail() {
     isAdmin,
     isStaff,
     currentOrg,
-    loadData,
     handleStatusChange,
     handleAssign,
     handlePriorityChange,
@@ -27,6 +26,11 @@ export default function TicketDetail() {
     handleDelete,
     handleImageUpload,
     handleAddComment,
+    timerRunning,
+    elapsedSeconds,
+    timerLoading,
+    handleStartTimer,
+    handleStopTimer,
     editingName,
     editFirstName,
     editLastName,
@@ -172,11 +176,13 @@ export default function TicketDetail() {
         <div className="space-y-6">
           {isStaff && (
             <TicketTimer
-              ticketId={ticket.id}
               timeEntries={ticket.timeEntries}
               totalMinutes={ticket.totalTimeMinutes}
-              onTimerStarted={loadData}
-              onTimerStopped={loadData}
+              timerRunning={timerRunning}
+              elapsedSeconds={elapsedSeconds}
+              timerLoading={timerLoading}
+              onStart={handleStartTimer}
+              onStop={handleStopTimer}
             />
           )}
 

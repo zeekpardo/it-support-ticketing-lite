@@ -82,7 +82,6 @@ class ApiClient {
   updateTimeEntry = ticketsApi.updateTimeEntry
   deleteTimeEntry = ticketsApi.deleteTimeEntry
   stopTimer = ticketsApi.stopTimer
-  getRunningTimer = ticketsApi.getRunningTimer
 
   // === Projects ===
   getProjects = projectsApi.getProjects

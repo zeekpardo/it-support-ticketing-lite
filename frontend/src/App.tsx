@@ -2,7 +2,6 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { OrganizationProvider, useOrganization } from './context/OrganizationContext'
-import { TimerProvider } from './context/TimerContext'
 import { BrandingProvider } from './context/BrandingContext'
 import { NotificationProvider } from './context/NotificationContext'
 import { Layout } from './components/Layout'
@@ -455,11 +454,9 @@ export default function App() {
       <AuthProvider>
         <OrganizationProvider>
           <BrandingProvider>
-            <TimerProvider>
               <NotificationProvider>
                 <AppRoutes />
               </NotificationProvider>
-            </TimerProvider>
           </BrandingProvider>
         </OrganizationProvider>
       </AuthProvider>

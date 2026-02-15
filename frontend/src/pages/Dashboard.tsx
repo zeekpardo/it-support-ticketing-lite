@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useOrganization } from '../context/OrganizationContext'
-import { useTimer } from '../context/TimerContext'
 import { api, SoftwareAccessRequest } from '../api/client'
 import { TicketKanbanBoard } from '../components/tickets/TicketKanbanBoard'
 import { SoftwareAccessRequestReview } from '../components/dashboard/SoftwareAccessRequestReview'
@@ -67,7 +66,6 @@ interface PendingSoftwareRequest extends SoftwareAccessRequest {
 export default function Dashboard() {
   const navigate = useNavigate()
   const { currentOrg, membership, isClient } = useOrganization()
-  const { runningTimer, startTimer, stopTimer } = useTimer()
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
@@ -174,22 +172,6 @@ export default function Dashboard() {
       ))
     } catch (error) {
       console.error('Failed to assign ticket:', error)
-    }
-  }
-
-  const handleStartTimer = async (ticketId: string) => {
-    try {
-      await startTimer(ticketId)
-    } catch (error) {
-      console.error('Failed to start timer:', error)
-    }
-  }
-
-  const handleStopTimer = async () => {
-    try {
-      await stopTimer()
-    } catch (error) {
-      console.error('Failed to stop timer:', error)
     }
   }
 
@@ -321,9 +303,6 @@ export default function Dashboard() {
           staffMembers={staffMembers}
           currentUserId={membership?.id}
           onAssign={handleAssign}
-          runningTimer={runningTimer}
-          onStartTimer={handleStartTimer}
-          onStopTimer={handleStopTimer}
         />
       )}
 

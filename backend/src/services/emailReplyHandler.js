@@ -113,6 +113,12 @@ export async function handleEmailReply(inboundEmail, inReplyToMessageId) {
     },
   });
 
+  // Auto-update ticket status to IN_PROGRESS when client replies via email
+  await prisma.supportTicket.update({
+    where: { id: ticket.id },
+    data: { status: 'IN_PROGRESS' },
+  });
+
   console.log('[InboundEmail] Created comment from reply:', comment.id, 'on ticket:', ticket.id);
   return true;
 }
@@ -150,6 +156,12 @@ async function handleParticipantReply(inboundEmail, ticket, memberId) {
       status: 'PROCESSED',
       processedAt: new Date(),
     },
+  });
+
+  // Auto-update ticket status to IN_PROGRESS when client replies via email
+  await prisma.supportTicket.update({
+    where: { id: ticket.id },
+    data: { status: 'IN_PROGRESS' },
   });
 
   console.log('[InboundEmail] Created comment from participant reply:', comment.id, 'on ticket:', ticket.id);

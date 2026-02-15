@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useOrganization } from '../context/OrganizationContext'
-import { useTimer } from '../context/TimerContext'
 import { api } from '../api/client'
 
 export interface Ticket {
@@ -61,13 +60,19 @@ export interface MentionableMember {
 export function useTicketDetail(ticketId: string | undefined, projectId: string | undefined) {
   const navigate = useNavigate()
   const { currentOrg, isAdmin, isStaff } = useOrganization()
-  const { runningTimer, startTimer } = useTimer()
 
   const [ticket, setTicket] = useState<Ticket | null>(null)
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
   const [mentionableMembers, setMentionableMembers] = useState<MentionableMember[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+
+  // Local timer state (per-ticket, not global)
+  const [timerId, setTimerId] = useState<string | null>(null)
+  const [timerStartTime, setTimerStartTime] = useState<string | null>(null)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [timerLoading, setTimerLoading] = useState(false)
+  const timerIdRef = useRef<string | null>(null)
 
   const loadData = async () => {
     setLoading(true)
@@ -93,29 +98,27 @@ export function useTicketDetail(ticketId: string | undefined, projectId: string 
     }
   }, [currentOrg, ticketId])
 
-  // Keep a ref to the latest runningTimer for cleanup functions
-  const runningTimerRef = useRef(runningTimer)
+  // Keep ref in sync for cleanup
   useEffect(() => {
-    runningTimerRef.current = runningTimer
-  }, [runningTimer])
+    timerIdRef.current = timerId
+  }, [timerId])
 
-  // Auto-start/stop timer based on ticket navigation (staff only)
+  // Auto-start timer when entering ticket (staff only)
   const hasAutoStarted = useRef(false)
   useEffect(() => {
     if (!isStaff || !ticket) return
 
-    // Don't auto-start if already running on this ticket
-    if (runningTimer?.ticketId === ticket.id) {
-      hasAutoStarted.current = true
-      return
-    }
-
-    // Auto-start (backend auto-stops any other running timer)
     if (!hasAutoStarted.current) {
       hasAutoStarted.current = true
-      startTimer(ticket.id)
-        .then(() => loadData())
-        .catch(err => console.error('Auto-start timer failed:', err))
+      setTimerLoading(true)
+      api.startTicketTimer(ticket.id)
+        .then((entry: any) => {
+          setTimerId(entry.id)
+          setTimerStartTime(entry.startTime)
+          loadData()
+        })
+        .catch((err: unknown) => console.error('Auto-start timer failed:', err))
+        .finally(() => setTimerLoading(false))
     }
 
     return () => {
@@ -124,15 +127,59 @@ export function useTicketDetail(ticketId: string | undefined, projectId: string 
   }, [ticket?.id, isStaff])
 
   // Auto-stop when leaving the page or switching tickets
-  // Uses api.stopTimer directly to avoid stale closures from useTimer's stopTimer
   useEffect(() => {
     return () => {
-      const timer = runningTimerRef.current
-      if (isStaff && timer && timer.ticketId === ticketId) {
-        api.stopTimer(timer.id).catch(err => console.error('Auto-stop timer failed:', err))
+      const id = timerIdRef.current
+      if (isStaff && id) {
+        api.stopTimer(id).catch((err: unknown) => console.error('Auto-stop timer failed:', err))
       }
     }
   }, [ticketId, isStaff])
+
+  // Elapsed time counter
+  useEffect(() => {
+    if (!timerStartTime) return
+
+    const startMs = new Date(timerStartTime).getTime()
+    setElapsedSeconds(Math.floor((Date.now() - startMs) / 1000))
+
+    const interval = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - startMs) / 1000))
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [timerStartTime])
+
+  const handleStartTimer = async () => {
+    if (!ticket) return
+    setTimerLoading(true)
+    try {
+      const entry = await api.startTicketTimer(ticket.id)
+      setTimerId(entry.id)
+      setTimerStartTime(entry.startTime)
+      await loadData()
+    } catch (error) {
+      console.error('Failed to start timer:', error)
+    } finally {
+      setTimerLoading(false)
+    }
+  }
+
+  const handleStopTimer = async () => {
+    if (!timerId) return
+    setTimerLoading(true)
+    try {
+      await api.stopTimer(timerId)
+    } catch (error) {
+      console.warn('Timer stop failed, clearing local state:', error)
+    } finally {
+      setTimerId(null)
+      setTimerStartTime(null)
+      setElapsedSeconds(0)
+      setTimerLoading(false)
+      await loadData()
+    }
+  }
 
   const handleStatusChange = async (newStatus: string) => {
     if (!ticket) return
@@ -212,7 +259,7 @@ export function useTicketDetail(ticketId: string | undefined, projectId: string 
     }
   }, [ticket?.id])
 
-  const handleAddComment = async (content: string, contentHtml: string, isInternal: boolean, files?: File[]) => {
+  const handleAddComment = async (content: string, contentHtml: string, isInternal: boolean, files?: File[], status?: string) => {
     if (!ticket) return
     try {
       // Replace blob URLs with s3: references before submitting
@@ -223,8 +270,12 @@ export function useTicketDetail(ticketId: string | undefined, projectId: string 
       }
       inlineImageMap.current.clear()
 
-      const comment = await api.addTicketComment(ticket.id, { content, contentHtml: resolvedHtml, isInternal, files })
-      setTicket({ ...ticket, comments: [...ticket.comments, comment] })
+      const comment = await api.addTicketComment(ticket.id, { content, contentHtml: resolvedHtml, isInternal, files, status })
+      setTicket({
+        ...ticket,
+        comments: [...ticket.comments, comment],
+        ...(comment.ticketStatus ? { status: comment.ticketStatus } : {}),
+      })
     } catch (error) {
       console.error('Failed to add comment:', error)
       throw error
@@ -296,6 +347,12 @@ export function useTicketDetail(ticketId: string | undefined, projectId: string 
     handleDelete,
     handleImageUpload,
     handleAddComment,
+    // Timer
+    timerRunning: !!timerId,
+    elapsedSeconds,
+    timerLoading,
+    handleStartTimer,
+    handleStopTimer,
     // Inline name editing
     editingName,
     editFirstName,

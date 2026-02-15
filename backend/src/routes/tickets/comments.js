@@ -29,7 +29,7 @@ router.get('/:id/comments', requireStaff, asyncHandler(async (req, res) => {
 
 // Add comment to ticket (supports file attachments via multipart/form-data)
 router.post('/:id/comments', requireStaff, withUpload(uploadAttachments, async (req, res) => {
-  const { content, contentHtml: rawContentHtml, isInternal: isInternalStr } = req.body;
+  const { content, contentHtml: rawContentHtml, isInternal: isInternalStr, status } = req.body;
   const isInternal = isInternalStr === 'true' || isInternalStr === true;
 
   if (!content && !rawContentHtml) {
@@ -52,6 +52,20 @@ router.post('/:id/comments', requireStaff, withUpload(uploadAttachments, async (
     },
   });
 
+  // Update ticket status atomically if requested (only for public comments)
+  let ticketStatus = null;
+  if (status && !isInternal) {
+    const validStatuses = ['NEW_REQUEST', 'IN_PROGRESS', 'WAITING_FOR_INFO', 'REVIEW', 'RESOLVED'];
+    if (!validStatuses.includes(status)) {
+      throw new ValidationError('Invalid status');
+    }
+    const updated = await prisma.supportTicket.update({
+      where: { id: req.params.id },
+      data: { status },
+    });
+    ticketStatus = updated.status;
+  }
+
   const attachments = await createTicketAttachments(
     req.params.id, req.membership.id, req.files, comment.id
   );
@@ -71,7 +85,7 @@ router.post('/:id/comments', requireStaff, withUpload(uploadAttachments, async (
     console.error('Error sending comment notifications:', notifError);
   }
 
-  res.status(201).json({ ...comment, attachments });
+  res.status(201).json({ ...comment, attachments, ...(ticketStatus ? { ticketStatus } : {}) });
 }));
 
 // Get mentionable members for a ticket (staff + ticket client)

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useTimer } from '../../context/TimerContext'
 import { formatTime, formatDuration } from '../../utils/time'
 import { ClockIcon, StopIcon, PlayIcon, ChevronUpIcon } from '@heroicons/react/24/outline'
 import { Button } from '../ui/button'
@@ -18,37 +17,17 @@ interface TimeEntry {
 }
 
 interface TicketTimerProps {
-  ticketId: string
   timeEntries: TimeEntry[]
   totalMinutes: number
-  onTimerStarted: () => void
-  onTimerStopped: () => void
+  timerRunning: boolean
+  elapsedSeconds: number
+  timerLoading: boolean
+  onStart: () => void
+  onStop: () => void
 }
 
-export function TicketTimer({ ticketId, timeEntries, totalMinutes, onTimerStarted, onTimerStopped }: TicketTimerProps) {
-  const { runningTimer, elapsedSeconds, startTimer, stopTimer, isLoading, isPaused } = useTimer()
+export function TicketTimer({ timeEntries, totalMinutes, timerRunning, elapsedSeconds, timerLoading, onStart, onStop }: TicketTimerProps) {
   const [historyOpen, setHistoryOpen] = useState(false)
-
-  const isRunningOnThisTicket = runningTimer?.ticketId === ticketId
-  const anotherTimerRunning = !!runningTimer && !isRunningOnThisTicket
-
-  const handleStart = async () => {
-    try {
-      await startTimer(ticketId)
-      onTimerStarted()
-    } catch (error) {
-      console.error('Failed to start timer:', error)
-    }
-  }
-
-  const handleStop = async () => {
-    try {
-      await stopTimer()
-      onTimerStopped()
-    } catch (error) {
-      console.error('Failed to stop timer:', error)
-    }
-  }
 
   return (
     <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10 space-y-4">
@@ -62,18 +41,18 @@ export function TicketTimer({ ticketId, timeEntries, totalMinutes, onTimerStarte
         </span>
       </div>
 
-      {isRunningOnThisTicket ? (
+      {timerRunning ? (
         <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              <span className={`font-mono text-xl font-bold text-green-700 dark:text-green-300 ${isPaused ? 'opacity-50' : ''}`}>
+              <span className="font-mono text-xl font-bold text-green-700 dark:text-green-300">
                 {formatTime(elapsedSeconds)}
               </span>
             </div>
             <Button
-              onClick={handleStop}
-              disabled={isLoading}
+              onClick={onStop}
+              disabled={timerLoading}
               color="red"
               className="flex items-center gap-1"
             >
@@ -86,11 +65,10 @@ export function TicketTimer({ ticketId, timeEntries, totalMinutes, onTimerStarte
         <div className="flex items-center justify-between rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
           <span className="text-sm text-zinc-500 dark:text-zinc-400">Timer stopped</span>
           <Button
-            onClick={handleStart}
-            disabled={isLoading || anotherTimerRunning}
+            onClick={onStart}
+            disabled={timerLoading}
             outline
             className="flex items-center gap-1"
-            title={anotherTimerRunning ? 'Another timer is running' : undefined}
           >
             <PlayIcon className="w-4 h-4" />
             Start
