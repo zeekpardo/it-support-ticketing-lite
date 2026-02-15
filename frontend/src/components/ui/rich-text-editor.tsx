@@ -464,6 +464,13 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       },
     })
 
+    // Sync editable state — useEditor doesn't react to editable changes
+    useEffect(() => {
+      if (editor && editor.isEditable !== !disabled) {
+        editor.setEditable(!disabled)
+      }
+    }, [editor, disabled])
+
     useImperativeHandle(ref, () => ({
       getHTML: () => editor?.getHTML() || '',
       getText: () => (editor ? extractTextWithMentions(editor) : ''),
