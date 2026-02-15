@@ -275,4 +275,44 @@ router.get('/clients/:memberId', authenticate, requireOrganization, requireAdmin
   });
 }));
 
+// Update a client's user details (name, phone)
+// PATCH /api/members/clients/:memberId
+router.patch('/clients/:memberId', authenticate, requireOrganization, requireAdmin, asyncHandler(async (req, res) => {
+  const { memberId } = req.params;
+  const { name, phone } = req.body;
+
+  const data = {};
+  if (name !== undefined) {
+    if (!name.trim()) throw new ValidationError('Name cannot be empty');
+    data.name = name.trim();
+  }
+  if (phone !== undefined) {
+    data.phone = phone.trim() || null;
+  }
+
+  if (Object.keys(data).length === 0) {
+    throw new ValidationError('No fields to update');
+  }
+
+  const client = await prisma.member.findFirst({
+    where: {
+      id: memberId,
+      organizationId: req.organization.id,
+      role: 'client'
+    }
+  });
+
+  if (!client) {
+    throw new NotFoundError('Client not found');
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: client.userId },
+    data,
+    select: { id: true, name: true, email: true, phone: true }
+  });
+
+  res.json(updatedUser);
+}));
+
 export default router;

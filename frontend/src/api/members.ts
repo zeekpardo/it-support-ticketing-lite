@@ -85,6 +85,13 @@ export async function getClientDetail(memberId: string) {
   }>(`/members/clients/${memberId}`)
 }
 
+export async function updateClient(memberId: string, data: { name?: string; phone?: string }) {
+  return request<{ id: string; name: string; email: string; phone?: string }>(
+    `/members/clients/${memberId}`,
+    { method: 'PATCH', body: JSON.stringify(data) }
+  )
+}
+
 // ==========================================
 // Project Assignments
 // ==========================================

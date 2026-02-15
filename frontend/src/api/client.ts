@@ -144,6 +144,7 @@ class ApiClient {
   getStaffMembers = membersApi.getStaffMembers
   getClients = membersApi.getClients
   getClientDetail = membersApi.getClientDetail
+  updateClient = membersApi.updateClient
   getMemberProjects = membersApi.getMemberProjects
   assignProject = membersApi.assignProject
   unassignProject = membersApi.unassignProject

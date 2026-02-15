@@ -4,7 +4,7 @@ import { useOrganization } from '../context/OrganizationContext'
 import { useTimer } from '../context/TimerContext'
 import { api, SoftwareAccessRequest } from '../api/client'
 import { TicketKanbanBoard } from '../components/tickets/TicketKanbanBoard'
-import { TicketForm, PRIORITY_LEVELS } from '../components/tickets/TicketForm'
+import { TicketForm } from '../components/tickets/TicketForm'
 import { Heading, Subheading } from '@/components/ui/heading'
 import { Text } from '@/components/ui/text'
 import { Select } from '@/components/ui/select'
@@ -372,11 +372,10 @@ export default function Dashboard() {
             onChange={(e) => setFilterPriority(e.target.value)}
           >
             <option value="">All Priorities</option>
-            {PRIORITY_LEVELS.map((priority) => (
-              <option key={priority.value} value={priority.value}>
-                {priority.label}
-              </option>
-            ))}
+            <option value="LOW">Low</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="HIGH">High</option>
+            <option value="URGENT">Urgent</option>
           </Select>
         </div>
 
