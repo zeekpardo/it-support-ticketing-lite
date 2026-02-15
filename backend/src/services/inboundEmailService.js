@@ -1,5 +1,5 @@
 import { prisma } from '../lib/auth.js';
-import { sanitizeEmailBody } from '../utils/htmlSanitizer.js';
+import { sanitizeEmailBody, sanitizeEmailHtml } from '../utils/htmlSanitizer.js';
 import { isStorageConfigured, uploadFile, generateAttachmentKey } from '../lib/storage.js';
 import crypto from 'crypto';
 
@@ -277,9 +277,21 @@ async function createTicketFromEmail(inboundEmail, emailRule, attachments, { all
     primaryClientId: client.id,
   });
 
-  // Download and store email attachments
+  // Download and store email attachments, get CID→S3 key map for inline images
+  let cidToS3Map = new Map();
   if (emailId && isStorageConfigured()) {
-    await downloadAndStoreAttachments(emailId, ticket.id, client.id);
+    cidToS3Map = await downloadAndStoreAttachments(emailId, ticket.id, client.id);
+  }
+
+  // Process HTML body with inline image references resolved
+  if (htmlBody && cidToS3Map.size > 0) {
+    const descriptionHtml = sanitizeEmailHtml(htmlBody, cidToS3Map);
+    if (descriptionHtml) {
+      await prisma.supportTicket.update({
+        where: { id: ticket.id },
+        data: { descriptionHtml },
+      });
+    }
   }
 
   // TODO: Send notification to assignee if any
@@ -577,10 +589,12 @@ async function storeEmailParticipants(ticketId, { from, toAddresses, ccAddresses
 /**
  * Download attachments from Resend and upload to S3 bucket.
  * Creates TicketAttachment records for each file.
+ * Returns a Map of contentId → s3Key for inline images (used for CID replacement in HTML).
  */
 async function downloadAndStoreAttachments(emailId, ticketId, uploadedById) {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return;
+  const cidToS3Map = new Map();
+  if (!apiKey) return cidToS3Map;
 
   try {
     // Fetch attachment metadata with download URLs from Resend
@@ -590,13 +604,13 @@ async function downloadAndStoreAttachments(emailId, ticketId, uploadedById) {
 
     if (!response.ok) {
       console.warn('[InboundEmail] Failed to fetch attachments:', response.status);
-      return;
+      return cidToS3Map;
     }
 
     const result = await response.json();
     const attachments = result.data || result || [];
 
-    if (!Array.isArray(attachments) || attachments.length === 0) return;
+    if (!Array.isArray(attachments) || attachments.length === 0) return cidToS3Map;
 
     for (const att of attachments) {
       try {
@@ -615,6 +629,9 @@ async function downloadAndStoreAttachments(emailId, ticketId, uploadedById) {
         // Upload to S3 bucket
         await uploadFile(buffer, key, att.content_type || 'application/octet-stream');
 
+        // Determine if this is an inline image (embedded in email body via CID)
+        const isInline = att.content_disposition === 'inline' && !!att.content_id;
+
         // Create database record (store S3 key as fileUrl with s3: prefix)
         await prisma.ticketAttachment.create({
           data: {
@@ -623,11 +640,20 @@ async function downloadAndStoreAttachments(emailId, ticketId, uploadedById) {
             fileSize: att.size || buffer.length,
             fileType: att.content_type || 'application/octet-stream',
             fileUrl: `s3:${key}`,
+            isInline,
+            contentId: att.content_id || null,
             uploadedById,
           },
         });
 
-        console.log('[InboundEmail] Stored attachment:', att.filename);
+        // Build CID→S3 key map for inline images
+        if (isInline) {
+          const cleanCid = att.content_id.replace(/[<>]/g, '');
+          cidToS3Map.set(cleanCid, key);
+          console.log('[InboundEmail] Stored inline image:', att.filename, 'cid:', cleanCid);
+        } else {
+          console.log('[InboundEmail] Stored attachment:', att.filename);
+        }
       } catch (err) {
         console.error('[InboundEmail] Failed to store attachment:', att.filename, err.message);
       }
@@ -635,6 +661,8 @@ async function downloadAndStoreAttachments(emailId, ticketId, uploadedById) {
   } catch (err) {
     console.error('[InboundEmail] Attachment processing failed:', err.message);
   }
+
+  return cidToS3Map;
 }
 
 /**

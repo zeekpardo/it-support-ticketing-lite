@@ -6,11 +6,13 @@ import { TicketComments, PriorityBadge, StatusBadge } from '../../components/tic
 import { Heading, Subheading } from '@/components/ui/heading'
 import { Text } from '@/components/ui/text'
 import { ArrowLeftIcon, LinkIcon } from '@heroicons/react/24/outline'
+import { EmailContent } from '../../components/EmailContent'
 
 interface Ticket {
   id: string
   subject: string
   description: string
+  descriptionHtml?: string | null
   firstName: string
   lastName: string
   email: string
@@ -135,9 +137,7 @@ export default function PortalTicketDetail() {
           <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10">
             <Subheading>Your Request</Subheading>
             <div className="mt-3">
-              <p className="whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">
-                {ticket.description}
-              </p>
+              <EmailContent text={ticket.description} html={ticket.descriptionHtml} />
             </div>
             {ticket.screenRecordingLink && (
               <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">

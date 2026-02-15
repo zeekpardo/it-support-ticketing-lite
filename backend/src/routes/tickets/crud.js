@@ -13,6 +13,32 @@ import {
 
 const router = express.Router();
 
+/**
+ * Replace all s3:{key} image sources in HTML with presigned URLs.
+ */
+async function resolveHtmlImageUrls(html) {
+  const s3Pattern = /src="s3:([^"]+)"/g;
+  const matches = [...html.matchAll(s3Pattern)];
+  if (matches.length === 0) return html;
+
+  const replacements = await Promise.all(
+    matches.map(async (match) => {
+      try {
+        const url = await getPresignedUrl(match[1]);
+        return { original: match[0], replacement: `src="${url}"` };
+      } catch {
+        return { original: match[0], replacement: 'src=""' };
+      }
+    })
+  );
+
+  let resolved = html;
+  for (const { original, replacement } of replacements) {
+    resolved = resolved.replace(original, replacement);
+  }
+  return resolved;
+}
+
 // Get staff members for assignment dropdown
 router.get('/staff/list', requireStaff, asyncHandler(async (req, res) => {
   const staffMembers = await prisma.member.findMany({
@@ -110,9 +136,15 @@ router.get('/:id', requireStaff, asyncHandler(async (req, res) => {
     attachments: c.attachments ? await Promise.all(c.attachments.map(resolveUrl)) : [],
   })));
 
+  // Resolve s3: image URLs in description HTML
+  const descriptionHtml = ticket.descriptionHtml
+    ? await resolveHtmlImageUrls(ticket.descriptionHtml)
+    : null;
+
   res.json({
     ...ticket,
     attachments,
+    descriptionHtml,
     comments,
     totalTimeMinutes: totalMinutes,
   });

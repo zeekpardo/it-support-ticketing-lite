@@ -7,6 +7,7 @@ import { asyncHandler, withUpload } from '../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError, ForbiddenError } from '../utils/errors.js';
 import { createTicketAttachments } from '../utils/entityHelpers.js';
 import { USER_SELECT_BRIEF, PROJECT_SELECT_BRIEF, MEMBER_WITH_USER_BRIEF, MEMBER_WITH_ROLE_AND_USER_BRIEF } from '../utils/prismaFragments.js';
+import { getPresignedUrl } from '../lib/storage.js';
 
 const router = express.Router();
 
@@ -119,6 +120,7 @@ router.get('/tickets/:id', asyncHandler(async (req, res) => {
           fileSize: true,
           fileType: true,
           fileUrl: true,
+          isInline: true,
           createdAt: true
         }
       }
@@ -129,7 +131,45 @@ router.get('/tickets/:id', asyncHandler(async (req, res) => {
     throw new NotFoundError('Ticket not found');
   }
 
-  res.json(ticket);
+  // Resolve presigned URLs for S3-stored attachments
+  const resolveUrl = async (att) => {
+    if (att.fileUrl?.startsWith('s3:')) {
+      try {
+        return { ...att, fileUrl: await getPresignedUrl(att.fileUrl.slice(3)) };
+      } catch { return att; }
+    }
+    return att;
+  };
+
+  const attachments = await Promise.all(ticket.attachments.map(resolveUrl));
+  const comments = await Promise.all(ticket.comments.map(async (c) => ({
+    ...c,
+    attachments: c.attachments ? await Promise.all(c.attachments.map(resolveUrl)) : [],
+  })));
+
+  // Resolve s3: image URLs in description HTML
+  let descriptionHtml = ticket.descriptionHtml;
+  if (descriptionHtml) {
+    const s3Pattern = /src="s3:([^"]+)"/g;
+    const matches = [...descriptionHtml.matchAll(s3Pattern)];
+    if (matches.length > 0) {
+      const replacements = await Promise.all(
+        matches.map(async (match) => {
+          try {
+            const url = await getPresignedUrl(match[1]);
+            return { original: match[0], replacement: `src="${url}"` };
+          } catch {
+            return { original: match[0], replacement: 'src=""' };
+          }
+        })
+      );
+      for (const { original, replacement } of replacements) {
+        descriptionHtml = descriptionHtml.replace(original, replacement);
+      }
+    }
+  }
+
+  res.json({ ...ticket, attachments, descriptionHtml, comments });
 }));
 
 // Submit new ticket

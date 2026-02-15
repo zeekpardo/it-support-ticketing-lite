@@ -11,11 +11,13 @@ import { Select } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Field, Label } from '@/components/ui/fieldset'
 import { ArrowLeftIcon, TrashIcon, LinkIcon, PaperClipIcon } from '@heroicons/react/24/outline'
+import { EmailContent } from '../components/EmailContent'
 
 interface Ticket {
   id: string
   subject: string
   description: string
+  descriptionHtml?: string | null
   firstName: string
   lastName: string
   email: string
@@ -47,6 +49,7 @@ interface Ticket {
     fileSize: number
     fileType: string
     fileUrl: string
+    isInline?: boolean
     createdAt: string
   }[]
   timeEntries: any[]
@@ -130,10 +133,12 @@ export default function TicketDetail() {
   }, [ticket?.id, isStaff])
 
   // Auto-stop when leaving the page or switching tickets
+  // Uses api.stopTimer directly to avoid stale closures from useTimer's stopTimer
   useEffect(() => {
     return () => {
-      if (isStaff && runningTimerRef.current?.ticketId === ticketId) {
-        stopGlobalTimer().catch(err => console.error('Auto-stop timer failed:', err))
+      const timer = runningTimerRef.current
+      if (isStaff && timer?.ticketId === ticketId) {
+        api.stopTimer(timer.id).catch(err => console.error('Auto-stop timer failed:', err))
       }
     }
   }, [ticketId, isStaff])
@@ -271,10 +276,8 @@ export default function TicketDetail() {
           {/* Description */}
           <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10">
             <Subheading>Description</Subheading>
-            <div className="mt-3 prose prose-sm dark:prose-invert max-w-none">
-              <p className="whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">
-                {ticket.description}
-              </p>
+            <div className="mt-3">
+              <EmailContent text={ticket.description} html={ticket.descriptionHtml} />
             </div>
             {ticket.screenRecordingLink && (
               <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
@@ -291,15 +294,17 @@ export default function TicketDetail() {
             )}
           </div>
 
-          {/* Attachments */}
-          {ticket.attachments && ticket.attachments.length > 0 && (
+          {/* Attachments (exclude inline images already shown in description) */}
+          {(() => {
+            const fileAttachments = ticket.attachments?.filter(a => !a.isInline) || []
+            return fileAttachments.length > 0 && (
             <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10">
               <h3 className="text-sm font-semibold text-zinc-900 dark:text-white flex items-center gap-2 mb-3">
                 <PaperClipIcon className="w-4 h-4" />
-                Attachments ({ticket.attachments.length})
+                Attachments ({fileAttachments.length})
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {ticket.attachments.map(att => (
+                {fileAttachments.map(att => (
                   <a
                     key={att.id}
                     href={att.fileUrl}
@@ -326,7 +331,8 @@ export default function TicketDetail() {
                 ))}
               </div>
             </div>
-          )}
+            )
+          })()}
 
           {/* Comments */}
           <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10">

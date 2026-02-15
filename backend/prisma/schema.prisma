@@ -407,6 +407,7 @@ model SupportTicket {
   requestType         RequestType    @default(GENERAL_SUPPORT) @map("request_type")
   priorityLevel       TicketPriority @default(MEDIUM) @map("priority_level")
   description         String
+  descriptionHtml     String?        @map("description_html") @db.Text
   screenRecordingLink String?        @map("screen_recording_link")
 
   // System fields
@@ -450,6 +451,8 @@ model TicketAttachment {
   fileSize     Int            @map("file_size")
   fileType     String         @map("file_type")
   fileUrl      String         @map("file_url")
+  isInline     Boolean        @default(false) @map("is_inline")
+  contentId    String?        @map("content_id")
   uploadedById String         @map("uploaded_by_id")
   uploadedBy   Member         @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
   createdAt    DateTime       @default(now()) @map("created_at")

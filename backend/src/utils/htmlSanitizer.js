@@ -1,3 +1,5 @@
+import sanitizeHtml from 'sanitize-html';
+
 /**
  * Extract readable plain text from HTML email content.
  * Converts HTML structure to text with proper spacing,
@@ -110,4 +112,102 @@ export function sanitizeEmailBody(body) {
   cleaned = cleaned.replace(/\nGet\s*$/i, '').trim();
 
   return cleaned || '(Empty message)';
+}
+
+/**
+ * Escape special regex characters in a string.
+ */
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Strip quoted reply content and signatures from email HTML.
+ * Must be called before sanitize-html since it removes entire DOM subtrees.
+ */
+function stripQuotedHtml(html) {
+  let cleaned = html;
+
+  // Gmail: <div class="gmail_quote">...</div>
+  cleaned = cleaned.replace(/<div[^>]*class="[^"]*gmail_quote[^"]*"[^>]*>[\s\S]*$/i, '');
+
+  // Outlook: <div id="appendonsend">
+  cleaned = cleaned.replace(/<div[^>]*id="appendonsend"[^>]*>[\s\S]*$/i, '');
+
+  // Outlook: border-top separator pattern
+  cleaned = cleaned.replace(/<div[^>]*style="[^"]*border-top:\s*solid[^"]*"[^>]*>[\s\S]*$/i, '');
+
+  // Apple Mail: <blockquote type="cite">
+  cleaned = cleaned.replace(/<blockquote[^>]*type="cite"[^>]*>[\s\S]*$/i, '');
+
+  // Generic "On ... wrote:" in a block element
+  cleaned = cleaned.replace(/<(div|p)[^>]*>[^<]*On [^<]*wrote:\s*<\/(div|p)>[\s\S]*$/i, '');
+
+  // Signature divs
+  cleaned = cleaned.replace(/<div[^>]*class="[^"]*signature[^"]*"[^>]*>[\s\S]*$/i, '');
+
+  // Mobile signatures as block elements
+  cleaned = cleaned.replace(/<(div|p)[^>]*>[^<]*Sent from my [^<]*<\/(div|p)>[\s\S]*$/gi, '');
+  cleaned = cleaned.replace(/<(div|p)[^>]*>[^<]*Get Outlook for [^<]*<\/(div|p)>[\s\S]*$/gi, '');
+
+  return cleaned;
+}
+
+/**
+ * Sanitize email HTML for safe storage and rendering.
+ * Replaces CID image references with s3: placeholders.
+ * Strips quoted replies, signatures, and dangerous content.
+ *
+ * @param {string} html - Raw email HTML
+ * @param {Map<string, string>} cidToS3Map - Maps content IDs to S3 keys
+ * @returns {string|null} Sanitized HTML with s3: image sources, or null if no meaningful content
+ */
+export function sanitizeEmailHtml(html, cidToS3Map = new Map()) {
+  if (!html) return null;
+
+  // Step 1: Strip quoted replies and signatures from raw HTML
+  let processed = stripQuotedHtml(html);
+
+  // Step 2: Replace cid: references with s3: placeholders
+  for (const [cid, s3Key] of cidToS3Map) {
+    const cleanCid = cid.replace(/[<>]/g, '');
+    // Handle both cid:xxx and cid:xxx@domain formats
+    const cidPattern = new RegExp(`(src=["'])cid:${escapeRegex(cleanCid)}([^"']*)["']`, 'gi');
+    processed = processed.replace(cidPattern, `$1s3:${s3Key}"`);
+  }
+
+  // Step 3: Sanitize HTML - allow safe tags, strip dangerous content
+  const cleanHtml = sanitizeHtml(processed, {
+    allowedTags: [
+      'p', 'br', 'div', 'span',
+      'b', 'strong', 'i', 'em', 'u', 's',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'ul', 'ol', 'li',
+      'blockquote', 'pre', 'code',
+      'a', 'img', 'hr',
+      'table', 'thead', 'tbody', 'tr', 'th', 'td',
+    ],
+    allowedAttributes: {
+      'a': ['href', 'title', 'target', 'rel'],
+      'img': ['src', 'alt', 'width', 'height'],
+      'td': ['colspan', 'rowspan'],
+      'th': ['colspan', 'rowspan'],
+    },
+    allowedSchemes: ['http', 'https', 's3'],
+    allowedSchemesAppliedToAttributes: ['src', 'href'],
+    transformTags: {
+      'a': sanitizeHtml.simpleTransform('a', {
+        target: '_blank',
+        rel: 'noopener noreferrer',
+      }),
+    },
+  });
+
+  // Step 4: Check if the result has meaningful content
+  const textOnly = cleanHtml.replace(/<[^>]+>/g, '').trim();
+  if (!textOnly && !cleanHtml.includes('<img')) {
+    return null;
+  }
+
+  return cleanHtml;
 }
