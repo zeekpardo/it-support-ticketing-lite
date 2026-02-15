@@ -28,5 +28,6 @@ Thumbs.db
 *.log
 npm-debug.log*
 
-# Claude plans
+# Claude
 .claude/
+.mcp.json
