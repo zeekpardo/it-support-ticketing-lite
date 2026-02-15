@@ -167,6 +167,7 @@ router.post('/', requireStaff, asyncHandler(async (req, res) => {
     where: { id: projectId, organizationId: req.organization.id },
     select: {
       id: true,
+      name: true,
       defaultAssigneeId: true,
       dueDateLowDays: true,
       dueDateMediumDays: true,
@@ -244,6 +245,30 @@ router.post('/', requireStaff, asyncHandler(async (req, res) => {
       client: { select: MEMBER_WITH_USER },
     },
   });
+
+  // Notify the assigned staff member (non-blocking)
+  if (project.defaultAssigneeId) {
+    try {
+      await createNotification(prisma, {
+        type: 'NEW_TICKET_ASSIGNED',
+        recipientId: project.defaultAssigneeId,
+        organizationId: req.organization.id,
+        data: {
+          ticketId: ticket.id,
+          ticketSubject: subject,
+          projectName: project.name,
+          requestType: requestType || 'GENERAL_INQUIRY',
+          priorityLevel: priorityLevel || 'MEDIUM',
+          description,
+          clientName: `${firstName} ${lastName}`.trim(),
+        },
+        entityType: 'ticket',
+        entityId: ticket.id,
+      });
+    } catch (notifError) {
+      console.error('Error sending new ticket notification:', notifError);
+    }
+  }
 
   res.status(201).json(ticket);
 }));

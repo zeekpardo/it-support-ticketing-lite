@@ -1,6 +1,7 @@
 import { prisma } from '../lib/auth.js';
 import { sanitizeEmailBody, sanitizeEmailHtml } from '../utils/htmlSanitizer.js';
 import { isStorageConfigured, uploadFile, generateAttachmentKey } from '../lib/storage.js';
+import { createNotification } from './notificationService.js';
 import crypto from 'crypto';
 
 const generateId = () => crypto.randomBytes(16).toString('hex');
@@ -294,7 +295,29 @@ async function createTicketFromEmail(inboundEmail, emailRule, attachments, { all
     }
   }
 
-  // TODO: Send notification to assignee if any
+  // Notify the assigned staff member
+  if (project.defaultAssigneeId) {
+    try {
+      await createNotification(prisma, {
+        type: 'NEW_TICKET_ASSIGNED',
+        recipientId: project.defaultAssigneeId,
+        organizationId: project.organizationId,
+        data: {
+          ticketId: ticket.id,
+          ticketSubject: subject || '(No Subject)',
+          projectName: project.name,
+          requestType: 'GENERAL_SUPPORT',
+          priorityLevel: 'MEDIUM',
+          description,
+          clientName: `${firstName} ${lastName}`.trim(),
+        },
+        entityType: 'ticket',
+        entityId: ticket.id,
+      });
+    } catch (notifError) {
+      console.error('[InboundEmail] Error sending new ticket notification:', notifError);
+    }
+  }
 
   console.log('[InboundEmail] Created ticket:', ticket.id);
   return ticket;
