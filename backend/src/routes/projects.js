@@ -3,7 +3,7 @@ import { prisma } from '../lib/auth.js';
 import { authenticate, requireOrganization, requireAdmin } from '../middleware/auth.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
-import { findProjectOrFail } from '../utils/entityHelpers.js';
+import { findProjectOrFail, getAssignedProjectIds, hasProjectAccess } from '../utils/entityHelpers.js';
 import { MEMBER_WITH_ROLE_AND_USER_BRIEF } from '../utils/prismaFragments.js';
 import { validateProjectCodeUnique, validateDefaultAssignee, pickDefined } from '../utils/projectValidation.js';
 
@@ -30,15 +30,22 @@ const PROJECT_UPDATE_FIELDS = [
   'autoReplyEnabled', 'autoReplyHtml',
 ];
 
-// Get all projects for organization
+// Get all projects for organization (members only see assigned projects)
 router.get('/', asyncHandler(async (req, res) => {
   const { includeInactive } = req.query;
-  const canSeeInactive = ['admin', 'owner'].includes(req.membership.role);
+  const role = req.membership.role;
+  const isAdmin = role === 'owner' || role === 'manager';
 
   const where = { organizationId: req.organization.id };
 
-  if (!includeInactive || !canSeeInactive) {
+  if (!includeInactive || !isAdmin) {
     where.isActive = true;
+  }
+
+  // Members only see their assigned projects
+  if (!isAdmin) {
+    const assignedIds = await getAssignedProjectIds(req.membership.id);
+    where.id = { in: assignedIds };
   }
 
   const projects = await prisma.project.findMany({
@@ -53,8 +60,12 @@ router.get('/', asyncHandler(async (req, res) => {
   res.json(projects);
 }));
 
-// Get single project
+// Get single project (members only see assigned projects)
 router.get('/:id', asyncHandler(async (req, res) => {
+  if (!await hasProjectAccess(req.params.id, req.membership.id, req.membership.role)) {
+    throw new NotFoundError('Project not found');
+  }
+
   const project = await prisma.project.findFirst({
     where: {
       id: req.params.id,

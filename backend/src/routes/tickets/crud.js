@@ -3,7 +3,7 @@ import { prisma } from '../../lib/auth.js';
 import { requireStaff, requireAdmin } from '../../middleware/auth.js';
 import { asyncHandler } from '../../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError } from '../../utils/errors.js';
-import { findTicketOrFail } from '../../utils/entityHelpers.js';
+import { findTicketOrFail, findTicketWithAccess, getAssignedProjectIds } from '../../utils/entityHelpers.js';
 import { createNotification } from '../../services/notificationService.js';
 import { sanitizeUrl } from '../../utils/sanitize.js';
 import { resolveS3ImageUrls, resolveAttachmentUrl } from '../../utils/resolveS3Urls.js';
@@ -29,7 +29,7 @@ router.get('/staff/list', requireStaff, asyncHandler(async (req, res) => {
   res.json(staffMembers);
 }));
 
-// Get all tickets for organization (staff only)
+// Get all tickets for organization (staff only, scoped by project access)
 router.get('/', requireStaff, asyncHandler(async (req, res) => {
   const { projectId, status, stageId, ownerId, clientId } = req.query;
 
@@ -37,7 +37,15 @@ router.get('/', requireStaff, asyncHandler(async (req, res) => {
     organizationId: req.organization.id,
   };
 
-  if (projectId) where.projectId = projectId;
+  // Members only see tickets from their assigned projects
+  const role = req.membership.role;
+  if (role !== 'owner' && role !== 'manager') {
+    const assignedIds = await getAssignedProjectIds(req.membership.id);
+    where.projectId = projectId ? { in: assignedIds.includes(projectId) ? [projectId] : [] } : { in: assignedIds };
+  } else if (projectId) {
+    where.projectId = projectId;
+  }
+
   if (status) where.status = status;
   if (stageId) where.stageId = stageId;
   if (ownerId) where.ownerId = ownerId;
@@ -60,9 +68,9 @@ router.get('/', requireStaff, asyncHandler(async (req, res) => {
   res.json(tickets);
 }));
 
-// Get single ticket with details (staff only)
+// Get single ticket with details (staff only, scoped by project access)
 router.get('/:id', requireStaff, asyncHandler(async (req, res) => {
-  const ticket = await findTicketOrFail(req.params.id, req.organization.id, {
+  const ticket = await findTicketWithAccess(req.params.id, req.organization.id, req.membership, {
     include: {
       project: { select: PROJECT_SELECT_BRIEF },
       stage: { select: STAGE_SELECT },
@@ -238,9 +246,9 @@ router.post('/', requireStaff, asyncHandler(async (req, res) => {
   res.status(201).json(ticket);
 }));
 
-// Update ticket (staff only)
+// Update ticket (staff only, scoped by project access)
 router.put('/:id', requireStaff, asyncHandler(async (req, res) => {
-  const ticket = await findTicketOrFail(req.params.id, req.organization.id);
+  const ticket = await findTicketWithAccess(req.params.id, req.organization.id, req.membership);
 
   const {
     firstName, lastName, email, phone, subject, requestType,
@@ -281,7 +289,7 @@ router.put('/:id/stage', requireStaff, asyncHandler(async (req, res) => {
     throw new ValidationError('stageId is required');
   }
 
-  const ticket = await findTicketOrFail(req.params.id, req.organization.id);
+  const ticket = await findTicketWithAccess(req.params.id, req.organization.id, req.membership);
 
   const stage = await prisma.ticketStage.findFirst({
     where: { id: stageId, projectId: ticket.projectId },
@@ -315,7 +323,7 @@ router.put('/:id/status', requireStaff, asyncHandler(async (req, res) => {
     throw new ValidationError('Invalid status');
   }
 
-  await findTicketOrFail(req.params.id, req.organization.id);
+  await findTicketWithAccess(req.params.id, req.organization.id, req.membership);
 
   const updated = await prisma.supportTicket.update({
     where: { id: req.params.id },
@@ -329,7 +337,7 @@ router.put('/:id/status', requireStaff, asyncHandler(async (req, res) => {
 router.put('/:id/assign', requireStaff, asyncHandler(async (req, res) => {
   const { ownerId } = req.body;
 
-  const ticket = await findTicketOrFail(req.params.id, req.organization.id);
+  const ticket = await findTicketWithAccess(req.params.id, req.organization.id, req.membership);
 
   if (ownerId) {
     const owner = await prisma.member.findFirst({

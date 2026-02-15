@@ -17,15 +17,9 @@ export default function Onboarding() {
   const [orgSlug, setOrgSlug] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { createOrganization, organizations } = useOrganization()
+  const { createOrganization } = useOrganization()
   const { branding } = useBranding()
   const navigate = useNavigate()
-
-  // If user already has organizations, redirect to dashboard
-  if (organizations.length > 0) {
-    navigate('/')
-    return null
-  }
 
   const handleCreateOrg = async (e: FormEvent) => {
     e.preventDefault()

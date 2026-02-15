@@ -4,7 +4,7 @@ import { requireStaff } from '../../middleware/auth.js';
 import { asyncHandler, withUpload } from '../../middleware/asyncHandler.js';
 import { ValidationError } from '../../utils/errors.js';
 import { uploadAttachments } from '../../middleware/upload.js';
-import { findTicketOrFail, createTicketAttachments } from '../../utils/entityHelpers.js';
+import { findTicketWithAccess, createTicketAttachments } from '../../utils/entityHelpers.js';
 import { sendCommentNotifications } from '../../services/notificationService.js';
 import { sanitizeCommentHtml } from '../../utils/htmlSanitizer.js';
 import { MEMBER_WITH_ROLE_AND_USER } from '../../utils/prismaFragments.js';
@@ -13,7 +13,7 @@ const router = express.Router();
 
 // Get ticket comments
 router.get('/:id/comments', requireStaff, asyncHandler(async (req, res) => {
-  await findTicketOrFail(req.params.id, req.organization.id);
+  await findTicketWithAccess(req.params.id, req.organization.id, req.membership);
 
   const comments = await prisma.ticketComment.findMany({
     where: { ticketId: req.params.id },
@@ -36,7 +36,7 @@ router.post('/:id/comments', requireStaff, withUpload(uploadAttachments, async (
     throw new ValidationError('Content is required');
   }
 
-  const ticket = await findTicketOrFail(req.params.id, req.organization.id);
+  const ticket = await findTicketWithAccess(req.params.id, req.organization.id, req.membership);
   const contentHtml = rawContentHtml ? sanitizeCommentHtml(rawContentHtml) : null;
 
   const comment = await prisma.ticketComment.create({
@@ -90,7 +90,7 @@ router.post('/:id/comments', requireStaff, withUpload(uploadAttachments, async (
 
 // Get mentionable members for a ticket (staff + ticket client)
 router.get('/:id/mentionable-members', requireStaff, asyncHandler(async (req, res) => {
-  const ticket = await findTicketOrFail(req.params.id, req.organization.id, {
+  const ticket = await findTicketWithAccess(req.params.id, req.organization.id, req.membership, {
     include: {
       client: { select: MEMBER_WITH_ROLE_AND_USER },
     },

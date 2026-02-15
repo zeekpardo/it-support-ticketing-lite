@@ -24,6 +24,7 @@ import {
   ChartBarIcon,
   Cog6ToothIcon,
   ArrowRightStartOnRectangleIcon,
+  ArrowLeftIcon,
   ChevronUpIcon,
   BuildingOfficeIcon,
   PlusIcon,
@@ -52,21 +53,24 @@ export function Layout({ children }: LayoutProps) {
     navigate('/login')
   }
 
+  const isSettingsPage = location.pathname.startsWith('/admin') || location.pathname.startsWith('/super-admin')
+
   const navItems = [
     { href: '/', label: 'Dashboard', icon: ClockIcon },
     { href: '/projects', label: 'Projects', icon: FolderIcon },
     { href: '/reports', label: 'Reports', icon: ChartBarIcon },
   ]
 
-  const adminItems = [
-    { href: '/admin/members', label: 'Users', icon: UsersIcon },
-    { href: '/admin/projects', label: 'Manage Projects', icon: Cog6ToothIcon },
-    { href: '/admin/email-rules', label: 'Email Rules', icon: EnvelopeIcon },
-    { href: '/admin/branding', label: 'Branding', icon: PaintBrushIcon },
-  ]
-
-  const superAdminItems = [
-    { href: '/super-admin', label: 'User Management', icon: ShieldCheckIcon },
+  const settingsItems = [
+    ...(isAdmin ? [
+      { href: '/admin/members', label: 'Users', icon: UsersIcon },
+      { href: '/admin/projects', label: 'Manage Projects', icon: Cog6ToothIcon },
+      { href: '/admin/email-rules', label: 'Email Rules', icon: EnvelopeIcon },
+      { href: '/admin/branding', label: 'Branding', icon: PaintBrushIcon },
+    ] : []),
+    ...(isSuperAdmin ? [
+      { href: '/super-admin', label: 'Super Admin', icon: ShieldCheckIcon },
+    ] : []),
   ]
 
   return (
@@ -108,48 +112,41 @@ export function Layout({ children }: LayoutProps) {
           </SidebarHeader>
 
           <SidebarBody>
-            <SidebarSection>
-              {navItems.map((item) => (
-                <SidebarItem
-                  key={item.href}
-                  href={item.href}
-                  current={location.pathname === item.href}
-                  onClick={(e) => {
-                    e.preventDefault()
-                    navigate(item.href)
-                  }}
-                >
-                  <item.icon className="h-5 w-5" />
-                  <SidebarLabel>{item.label}</SidebarLabel>
-                </SidebarItem>
-              ))}
-            </SidebarSection>
-
-            {isAdmin && (
-              <SidebarSection>
-                <SidebarLabel>Admin</SidebarLabel>
-                {adminItems.map((item) => (
+            {isSettingsPage ? (
+              <>
+                <SidebarSection>
                   <SidebarItem
-                    key={item.href}
-                    href={item.href}
-                    current={location.pathname === item.href || location.pathname.startsWith(item.href + '/')
-                      || (item.href === '/admin/email-rules' && location.pathname === '/admin/email-logs')}
                     onClick={(e) => {
                       e.preventDefault()
-                      navigate(item.href)
+                      navigate('/')
                     }}
                   >
-                    <item.icon className="h-5 w-5" />
-                    <SidebarLabel>{item.label}</SidebarLabel>
+                    <ArrowLeftIcon className="h-5 w-5" />
+                    <SidebarLabel>Back</SidebarLabel>
                   </SidebarItem>
-                ))}
-              </SidebarSection>
-            )}
-
-            {isSuperAdmin && (
+                </SidebarSection>
+                <SidebarSection>
+                  <SidebarLabel>Settings</SidebarLabel>
+                  {settingsItems.map((item) => (
+                    <SidebarItem
+                      key={item.href}
+                      href={item.href}
+                      current={location.pathname === item.href || location.pathname.startsWith(item.href + '/')
+                        || (item.href === '/admin/email-rules' && location.pathname === '/admin/email-logs')}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        navigate(item.href)
+                      }}
+                    >
+                      <item.icon className="h-5 w-5" />
+                      <SidebarLabel>{item.label}</SidebarLabel>
+                    </SidebarItem>
+                  ))}
+                </SidebarSection>
+              </>
+            ) : (
               <SidebarSection>
-                <SidebarLabel>Super Admin</SidebarLabel>
-                {superAdminItems.map((item) => (
+                {navItems.map((item) => (
                   <SidebarItem
                     key={item.href}
                     href={item.href}
@@ -163,6 +160,19 @@ export function Layout({ children }: LayoutProps) {
                     <SidebarLabel>{item.label}</SidebarLabel>
                   </SidebarItem>
                 ))}
+                {(isAdmin || isSuperAdmin) && (
+                  <SidebarItem
+                    href="/admin/members"
+                    current={false}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      navigate(isAdmin ? '/admin/members' : '/super-admin')
+                    }}
+                  >
+                    <Cog6ToothIcon className="h-5 w-5" />
+                    <SidebarLabel>Settings</SidebarLabel>
+                  </SidebarItem>
+                )}
               </SidebarSection>
             )}
 

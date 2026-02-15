@@ -5,7 +5,7 @@ import { requireStaff } from '../../middleware/auth.js';
 import { asyncHandler, withUpload } from '../../middleware/asyncHandler.js';
 import { uploadAttachments } from '../../middleware/upload.js';
 import { NotFoundError, ValidationError } from '../../utils/errors.js';
-import { findTicketOrFail, createTicketAttachments } from '../../utils/entityHelpers.js';
+import { findTicketWithAccess, createTicketAttachments } from '../../utils/entityHelpers.js';
 import { MEMBER_WITH_USER_BRIEF } from '../../utils/prismaFragments.js';
 import { deleteFile, uploadFile, generateAttachmentKey, isStorageConfigured } from '../../lib/storage.js';
 import { resolveAttachmentUrl } from '../../utils/resolveS3Urls.js';
@@ -14,7 +14,7 @@ const router = express.Router();
 
 // Get ticket attachments (with presigned URLs for S3 files)
 router.get('/:id/attachments', requireStaff, asyncHandler(async (req, res) => {
-  await findTicketOrFail(req.params.id, req.organization.id);
+  await findTicketWithAccess(req.params.id, req.organization.id, req.membership);
 
   const attachments = await prisma.ticketAttachment.findMany({
     where: { ticketId: req.params.id },
@@ -35,7 +35,7 @@ router.post('/:id/attachments', requireStaff, withUpload(uploadAttachments, asyn
     throw new ValidationError('No files provided');
   }
 
-  await findTicketOrFail(req.params.id, req.organization.id);
+  await findTicketWithAccess(req.params.id, req.organization.id, req.membership);
 
   const attachments = await createTicketAttachments(
     req.params.id,
@@ -71,7 +71,7 @@ router.post('/:id/inline-image', requireStaff, withUpload(uploadInlineImage, asy
     throw new ValidationError('File storage is not configured');
   }
 
-  await findTicketOrFail(req.params.id, req.organization.id);
+  await findTicketWithAccess(req.params.id, req.organization.id, req.membership);
 
   const key = generateAttachmentKey(req.params.id, req.file.originalname);
   await uploadFile(req.file.buffer, key, req.file.mimetype);
@@ -93,7 +93,7 @@ router.post('/:id/inline-image', requireStaff, withUpload(uploadInlineImage, asy
 
 // Delete attachment
 router.delete('/:id/attachments/:attachmentId', requireStaff, asyncHandler(async (req, res) => {
-  await findTicketOrFail(req.params.id, req.organization.id);
+  await findTicketWithAccess(req.params.id, req.organization.id, req.membership);
 
   const attachment = await prisma.ticketAttachment.findFirst({
     where: {

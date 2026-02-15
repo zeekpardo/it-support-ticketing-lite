@@ -58,6 +58,15 @@ export async function findStageOrFail(stageId, projectId, organizationId, option
   return stage;
 }
 
+// Find ticket and verify the member has access to its project
+export async function findTicketWithAccess(ticketId, organizationId, membership, options = {}) {
+  const ticket = await findTicketOrFail(ticketId, organizationId, options);
+  if (!await hasProjectAccess(ticket.projectId, membership.id, membership.role)) {
+    throw new NotFoundError('Ticket not found');
+  }
+  return ticket;
+}
+
 // Check if user has access to a project (assigned or admin)
 export async function hasProjectAccess(projectId, memberId, memberRole) {
   if (memberRole === 'owner' || memberRole === 'manager') {
@@ -67,6 +76,15 @@ export async function hasProjectAccess(projectId, memberId, memberRole) {
     where: { memberId_projectId: { memberId, projectId } }
   });
   return !!assignment;
+}
+
+// Get all project IDs a member is assigned to (for filtering queries)
+export async function getAssignedProjectIds(memberId) {
+  const assignments = await prisma.projectAssignment.findMany({
+    where: { memberId },
+    select: { projectId: true },
+  });
+  return assignments.map(a => a.projectId);
 }
 
 export async function createTicketAttachments(ticketId, uploadedById, files, commentId = null, options = {}) {

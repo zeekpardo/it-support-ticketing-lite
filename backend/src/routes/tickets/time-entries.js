@@ -2,14 +2,14 @@ import express from 'express';
 import { prisma } from '../../lib/auth.js';
 import { requireStaff } from '../../middleware/auth.js';
 import { asyncHandler } from '../../middleware/asyncHandler.js';
-import { findTicketOrFail } from '../../utils/entityHelpers.js';
+import { findTicketWithAccess } from '../../utils/entityHelpers.js';
 import { USER_SELECT, USER_SELECT_BRIEF, PROJECT_SELECT_BRIEF } from '../../utils/prismaFragments.js';
 
 const router = express.Router();
 
 // Get time entries for ticket
 router.get('/:id/time-entries', requireStaff, asyncHandler(async (req, res) => {
-  await findTicketOrFail(req.params.id, req.organization.id);
+  await findTicketWithAccess(req.params.id, req.organization.id, req.membership);
 
   const timeEntries = await prisma.timeEntry.findMany({
     where: { ticketId: req.params.id },
@@ -25,7 +25,7 @@ router.get('/:id/time-entries', requireStaff, asyncHandler(async (req, res) => {
 
 // Start timer for ticket (creates a time entry linked to ticket)
 router.post('/:id/time-entries', requireStaff, asyncHandler(async (req, res) => {
-  const ticket = await findTicketOrFail(req.params.id, req.organization.id, {
+  const ticket = await findTicketWithAccess(req.params.id, req.organization.id, req.membership, {
     include: {
       project: true,
     },
