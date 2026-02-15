@@ -74,8 +74,9 @@ export const emailRulesApi = {
   /**
    * Get all email rules for the organization
    */
-  async getEmailRules(): Promise<EmailRule[]> {
-    return request<EmailRule[]>('/email-rules')
+  async getEmailRules(params?: { projectId?: string }): Promise<EmailRule[]> {
+    const query = params?.projectId ? `?projectId=${params.projectId}` : ''
+    return request<EmailRule[]>(`/email-rules${query}`)
   },
 
   /**

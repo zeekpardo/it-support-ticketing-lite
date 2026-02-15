@@ -165,7 +165,7 @@ export default function Settings() {
           )}
 
           <div className="mb-6">
-            <Label>Profile Photo</Label>
+            <span className="text-sm/6 font-medium text-zinc-950 dark:text-white">Profile Photo</span>
             <div className="mt-2 flex items-center gap-6">
               <Avatar
                 src={user?.image}

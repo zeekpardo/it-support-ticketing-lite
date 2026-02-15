@@ -29,6 +29,7 @@ import {
   ShieldCheckIcon,
   ExclamationTriangleIcon,
   UserCircleIcon,
+  EnvelopeIcon,
 } from '@heroicons/react/24/outline'
 import { NotificationBell } from './notifications'
 import { Button } from '@/components/ui/button'
@@ -57,6 +58,7 @@ export function Layout({ children }: LayoutProps) {
   const adminItems = [
     { href: '/admin/members', label: 'Users', icon: UsersIcon },
     { href: '/admin/projects', label: 'Manage Projects', icon: Cog6ToothIcon },
+    { href: '/admin/email-rules', label: 'Email Rules', icon: EnvelopeIcon },
   ]
 
   const superAdminItems = [
@@ -122,7 +124,8 @@ export function Layout({ children }: LayoutProps) {
                   <SidebarItem
                     key={item.href}
                     href={item.href}
-                    current={location.pathname === item.href}
+                    current={location.pathname === item.href || location.pathname.startsWith(item.href + '/')
+                      || (item.href === '/admin/email-rules' && location.pathname === '/admin/email-logs')}
                     onClick={(e) => {
                       e.preventDefault()
                       navigate(item.href)

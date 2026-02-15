@@ -38,6 +38,11 @@ router.get('/stream', async (req, res) => {
   const count = await getUnreadCount(prisma, memberId, organizationId);
   res.write(`data: ${JSON.stringify({ count })}\n\n`);
 
+  // Keep connection alive through reverse proxy (Railway closes idle connections)
+  const heartbeat = setInterval(() => {
+    res.write(': heartbeat\n\n');
+  }, 25000);
+
   // Push updates when this user's notifications change
   const onChange = async ({ recipientId, organizationId: orgId }) => {
     if (recipientId === memberId && orgId === organizationId) {
@@ -53,6 +58,7 @@ router.get('/stream', async (req, res) => {
   notificationEmitter.on('change', onChange);
 
   req.on('close', () => {
+    clearInterval(heartbeat);
     notificationEmitter.off('change', onChange);
   });
 });

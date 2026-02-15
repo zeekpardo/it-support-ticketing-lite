@@ -88,14 +88,12 @@ export default function Reports() {
   const loadReport = async () => {
     setLoading(true)
     try {
-      console.log('Loading report with:', { startDate, endDate, projectId, groupBy })
       const data = await api.getReportSummary({
         startDate,
         endDate,
         projectId: projectId || undefined,
         groupBy
       })
-      console.log('Report data:', data)
       setReport(data)
     } catch (error) {
       console.error('Failed to load report:', error)

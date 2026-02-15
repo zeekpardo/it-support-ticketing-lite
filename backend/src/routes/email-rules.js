@@ -18,8 +18,13 @@ router.use(requireAdmin);
 router.get(
   '/',
   asyncHandler(async (req, res) => {
+    const where = { organizationId: req.organization.id };
+    if (req.query.projectId) {
+      where.projectId = req.query.projectId;
+    }
+
     const rules = await prisma.emailRule.findMany({
-      where: { organizationId: req.organization.id },
+      where,
       include: {
         project: {
           select: {
