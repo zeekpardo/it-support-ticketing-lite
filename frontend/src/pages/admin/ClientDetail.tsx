@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useOrganization } from '../../context/OrganizationContext'
 import { api } from '../../api/client'
+import { useTabbedPage } from '../../hooks/useTabbedPage'
 import { Heading, Subheading } from '@/components/ui/heading'
 import { Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
@@ -52,7 +53,7 @@ interface Client {
   }>
 }
 
-type TabType = 'tickets' | 'software'
+const TAB_IDS = ['tickets', 'software'] as const
 
 const statusColors: Record<string, 'yellow' | 'blue' | 'orange' | 'purple' | 'green' | 'zinc'> = {
   NEW_REQUEST: 'yellow',
@@ -93,7 +94,7 @@ export default function ClientDetail() {
   const { currentOrg } = useOrganization()
   const [client, setClient] = useState<Client | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<TabType>('tickets')
+  const tabs = useTabbedPage({ tabs: TAB_IDS, defaultTab: 'tickets' })
   const [saving, setSaving] = useState(false)
 
   // Inline name editing
@@ -275,7 +276,7 @@ export default function ClientDetail() {
     )
   }
 
-  const tabs: { id: TabType; label: string; count: number }[] = [
+  const tabDefs: { id: (typeof TAB_IDS)[number]; label: string; count: number }[] = [
     { id: 'tickets', label: 'Tickets', count: client.tickets.length },
     { id: 'software', label: 'Software Access', count: client.softwareAccess.length },
   ]
@@ -414,13 +415,13 @@ export default function ClientDetail() {
       {/* Tabs */}
       <div className="border-b border-zinc-200 dark:border-zinc-700">
         <nav className="-mb-px flex space-x-8">
-          {tabs.map((tab) => (
+          {tabDefs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => tabs.set(tab.id)}
               className={`
                 flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors
-                ${activeTab === tab.id
+                ${tabs.active ===tab.id
                   ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                   : 'border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300 dark:hover:text-zinc-300'
                 }
@@ -434,7 +435,7 @@ export default function ClientDetail() {
               {tab.label}
               <span className={`
                 ml-1 rounded-full px-2 py-0.5 text-xs font-medium
-                ${activeTab === tab.id
+                ${tabs.active ===tab.id
                   ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
                   : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
                 }
@@ -447,7 +448,7 @@ export default function ClientDetail() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'tickets' && (
+      {tabs.active ==='tickets' && (
         <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
           <Subheading>Tickets</Subheading>
           {client.tickets.length > 0 ? (
@@ -504,7 +505,7 @@ export default function ClientDetail() {
         </div>
       )}
 
-      {activeTab === 'software' && (
+      {tabs.active ==='software' && (
         <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
           <Subheading>Software Access Requests</Subheading>
           {client.softwareAccess.length > 0 ? (

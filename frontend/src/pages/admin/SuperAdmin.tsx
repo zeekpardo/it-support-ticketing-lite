@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Heading } from '@/components/ui/heading'
 import {
   UsersIcon,
@@ -7,6 +6,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { UsersTab, SoftwareTab, CategoriesTab } from './super-admin'
 import type { TabType } from './super-admin'
+import { useTabbedPage } from '../../hooks/useTabbedPage'
 
 // ==========================================
 // Tab Button Component
@@ -41,7 +41,7 @@ function TabButton({
 // ==========================================
 
 export default function SuperAdmin() {
-  const [activeTab, setActiveTab] = useState<TabType>('users')
+  const tabs = useTabbedPage({ tabs: ['users', 'software', 'categories'] as const satisfies readonly TabType[], defaultTab: 'users' })
 
   return (
     <div className="space-y-6">
@@ -50,15 +50,15 @@ export default function SuperAdmin() {
       {/* Tabs */}
       <div className="border-b border-zinc-200 dark:border-zinc-700">
         <nav className="-mb-px flex gap-2">
-          <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')}>
+          <TabButton active={tabs.active ==='users'} onClick={() => tabs.set('users')}>
             <UsersIcon className="h-4 w-4" />
             Users
           </TabButton>
-          <TabButton active={activeTab === 'software'} onClick={() => setActiveTab('software')}>
+          <TabButton active={tabs.active ==='software'} onClick={() => tabs.set('software')}>
             <Square3Stack3DIcon className="h-4 w-4" />
             Software Catalog
           </TabButton>
-          <TabButton active={activeTab === 'categories'} onClick={() => setActiveTab('categories')}>
+          <TabButton active={tabs.active ==='categories'} onClick={() => tabs.set('categories')}>
             <TagIcon className="h-4 w-4" />
             Categories
           </TabButton>
@@ -66,9 +66,9 @@ export default function SuperAdmin() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'users' && <UsersTab />}
-      {activeTab === 'software' && <SoftwareTab />}
-      {activeTab === 'categories' && <CategoriesTab />}
+      {tabs.active ==='users' && <UsersTab />}
+      {tabs.active ==='software' && <SoftwareTab />}
+      {tabs.active ==='categories' && <CategoriesTab />}
     </div>
   )
 }

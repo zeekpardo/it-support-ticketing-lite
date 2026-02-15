@@ -5,7 +5,7 @@ import { authenticate, requireOrganization, requireAdmin } from '../middleware/a
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { ValidationError } from '../utils/errors.js';
 import { findProjectOrFail } from '../utils/entityHelpers.js';
-import { sendMagicLinkEmail } from '../lib/email.js';
+import { sendMagicLinkEmail } from '../lib/email/index.js';
 
 const router = express.Router();
 

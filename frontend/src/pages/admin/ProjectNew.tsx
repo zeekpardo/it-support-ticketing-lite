@@ -1,6 +1,7 @@
 import { useState, useEffect, FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useOrganization } from '../../context/OrganizationContext'
+import { useCrudForm } from '../../hooks/useCrudForm'
 import { api } from '../../api/client'
 import { Heading } from '@/components/ui/heading'
 import { Text } from '@/components/ui/text'
@@ -23,18 +24,19 @@ export default function ProjectNew() {
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Form state
-  const [name, setName] = useState('')
-  const [projectCode, setProjectCode] = useState('')
-  const [clientName, setClientName] = useState('')
-  const [description, setDescription] = useState('')
-  const [defaultAssigneeId, setDefaultAssigneeId] = useState<string>('')
-  const [dueDateLowDays, setDueDateLowDays] = useState<string>('')
-  const [dueDateMediumDays, setDueDateMediumDays] = useState<string>('')
-  const [dueDateHighDays, setDueDateHighDays] = useState<string>('')
-  const [dueDateUrgentDays, setDueDateUrgentDays] = useState<string>('')
-  const [error, setError] = useState('')
-  const [saving, setSaving] = useState(false)
+  const form = useCrudForm({
+    initialData: {
+      name: '',
+      projectCode: '',
+      clientName: '',
+      description: '',
+      defaultAssigneeId: '',
+      dueDateLowDays: '',
+      dueDateMediumDays: '',
+      dueDateHighDays: '',
+      dueDateUrgentDays: '',
+    },
+  })
 
   useEffect(() => {
     if (currentOrg) {
@@ -63,34 +65,28 @@ export default function ProjectNew() {
   }
 
   const handleNameChange = (value: string) => {
-    setName(value)
-    setProjectCode(generateCode(value))
+    form.setField('name', value)
+    form.setField('projectCode', generateCode(value))
   }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    setError('')
-    setSaving(true)
-
     const parseDays = (val: string) => val ? parseInt(val, 10) : null
 
-    try {
+    await form.handleSubmit(async () => {
       await api.createProject({
-        name,
-        projectCode,
-        clientName: clientName || undefined,
-        description: description || undefined,
-        defaultAssigneeId: defaultAssigneeId || null,
-        dueDateLowDays: parseDays(dueDateLowDays),
-        dueDateMediumDays: parseDays(dueDateMediumDays),
-        dueDateHighDays: parseDays(dueDateHighDays),
-        dueDateUrgentDays: parseDays(dueDateUrgentDays)
+        name: form.data.name,
+        projectCode: form.data.projectCode,
+        clientName: form.data.clientName || undefined,
+        description: form.data.description || undefined,
+        defaultAssigneeId: form.data.defaultAssigneeId || null,
+        dueDateLowDays: parseDays(form.data.dueDateLowDays),
+        dueDateMediumDays: parseDays(form.data.dueDateMediumDays),
+        dueDateHighDays: parseDays(form.data.dueDateHighDays),
+        dueDateUrgentDays: parseDays(form.data.dueDateUrgentDays),
       })
       navigate('/admin/projects')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create project')
-      setSaving(false)
-    }
+    })
   }
 
   if (!currentOrg) {
@@ -126,9 +122,9 @@ export default function ProjectNew() {
 
       <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10">
         <form onSubmit={handleSubmit}>
-          {error && (
+          {form.error && (
             <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-              {error}
+              {form.error}
             </div>
           )}
 
@@ -137,7 +133,7 @@ export default function ProjectNew() {
               <Label>Project Name</Label>
               <Input
                 type="text"
-                value={name}
+                value={form.data.name}
                 onChange={(e) => handleNameChange(e.target.value)}
                 placeholder="Website Redesign"
                 required
@@ -148,8 +144,8 @@ export default function ProjectNew() {
               <Label>Project Code</Label>
               <Input
                 type="text"
-                value={projectCode}
-                onChange={(e) => setProjectCode(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))}
+                value={form.data.projectCode}
+                onChange={(e) => form.setField('projectCode', e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))}
                 placeholder="WEB-REDESIGN"
                 required
                 maxLength={10}
@@ -161,8 +157,8 @@ export default function ProjectNew() {
               <Label>Client Name (optional)</Label>
               <Input
                 type="text"
-                value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
+                value={form.data.clientName}
+                onChange={(e) => form.setField('clientName', e.target.value)}
                 placeholder="Acme Corp"
               />
             </Field>
@@ -170,8 +166,8 @@ export default function ProjectNew() {
             <Field>
               <Label>Description (optional)</Label>
               <Textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                value={form.data.description}
+                onChange={(e) => form.setField('description', e.target.value)}
                 placeholder="Brief description of the project..."
                 rows={3}
               />
@@ -180,8 +176,8 @@ export default function ProjectNew() {
             <Field>
               <Label>Default Ticket Assignee (optional)</Label>
               <Select
-                value={defaultAssigneeId}
-                onChange={(e) => setDefaultAssigneeId(e.target.value)}
+                value={form.data.defaultAssigneeId}
+                onChange={(e) => form.setField('defaultAssigneeId', e.target.value)}
               >
                 <option value="">No default assignee</option>
                 {staffMembers.map((member) => (
@@ -202,8 +198,8 @@ export default function ProjectNew() {
                   <Input
                     type="number"
                     min="0"
-                    value={dueDateLowDays}
-                    onChange={(e) => setDueDateLowDays(e.target.value)}
+                    value={form.data.dueDateLowDays}
+                    onChange={(e) => form.setField('dueDateLowDays', e.target.value)}
                     placeholder="e.g. 7"
                   />
                 </Field>
@@ -212,8 +208,8 @@ export default function ProjectNew() {
                   <Input
                     type="number"
                     min="0"
-                    value={dueDateMediumDays}
-                    onChange={(e) => setDueDateMediumDays(e.target.value)}
+                    value={form.data.dueDateMediumDays}
+                    onChange={(e) => form.setField('dueDateMediumDays', e.target.value)}
                     placeholder="e.g. 5"
                   />
                 </Field>
@@ -222,8 +218,8 @@ export default function ProjectNew() {
                   <Input
                     type="number"
                     min="0"
-                    value={dueDateHighDays}
-                    onChange={(e) => setDueDateHighDays(e.target.value)}
+                    value={form.data.dueDateHighDays}
+                    onChange={(e) => form.setField('dueDateHighDays', e.target.value)}
                     placeholder="e.g. 2"
                   />
                 </Field>
@@ -232,8 +228,8 @@ export default function ProjectNew() {
                   <Input
                     type="number"
                     min="0"
-                    value={dueDateUrgentDays}
-                    onChange={(e) => setDueDateUrgentDays(e.target.value)}
+                    value={form.data.dueDateUrgentDays}
+                    onChange={(e) => form.setField('dueDateUrgentDays', e.target.value)}
                     placeholder="e.g. 1"
                   />
                 </Field>
@@ -242,11 +238,11 @@ export default function ProjectNew() {
           </FieldGroup>
 
           <div className="mt-6 flex justify-end gap-3">
-            <Button plain onClick={() => navigate('/admin/projects')} disabled={saving}>
+            <Button plain onClick={() => navigate('/admin/projects')} disabled={form.saving}>
               Cancel
             </Button>
-            <Button color="blue" type="submit" disabled={saving}>
-              {saving ? 'Creating...' : 'Create Project'}
+            <Button color="blue" type="submit" disabled={form.saving}>
+              {form.saving ? 'Creating...' : 'Create Project'}
             </Button>
           </div>
         </form>

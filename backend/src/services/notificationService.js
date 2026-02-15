@@ -7,7 +7,7 @@
  */
 
 import { NOTIFICATION_TYPES } from './notificationTypes.js';
-import { sendThreadedTicketReply } from '../lib/email.js';
+import { sendThreadedTicketReply, getOrgBranding } from '../lib/email/index.js';
 import { prisma } from '../lib/auth.js';
 import notificationEmitter from './notificationEmitter.js';
 
@@ -50,20 +50,19 @@ export async function createNotification(prisma, { type, recipientId, organizati
   // Send email notification if configured and enabled
   if (sendEmail && config.sendEmail) {
     try {
-      // Fetch recipient's email and name
       const recipient = await prisma.member.findUnique({
         where: { id: recipientId },
         include: { user: { select: { email: true, name: true } } },
       });
 
       if (recipient?.user?.email) {
+        const branding = await getOrgBranding(organizationId);
         await config.sendEmail(
           { email: recipient.user.email, name: recipient.user.name },
-          data
+          { ...data, branding }
         );
       }
     } catch (emailError) {
-      // Log but don't fail - email is non-critical
       console.error('[NotificationService] Failed to send email:', emailError);
     }
   }
@@ -154,23 +153,25 @@ export async function notifyMultiple(prisma, { type, recipientIds, organizationI
   if (sendEmail) {
     const config = NOTIFICATION_TYPES[type];
     if (config?.sendEmail) {
-      // Fetch all recipients' emails
-      prisma.member.findMany({
-        where: { id: { in: filteredIds } },
-        include: { user: { select: { email: true, name: true } } },
-      }).then((recipients) => {
-        for (const recipient of recipients) {
-          if (recipient?.user?.email) {
-            config.sendEmail(
-              { email: recipient.user.email, name: recipient.user.name },
-              data
-            ).catch((err) => {
-              console.error('[NotificationService] Failed to send email:', err);
-            });
+      getOrgBranding(organizationId).then((branding) => {
+        const dataWithBranding = { ...data, branding };
+        return prisma.member.findMany({
+          where: { id: { in: filteredIds } },
+          include: { user: { select: { email: true, name: true } } },
+        }).then((recipients) => {
+          for (const recipient of recipients) {
+            if (recipient?.user?.email) {
+              config.sendEmail(
+                { email: recipient.user.email, name: recipient.user.name },
+                dataWithBranding
+              ).catch((err) => {
+                console.error('[NotificationService] Failed to send email:', err);
+              });
+            }
           }
-        }
+        });
       }).catch((err) => {
-        console.error('[NotificationService] Failed to fetch recipients for email:', err);
+        console.error('[NotificationService] Failed to send bulk emails:', err);
       });
     }
   }
@@ -232,6 +233,8 @@ export async function sendCommentNotifications(prisma, {
   isInternal,
   organizationId,
 }) {
+  const branding = await getOrgBranding(organizationId);
+
   const notificationData = {
     ticketId: ticket.id,
     ticketSubject: ticket.subject,
@@ -239,6 +242,7 @@ export async function sendCommentNotifications(prisma, {
     commentId: comment.id,
     commentContent: content,
     commentContentHtml: contentHtml || null,
+    branding,
   };
 
   const mentionedMemberIds = parseMentions(content);
@@ -283,6 +287,7 @@ export async function sendCommentNotifications(prisma, {
               commentContent: content,
               commentContentHtml: contentHtml,
               commentId: comment.id,
+              branding,
             });
           }
         }

@@ -7,6 +7,7 @@ import { Field, FieldGroup, Label, Description } from '@/components/ui/fieldset'
 import { Heading } from '@/components/ui/heading'
 import { Text } from '@/components/ui/text'
 import { BuildingOfficeIcon, UserGroupIcon } from '@heroicons/react/24/outline'
+import { useBranding } from '../context/BrandingContext'
 
 type Step = 'choice' | 'create' | 'join'
 
@@ -17,6 +18,7 @@ export default function Onboarding() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { createOrganization, organizations } = useOrganization()
+  const { branding } = useBranding()
   const navigate = useNavigate()
 
   // If user already has organizations, redirect to dashboard
@@ -59,7 +61,7 @@ export default function Onboarding() {
         <div className="w-full max-w-md">
           <div className="rounded-xl bg-white p-8 shadow-lg ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
             <div className="text-center">
-              <Heading>Welcome to Groovi Support!</Heading>
+              <Heading>Welcome to {branding.appName}!</Heading>
               <Text className="mt-1">Let's get you set up</Text>
             </div>
 

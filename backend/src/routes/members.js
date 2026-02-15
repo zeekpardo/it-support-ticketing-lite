@@ -7,7 +7,7 @@ import { NotFoundError, ValidationError, ForbiddenError, ConflictError } from '.
 import { createProjectAssignments } from '../utils/entityHelpers.js';
 import { USER_SELECT, MEMBER_WITH_USER } from '../utils/prismaFragments.js';
 import { PROJECT_ASSIGNMENT_INCLUDE, PROJECT_SELECT_ACTIVE, PROJECT_SELECT_BRIEF } from '../utils/prismaFragments.js';
-import { markWelcomeEmail } from '../lib/email.js';
+import { markWelcomeEmail } from '../lib/email/index.js';
 import { resolveFileUrl } from '../lib/storage.js';
 import { auth } from '../lib/auth.js';
 

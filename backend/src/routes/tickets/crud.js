@@ -6,39 +6,13 @@ import { NotFoundError, ValidationError } from '../../utils/errors.js';
 import { findTicketOrFail } from '../../utils/entityHelpers.js';
 import { createNotification } from '../../services/notificationService.js';
 import { sanitizeUrl } from '../../utils/sanitize.js';
-import { getPresignedUrl } from '../../lib/storage.js';
+import { resolveS3ImageUrls, resolveAttachmentUrl } from '../../utils/resolveS3Urls.js';
 import {
   USER_SELECT, USER_SELECT_BRIEF, MEMBER_WITH_USER, MEMBER_WITH_USER_BRIEF,
   MEMBER_WITH_ROLE_AND_USER, PROJECT_SELECT_BRIEF, STAGE_SELECT,
 } from '../../utils/prismaFragments.js';
 
 const router = express.Router();
-
-/**
- * Replace all s3:{key} image sources in HTML with presigned URLs.
- */
-async function resolveHtmlImageUrls(html) {
-  const s3Pattern = /src="s3:([^"]+)"/g;
-  const matches = [...html.matchAll(s3Pattern)];
-  if (matches.length === 0) return html;
-
-  const replacements = await Promise.all(
-    matches.map(async (match) => {
-      try {
-        const url = await getPresignedUrl(match[1]);
-        return { original: match[0], replacement: `src="${url}"` };
-      } catch {
-        return { original: match[0], replacement: 'src=""' };
-      }
-    })
-  );
-
-  let resolved = html;
-  for (const { original, replacement } of replacements) {
-    resolved = resolved.replace(original, replacement);
-  }
-  return resolved;
-}
 
 // Get staff members for assignment dropdown
 router.get('/staff/list', requireStaff, asyncHandler(async (req, res) => {
@@ -121,26 +95,15 @@ router.get('/:id', requireStaff, asyncHandler(async (req, res) => {
     0
   );
 
-  // Resolve presigned URLs for S3-stored attachments
-  const resolveUrl = async (att) => {
-    if (att.fileUrl?.startsWith('s3:')) {
-      try {
-        return { ...att, fileUrl: await getPresignedUrl(att.fileUrl.slice(3)) };
-      } catch { return att; }
-    }
-    return att;
-  };
-
-  const attachments = await Promise.all(ticket.attachments.map(resolveUrl));
+  const attachments = await Promise.all(ticket.attachments.map(resolveAttachmentUrl));
   const comments = await Promise.all(ticket.comments.map(async (c) => ({
     ...c,
-    contentHtml: c.contentHtml ? await resolveHtmlImageUrls(c.contentHtml) : null,
-    attachments: c.attachments ? await Promise.all(c.attachments.map(resolveUrl)) : [],
+    contentHtml: c.contentHtml ? await resolveS3ImageUrls(c.contentHtml) : null,
+    attachments: c.attachments ? await Promise.all(c.attachments.map(resolveAttachmentUrl)) : [],
   })));
 
-  // Resolve s3: image URLs in description HTML
   const descriptionHtml = ticket.descriptionHtml
-    ? await resolveHtmlImageUrls(ticket.descriptionHtml)
+    ? await resolveS3ImageUrls(ticket.descriptionHtml)
     : null;
 
   res.json({

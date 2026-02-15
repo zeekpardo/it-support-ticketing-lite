@@ -3,7 +3,7 @@ import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { organization, admin, openAPI, magicLink } from 'better-auth/plugins';
 import { createAccessControl } from 'better-auth/plugins/access';
 import prisma from './prisma.js';
-import { sendVerificationEmail, sendPasswordResetEmail, sendInvitationEmail, sendMagicLinkEmail, sendWelcomeEmail, consumeWelcomeContext } from './email.js';
+import { sendVerificationEmail, sendPasswordResetEmail, sendInvitationEmail, sendMagicLinkEmail, sendWelcomeEmail, consumeWelcomeContext } from './email/index.js';
 
 // Environment configuration
 const isDev = process.env.NODE_ENV !== 'production';

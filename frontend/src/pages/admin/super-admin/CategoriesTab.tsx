@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api, SoftwareCategory } from '../../../api/client'
+import { useModalForm } from '../../../hooks/useModalForm'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Text } from '@/components/ui/text'
@@ -24,12 +25,10 @@ export function CategoriesTab() {
   const [categories, setCategories] = useState<SoftwareCategory[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Create/Edit modal
-  const [showModal, setShowModal] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [formData, setFormData] = useState({ name: '', description: '' })
-  const [formError, setFormError] = useState('')
-  const [saving, setSaving] = useState(false)
+  const modal = useModalForm<{ name: string; description: string }, SoftwareCategory>({
+    initialData: { name: '', description: '' },
+    mapEditItem: (cat) => ({ name: cat.name, description: cat.description || '' }),
+  })
 
   // Delete confirmation
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -52,39 +51,17 @@ export function CategoriesTab() {
     }
   }
 
-  const openCreateModal = () => {
-    setEditingId(null)
-    setFormData({ name: '', description: '' })
-    setFormError('')
-    setShowModal(true)
-  }
-
-  const openEditModal = (cat: SoftwareCategory) => {
-    setEditingId(cat.id)
-    setFormData({ name: cat.name, description: cat.description || '' })
-    setFormError('')
-    setShowModal(true)
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setFormError('')
-    setSaving(true)
-
-    try {
-      if (editingId) {
-        await api.updateSuperAdminCategory(editingId, formData)
+    await modal.handleSubmit(async () => {
+      if (modal.isEditing) {
+        await api.updateSuperAdminCategory(modal.editingItem!.id, modal.formData)
       } else {
-        await api.createSuperAdminCategory(formData)
+        await api.createSuperAdminCategory(modal.formData)
       }
-
-      setShowModal(false)
+      modal.close()
       loadCategories()
-    } catch (error) {
-      setFormError(error instanceof Error ? error.message : 'Failed to save category')
-    } finally {
-      setSaving(false)
-    }
+    })
   }
 
   const openDeleteModal = (id: string) => {
@@ -120,7 +97,7 @@ export function CategoriesTab() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <Text className="text-zinc-500">Manage software categories for the global catalog</Text>
-        <Button color="blue" onClick={openCreateModal}>
+        <Button color="blue" onClick={() => modal.open()}>
           <PlusIcon className="h-4 w-4" />
           Add Category
         </Button>
@@ -145,7 +122,7 @@ export function CategoriesTab() {
                 <TableCell className="text-zinc-500">{cat._count?.software || 0}</TableCell>
                 <TableCell>
                   <div className="flex gap-1">
-                    <Button plain onClick={() => openEditModal(cat)}>
+                    <Button plain onClick={() => modal.open(cat)}>
                       <PencilIcon className="h-4 w-4 text-zinc-400 hover:text-blue-500" />
                     </Button>
                     <Button plain onClick={() => openDeleteModal(cat.id)}>
@@ -167,18 +144,18 @@ export function CategoriesTab() {
       </div>
 
       {/* Create/Edit Modal */}
-      {showModal && (
-        <Dialog open={true} onClose={() => setShowModal(false)} size="md">
-          <DialogTitle>{editingId ? 'Edit Category' : 'Add Category'}</DialogTitle>
+      {modal.isOpen && (
+        <Dialog open={true} onClose={modal.close} size="md">
+          <DialogTitle>{modal.isEditing ? 'Edit Category' : 'Add Category'}</DialogTitle>
           <DialogDescription>
-            {editingId ? 'Update category details' : 'Add a new software category'}
+            {modal.isEditing ? 'Update category details' : 'Add a new software category'}
           </DialogDescription>
 
           <form onSubmit={handleSubmit}>
             <DialogBody>
-              {formError && (
+              {modal.error && (
                 <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-                  {formError}
+                  {modal.error}
                 </div>
               )}
 
@@ -187,8 +164,8 @@ export function CategoriesTab() {
                   <Label>Name *</Label>
                   <Input
                     type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    value={modal.formData.name}
+                    onChange={(e) => modal.setField('name', e.target.value)}
                     placeholder="Productivity"
                     required
                   />
@@ -197,8 +174,8 @@ export function CategoriesTab() {
                 <Field>
                   <Label>Description</Label>
                   <Textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    value={modal.formData.description}
+                    onChange={(e) => modal.setField('description', e.target.value)}
                     placeholder="Software for improving productivity..."
                     rows={3}
                   />
@@ -207,11 +184,11 @@ export function CategoriesTab() {
             </DialogBody>
 
             <DialogActions>
-              <Button plain onClick={() => setShowModal(false)} disabled={saving}>
+              <Button plain onClick={modal.close} disabled={modal.saving}>
                 Cancel
               </Button>
-              <Button color="blue" type="submit" disabled={saving}>
-                {saving ? 'Saving...' : editingId ? 'Update' : 'Add Category'}
+              <Button color="blue" type="submit" disabled={modal.saving}>
+                {modal.saving ? 'Saving...' : modal.isEditing ? 'Update' : 'Add Category'}
               </Button>
             </DialogActions>
           </form>

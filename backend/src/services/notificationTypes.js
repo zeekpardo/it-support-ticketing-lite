@@ -4,6 +4,9 @@
  * Single source of truth for all notification types.
  * Each type defines how to generate title, message, and link from event data.
  * Optionally defines an email function to send email notifications.
+ *
+ * Branding: The `data.branding` object is injected by notificationService.js
+ * before emails are sent, so all email functions receive org-specific branding.
  */
 
 import {
@@ -15,7 +18,7 @@ import {
   sendTicketSubmittedEmail,
   sendNewTicketAssignedEmail,
   sendRenewalReminderEmail,
-} from '../lib/email.js';
+} from '../lib/email/index.js';
 
 export const NOTIFICATION_TYPES = {
   // Ticket notifications
@@ -30,6 +33,7 @@ export const NOTIFICATION_TYPES = {
       recipientName: recipient.name,
       ticketSubject: data.ticketSubject,
       ticketId: data.ticketId,
+      branding: data.branding || {},
     }),
   },
 
@@ -48,6 +52,7 @@ export const NOTIFICATION_TYPES = {
       commentContent: data.commentContent || '',
       commentContentHtml: data.commentContentHtml || null,
       isPortal: false,
+      branding: data.branding || {},
     }),
   },
 
@@ -66,6 +71,7 @@ export const NOTIFICATION_TYPES = {
       commentContent: data.commentContent || '',
       commentContentHtml: data.commentContentHtml || null,
       isPortal: true,
+      branding: data.branding || {},
     }),
   },
 
@@ -84,6 +90,7 @@ export const NOTIFICATION_TYPES = {
       commentContent: data.commentContent || '',
       commentContentHtml: data.commentContentHtml || null,
       isPortal: false,
+      branding: data.branding || {},
     }),
   },
 
@@ -102,6 +109,7 @@ export const NOTIFICATION_TYPES = {
       commentContent: data.commentContent || '',
       commentContentHtml: data.commentContentHtml || null,
       isPortal: true,
+      branding: data.branding || {},
     }),
   },
 
@@ -129,6 +137,7 @@ export const NOTIFICATION_TYPES = {
       priorityLevel: data.priorityLevel,
       description: data.description,
       ticketId: data.ticketId,
+      branding: data.branding || {},
     }),
   },
 
@@ -148,6 +157,7 @@ export const NOTIFICATION_TYPES = {
       priorityLevel: data.priorityLevel,
       description: data.description,
       ticketId: data.ticketId,
+      branding: data.branding || {},
     }),
   },
 
@@ -165,6 +175,7 @@ export const NOTIFICATION_TYPES = {
       softwareName: data.softwareName,
       projectId: data.projectId,
       projectSoftwareId: data.projectSoftwareId,
+      branding: data.branding || {},
     }),
   },
 
@@ -179,6 +190,7 @@ export const NOTIFICATION_TYPES = {
       recipientName: recipient.name,
       softwareName: data.softwareName,
       status: 'APPROVED',
+      branding: data.branding || {},
     }),
   },
 
@@ -193,6 +205,7 @@ export const NOTIFICATION_TYPES = {
       recipientName: recipient.name,
       softwareName: data.softwareName,
       status: 'DECLINED',
+      branding: data.branding || {},
     }),
   },
 
@@ -207,6 +220,7 @@ export const NOTIFICATION_TYPES = {
       recipientName: recipient.name,
       softwareName: data.softwareName,
       status: 'REVOKED',
+      branding: data.branding || {},
     }),
   },
 
@@ -228,6 +242,7 @@ export const NOTIFICATION_TYPES = {
       projectName: data.projectName,
       projectId: data.projectId,
       projectSoftwareId: data.projectSoftwareId,
+      branding: data.branding || {},
     }),
   },
 };

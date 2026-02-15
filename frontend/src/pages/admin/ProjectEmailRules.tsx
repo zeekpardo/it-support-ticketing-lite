@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useOrganization } from '../../context/OrganizationContext'
+import { useModalForm } from '../../hooks/useModalForm'
 import { api } from '../../api/client'
 import { emailRulesApi, EmailRule, CreateEmailRuleData } from '../../api/emailRules'
+import { getMatchTypeBadge, getMatchTypeDescription } from '../../components/project/emailRuleHelpers'
 import { Heading, Subheading } from '@/components/ui/heading'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -39,15 +41,16 @@ export default function ProjectEmailRules() {
   const [emailRules, setEmailRules] = useState<EmailRule[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
-  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const createRuleModal = useModalForm({
+    initialData: {
+      projectId: '',
+      matchType: 'EXACT_ADDRESS' as 'EXACT_ADDRESS' | 'DOMAIN' | 'CATCH_ALL',
+      matchValue: '',
+      priority: 0,
+    },
+  })
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [selectedRule, setSelectedRule] = useState<EmailRule | null>(null)
-  const [formData, setFormData] = useState<CreateEmailRuleData>({
-    projectId: '',
-    matchType: 'EXACT_ADDRESS',
-    matchValue: '',
-    priority: 0,
-  })
 
   useEffect(() => {
     if (currentOrg) {
@@ -73,21 +76,22 @@ export default function ProjectEmailRules() {
 
   const handleCreate = async () => {
     try {
-      const data: CreateEmailRuleData = {
-        projectId: formData.projectId,
-        matchType: formData.matchType,
-        priority: formData.priority || 0,
-      }
+      await createRuleModal.handleSubmit(async () => {
+        const data: CreateEmailRuleData = {
+          projectId: createRuleModal.formData.projectId,
+          matchType: createRuleModal.formData.matchType,
+          priority: createRuleModal.formData.priority || 0,
+        }
 
-      // Only include matchValue for non-CATCH_ALL types
-      if (formData.matchType !== 'CATCH_ALL') {
-        data.matchValue = formData.matchValue
-      }
+        // Only include matchValue for non-CATCH_ALL types
+        if (createRuleModal.formData.matchType !== 'CATCH_ALL') {
+          data.matchValue = createRuleModal.formData.matchValue
+        }
 
-      await emailRulesApi.createEmailRule(data)
-      setShowCreateDialog(false)
-      resetForm()
-      loadData()
+        await emailRulesApi.createEmailRule(data)
+        createRuleModal.close()
+        loadData()
+      })
     } catch (error: any) {
       alert(error.message || 'Failed to create email rule')
     }
@@ -111,41 +115,6 @@ export default function ProjectEmailRules() {
       loadData()
     } catch (error: any) {
       alert(error.message || 'Failed to update email rule')
-    }
-  }
-
-  const resetForm = () => {
-    setFormData({
-      projectId: '',
-      matchType: 'EXACT_ADDRESS',
-      matchValue: '',
-      priority: 0,
-    })
-  }
-
-  const getMatchTypeBadge = (matchType: string) => {
-    switch (matchType) {
-      case 'EXACT_ADDRESS':
-        return <Badge color="blue">Exact Address</Badge>
-      case 'DOMAIN':
-        return <Badge color="purple">Domain</Badge>
-      case 'CATCH_ALL':
-        return <Badge color="amber">Catch-All</Badge>
-      default:
-        return <Badge color="zinc">{matchType}</Badge>
-    }
-  }
-
-  const getMatchTypeDescription = (matchType: string) => {
-    switch (matchType) {
-      case 'EXACT_ADDRESS':
-        return 'Matches exact recipient email address (e.g., support@groovi.support)'
-      case 'DOMAIN':
-        return 'Matches sender domain (e.g., @clientdomain.com)'
-      case 'CATCH_ALL':
-        return 'Matches any email not caught by other rules'
-      default:
-        return ''
     }
   }
 
@@ -176,7 +145,7 @@ export default function ProjectEmailRules() {
           <Button plain onClick={() => navigate('/admin/email-logs')}>
             View Email Logs
           </Button>
-          <Button color="blue" onClick={() => setShowCreateDialog(true)}>
+          <Button color="blue" onClick={() => createRuleModal.open()}>
             <PlusIcon className="h-4 w-4" />
             New Rule
           </Button>
@@ -190,7 +159,7 @@ export default function ProjectEmailRules() {
           <Text className="mt-2">
             Create email routing rules to automatically convert incoming emails into support tickets.
           </Text>
-          <Button color="blue" onClick={() => setShowCreateDialog(true)} className="mt-4">
+          <Button color="blue" onClick={() => createRuleModal.open()} className="mt-4">
             <PlusIcon className="h-4 w-4" />
             Create First Rule
           </Button>
@@ -265,7 +234,7 @@ export default function ProjectEmailRules() {
       )}
 
       {/* Create Rule Dialog */}
-      <Dialog open={showCreateDialog} onClose={() => setShowCreateDialog(false)}>
+      <Dialog open={createRuleModal.isOpen} onClose={createRuleModal.close}>
         <DialogTitle>Create Email Routing Rule</DialogTitle>
         <DialogDescription>
           Configure how incoming emails should be routed to projects.
@@ -275,8 +244,8 @@ export default function ProjectEmailRules() {
             <Field>
               <Label>Project</Label>
               <Select
-                value={formData.projectId}
-                onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
+                value={createRuleModal.formData.projectId}
+                onChange={(e) => createRuleModal.setField('projectId', e.target.value)}
               >
                 <option value="">Select project...</option>
                 {projects.map((project) => (
@@ -290,34 +259,29 @@ export default function ProjectEmailRules() {
             <Field>
               <Label>Match Type</Label>
               <Select
-                value={formData.matchType}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    matchType: e.target.value as 'EXACT_ADDRESS' | 'DOMAIN' | 'CATCH_ALL',
-                  })
-                }
+                value={createRuleModal.formData.matchType}
+                onChange={(e) => createRuleModal.setField('matchType', e.target.value as 'EXACT_ADDRESS' | 'DOMAIN' | 'CATCH_ALL')}
               >
                 <option value="EXACT_ADDRESS">Exact Address</option>
                 <option value="DOMAIN">Domain</option>
                 <option value="CATCH_ALL">Catch-All</option>
               </Select>
               <Text className="mt-1 text-sm text-zinc-500">
-                {getMatchTypeDescription(formData.matchType)}
+                {getMatchTypeDescription(createRuleModal.formData.matchType)}
               </Text>
             </Field>
 
-            {formData.matchType !== 'CATCH_ALL' && (
+            {createRuleModal.formData.matchType !== 'CATCH_ALL' && (
               <Field>
                 <Label>
-                  {formData.matchType === 'EXACT_ADDRESS' ? 'Email Address' : 'Domain'}
+                  {createRuleModal.formData.matchType === 'EXACT_ADDRESS' ? 'Email Address' : 'Domain'}
                 </Label>
                 <Input
                   type="text"
-                  value={formData.matchValue}
-                  onChange={(e) => setFormData({ ...formData, matchValue: e.target.value })}
+                  value={createRuleModal.formData.matchValue}
+                  onChange={(e) => createRuleModal.setField('matchValue', e.target.value)}
                   placeholder={
-                    formData.matchType === 'EXACT_ADDRESS'
+                    createRuleModal.formData.matchType === 'EXACT_ADDRESS'
                       ? 'support@groovi.support'
                       : '@clientdomain.com'
                   }
@@ -329,10 +293,8 @@ export default function ProjectEmailRules() {
               <Label>Priority (higher = evaluated first)</Label>
               <Input
                 type="number"
-                value={formData.priority}
-                onChange={(e) =>
-                  setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })
-                }
+                value={createRuleModal.formData.priority}
+                onChange={(e) => createRuleModal.setField('priority', parseInt(e.target.value) || 0)}
               />
               <Text className="mt-1 text-sm text-zinc-500">
                 Rules are evaluated from highest to lowest priority
@@ -341,11 +303,11 @@ export default function ProjectEmailRules() {
           </FieldGroup>
         </DialogBody>
         <DialogActions>
-          <Button plain onClick={() => setShowCreateDialog(false)}>
+          <Button plain onClick={createRuleModal.close}>
             Cancel
           </Button>
-          <Button color="blue" onClick={handleCreate}>
-            Create Rule
+          <Button color="blue" onClick={handleCreate} disabled={createRuleModal.saving}>
+            {createRuleModal.saving ? 'Creating...' : 'Create Rule'}
           </Button>
         </DialogActions>
       </Dialog>

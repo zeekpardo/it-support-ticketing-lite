@@ -2,6 +2,7 @@ import { ReactNode, Suspense } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useOrganization } from '../context/OrganizationContext'
+import { useBranding } from '../context/BrandingContext'
 import {
   Sidebar,
   SidebarBody,
@@ -38,6 +39,7 @@ export function PortalLayout({ children }: PortalLayoutProps) {
   const location = useLocation()
   const { user, logout, isImpersonating, stopImpersonating } = useAuth()
   const { currentOrg, organizations, selectOrganization } = useOrganization()
+  const { branding } = useBranding()
 
   const handleLogout = async () => {
     await logout()
@@ -57,10 +59,14 @@ export function PortalLayout({ children }: PortalLayoutProps) {
           <SidebarHeader>
             <Dropdown>
               <DropdownButton as={SidebarItem}>
-                <Avatar
-                  initials={currentOrg?.name?.charAt(0) || '?'}
-                  className="bg-purple-600 text-white"
-                />
+                {branding.logoUrl ? (
+                  <img src={branding.logoUrl} alt={currentOrg?.name || ''} className="h-6 w-6 rounded object-contain" />
+                ) : (
+                  <Avatar
+                    initials={currentOrg?.name?.charAt(0) || '?'}
+                    className="bg-purple-600 text-white"
+                  />
+                )}
                 <SidebarLabel>{currentOrg?.name || 'Select Organization'}</SidebarLabel>
                 <ChevronUpIcon className="h-4 w-4" />
               </DropdownButton>

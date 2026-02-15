@@ -1,31 +1,30 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useOrganization } from '../../context/OrganizationContext'
+import { useTabbedPage } from '../../hooks/useTabbedPage'
+import { useModalForm } from '../../hooks/useModalForm'
 import { api, type GlobalSoftwareWithStatus, type OrganizationSoftware, type SoftwareCategory } from '../../api/client'
 import { Heading, Subheading } from '@/components/ui/heading'
 import { Button } from '@/components/ui/button'
-import { Select } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Text } from '@/components/ui/text'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Field, FieldGroup, Label } from '@/components/ui/fieldset'
 import { Dialog, DialogTitle, DialogDescription, DialogBody, DialogActions } from '@/components/ui/dialog'
+import { SoftwareFilters } from '@/components/software/SoftwareFilters'
 import {
   PlusIcon,
   ComputerDesktopIcon,
-  MagnifyingGlassIcon,
   CheckIcon,
   BuildingOfficeIcon,
   GlobeAltIcon
 } from '@heroicons/react/24/outline'
 
-type TabType = 'catalog' | 'organization'
-
 export default function AdminSoftwareCatalog() {
   const { currentOrg } = useOrganization()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<TabType>('organization')
+  const tabs = useTabbedPage({ tabs: ['catalog', 'organization'] as const, defaultTab: 'organization' })
 
   // Global catalog state
   const [globalSoftware, setGlobalSoftware] = useState<GlobalSoftwareWithStatus[]>([])
@@ -39,23 +38,21 @@ export default function AdminSoftwareCatalog() {
   const [loadingOrg, setLoadingOrg] = useState(true)
 
   // Add to org modal
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [selectedSoftware, setSelectedSoftware] = useState<GlobalSoftwareWithStatus | null>(null)
-  const [addNotes, setAddNotes] = useState('')
-  const [adding, setAdding] = useState(false)
+  const addModal = useModalForm<{ notes: string }, GlobalSoftwareWithStatus>({
+    initialData: { notes: '' },
+  })
 
   // Submit new software modal
-  const [showSubmitModal, setShowSubmitModal] = useState(false)
-  const [submitForm, setSubmitForm] = useState({
-    name: '',
-    description: '',
-    iconUrl: '',
-    vendor: '',
-    websiteUrl: '',
-    categoryId: ''
+  const submitModal = useModalForm({
+    initialData: {
+      name: '',
+      description: '',
+      iconUrl: '',
+      vendor: '',
+      websiteUrl: '',
+      categoryId: '',
+    },
   })
-  const [submitting, setSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState('')
 
   useEffect(() => {
     if (currentOrg) {
@@ -65,10 +62,10 @@ export default function AdminSoftwareCatalog() {
   }, [currentOrg])
 
   useEffect(() => {
-    if (activeTab === 'catalog') {
+    if (tabs.active === 'catalog') {
       loadGlobalCatalog()
     }
-  }, [activeTab, categoryFilter])
+  }, [tabs.active, categoryFilter])
 
   const loadCategories = async () => {
     try {
@@ -112,52 +109,39 @@ export default function AdminSoftwareCatalog() {
   }
 
   const openAddModal = (software: GlobalSoftwareWithStatus) => {
-    setSelectedSoftware(software)
-    setAddNotes('')
-    setShowAddModal(true)
+    addModal.open(software)
   }
 
   const handleAddToOrg = async () => {
-    if (!selectedSoftware) return
-    setAdding(true)
+    if (!addModal.editingItem) return
     try {
-      await api.addSoftwareToOrganization(selectedSoftware.id, addNotes || undefined)
-      setShowAddModal(false)
-      loadGlobalCatalog()
-      loadOrgSoftware()
+      await addModal.handleSubmit(async () => {
+        await api.addSoftwareToOrganization(addModal.editingItem!.id, addModal.formData.notes || undefined)
+        addModal.close()
+        loadGlobalCatalog()
+        loadOrgSoftware()
+      })
     } catch (error) {
       console.error('Failed to add software:', error)
-    } finally {
-      setAdding(false)
     }
   }
 
   const handleSubmitNew = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSubmitError('')
-    setSubmitting(true)
     try {
-      await api.submitNewSoftware({
-        name: submitForm.name,
-        description: submitForm.description || undefined,
-        iconUrl: submitForm.iconUrl || undefined,
-        vendor: submitForm.vendor || undefined,
-        websiteUrl: submitForm.websiteUrl || undefined,
-        categoryId: submitForm.categoryId || undefined
-      })
-      setShowSubmitModal(false)
-      setSubmitForm({
-        name: '',
-        description: '',
-        iconUrl: '',
-        vendor: '',
-        websiteUrl: '',
-        categoryId: ''
+      await submitModal.handleSubmit(async () => {
+        await api.submitNewSoftware({
+          name: submitModal.formData.name,
+          description: submitModal.formData.description || undefined,
+          iconUrl: submitModal.formData.iconUrl || undefined,
+          vendor: submitModal.formData.vendor || undefined,
+          websiteUrl: submitModal.formData.websiteUrl || undefined,
+          categoryId: submitModal.formData.categoryId || undefined
+        })
+        submitModal.close()
       })
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Failed to submit software')
-    } finally {
-      setSubmitting(false)
+      // error already captured by handleSubmit
     }
   }
 
@@ -177,7 +161,7 @@ export default function AdminSoftwareCatalog() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <Heading>Software Catalog</Heading>
-        <Button color="blue" onClick={() => setShowSubmitModal(true)}>
+        <Button color="blue" onClick={() => submitModal.open()}>
           <PlusIcon className="h-4 w-4" />
           Submit New Software
         </Button>
@@ -187,9 +171,9 @@ export default function AdminSoftwareCatalog() {
       <div className="border-b border-zinc-200 dark:border-zinc-700">
         <nav className="-mb-px flex gap-6">
           <button
-            onClick={() => setActiveTab('organization')}
+            onClick={() => tabs.set('organization')}
             className={`py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'organization'
+              tabs.active ==='organization'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
             }`}
@@ -198,9 +182,9 @@ export default function AdminSoftwareCatalog() {
             Organization Software ({orgSoftware.length})
           </button>
           <button
-            onClick={() => setActiveTab('catalog')}
+            onClick={() => tabs.set('catalog')}
             className={`py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'catalog'
+              tabs.active ==='catalog'
                 ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                 : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
             }`}
@@ -211,7 +195,7 @@ export default function AdminSoftwareCatalog() {
         </nav>
       </div>
 
-      {activeTab === 'organization' ? (
+      {tabs.active ==='organization' ? (
         // Organization's Software Tab
         loadingOrg ? (
           <div className="flex h-48 items-center justify-center">
@@ -224,7 +208,7 @@ export default function AdminSoftwareCatalog() {
             <Text className="mt-2">
               Browse the global catalog to add software to your organization.
             </Text>
-            <Button color="blue" onClick={() => setActiveTab('catalog')} className="mt-4">
+            <Button color="blue" onClick={() => tabs.set('catalog')} className="mt-4">
               Browse Catalog
             </Button>
           </div>
@@ -278,31 +262,14 @@ export default function AdminSoftwareCatalog() {
       ) : (
         // Global Catalog Tab
         <>
-          {/* Filters */}
-          <form onSubmit={handleSearch} className="flex gap-4 flex-wrap">
-            <div className="flex-1 min-w-[200px]">
-              <Input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search software..."
-              />
-            </div>
-            <Select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-48"
-            >
-              <option value="">All Categories</option>
-              {categories.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
-              ))}
-            </Select>
-            <Button type="submit" outline>
-              <MagnifyingGlassIcon className="h-4 w-4" />
-              Search
-            </Button>
-          </form>
+          <SoftwareFilters
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            onSearch={handleSearch}
+            categories={categories}
+            categoryFilter={categoryFilter}
+            onCategoryChange={setCategoryFilter}
+          />
 
           {loadingCatalog ? (
             <div className="flex h-48 items-center justify-center">
@@ -377,19 +344,19 @@ export default function AdminSoftwareCatalog() {
       )}
 
       {/* Add to Organization Modal */}
-      {showAddModal && selectedSoftware && (
-        <Dialog open={true} onClose={() => setShowAddModal(false)} size="md">
+      {addModal.isOpen && addModal.editingItem && (
+        <Dialog open={true} onClose={addModal.close} size="md">
           <DialogTitle>Add to Organization</DialogTitle>
           <DialogDescription>
-            Add "{selectedSoftware.name}" to your organization's software catalog.
+            Add "{addModal.editingItem.name}" to your organization's software catalog.
           </DialogDescription>
 
           <DialogBody>
             <Field>
               <Label>Organization Notes (optional)</Label>
               <Textarea
-                value={addNotes}
-                onChange={(e) => setAddNotes(e.target.value)}
+                value={addModal.formData.notes}
+                onChange={(e) => addModal.setField('notes', e.target.value)}
                 placeholder="Add any organization-specific notes or instructions..."
                 rows={3}
               />
@@ -397,19 +364,19 @@ export default function AdminSoftwareCatalog() {
           </DialogBody>
 
           <DialogActions>
-            <Button plain onClick={() => setShowAddModal(false)} disabled={adding}>
+            <Button plain onClick={addModal.close} disabled={addModal.saving}>
               Cancel
             </Button>
-            <Button color="blue" onClick={handleAddToOrg} disabled={adding}>
-              {adding ? 'Adding...' : 'Add Software'}
+            <Button color="blue" onClick={handleAddToOrg} disabled={addModal.saving}>
+              {addModal.saving ? 'Adding...' : 'Add Software'}
             </Button>
           </DialogActions>
         </Dialog>
       )}
 
       {/* Submit New Software Modal */}
-      {showSubmitModal && (
-        <Dialog open={true} onClose={() => setShowSubmitModal(false)} size="lg">
+      {submitModal.isOpen && (
+        <Dialog open={true} onClose={submitModal.close} size="lg">
           <DialogTitle>Submit New Software</DialogTitle>
           <DialogDescription>
             Submit software that's not in the global catalog. It will be reviewed by administrators before being added.
@@ -417,9 +384,9 @@ export default function AdminSoftwareCatalog() {
 
           <form onSubmit={handleSubmitNew}>
             <DialogBody>
-              {submitError && (
+              {submitModal.error && (
                 <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-                  {submitError}
+                  {submitModal.error}
                 </div>
               )}
 
@@ -428,8 +395,8 @@ export default function AdminSoftwareCatalog() {
                   <Label>Name *</Label>
                   <Input
                     type="text"
-                    value={submitForm.name}
-                    onChange={(e) => setSubmitForm({ ...submitForm, name: e.target.value })}
+                    value={submitModal.formData.name}
+                    onChange={(e) => submitModal.setField('name', e.target.value)}
                     placeholder="Microsoft Office"
                     required
                   />
@@ -438,8 +405,8 @@ export default function AdminSoftwareCatalog() {
                 <Field>
                   <Label>Description</Label>
                   <Textarea
-                    value={submitForm.description}
-                    onChange={(e) => setSubmitForm({ ...submitForm, description: e.target.value })}
+                    value={submitModal.formData.description}
+                    onChange={(e) => submitModal.setField('description', e.target.value)}
                     placeholder="Brief description of the software..."
                     rows={3}
                   />
@@ -450,8 +417,8 @@ export default function AdminSoftwareCatalog() {
                     <Label>Vendor</Label>
                     <Input
                       type="text"
-                      value={submitForm.vendor}
-                      onChange={(e) => setSubmitForm({ ...submitForm, vendor: e.target.value })}
+                      value={submitModal.formData.vendor}
+                      onChange={(e) => submitModal.setField('vendor', e.target.value)}
                       placeholder="Microsoft"
                     />
                   </Field>
@@ -459,8 +426,8 @@ export default function AdminSoftwareCatalog() {
                   <Field>
                     <Label>Category</Label>
                     <Select
-                      value={submitForm.categoryId}
-                      onChange={(e) => setSubmitForm({ ...submitForm, categoryId: e.target.value })}
+                      value={submitModal.formData.categoryId}
+                      onChange={(e) => submitModal.setField('categoryId', e.target.value)}
                     >
                       <option value="">No category</option>
                       {categories.map(cat => (
@@ -474,8 +441,8 @@ export default function AdminSoftwareCatalog() {
                   <Label>Icon URL</Label>
                   <Input
                     type="url"
-                    value={submitForm.iconUrl}
-                    onChange={(e) => setSubmitForm({ ...submitForm, iconUrl: e.target.value })}
+                    value={submitModal.formData.iconUrl}
+                    onChange={(e) => submitModal.setField('iconUrl', e.target.value)}
                     placeholder="https://example.com/icon.png"
                   />
                 </Field>
@@ -484,8 +451,8 @@ export default function AdminSoftwareCatalog() {
                   <Label>Website URL</Label>
                   <Input
                     type="url"
-                    value={submitForm.websiteUrl}
-                    onChange={(e) => setSubmitForm({ ...submitForm, websiteUrl: e.target.value })}
+                    value={submitModal.formData.websiteUrl}
+                    onChange={(e) => submitModal.setField('websiteUrl', e.target.value)}
                     placeholder="https://www.microsoft.com/office"
                   />
                 </Field>
@@ -493,11 +460,11 @@ export default function AdminSoftwareCatalog() {
             </DialogBody>
 
             <DialogActions>
-              <Button plain onClick={() => setShowSubmitModal(false)} disabled={submitting}>
+              <Button plain onClick={submitModal.close} disabled={submitModal.saving}>
                 Cancel
               </Button>
-              <Button color="blue" type="submit" disabled={submitting}>
-                {submitting ? 'Submitting...' : 'Submit for Review'}
+              <Button color="blue" type="submit" disabled={submitModal.saving}>
+                {submitModal.saving ? 'Submitting...' : 'Submit for Review'}
               </Button>
             </DialogActions>
           </form>

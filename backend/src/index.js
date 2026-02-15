@@ -21,6 +21,7 @@ import importRoutes from './routes/import.js';
 import notificationsRoutes from './routes/notifications.js';
 import inboundEmailWebhook from './routes/webhooks/inbound-email.js';
 import emailRulesRoutes from './routes/email-rules.js';
+import brandingRoutes from './routes/branding.js';
 import { startCronJobs } from './services/cronService.js';
 
 const app = express();
@@ -110,6 +111,7 @@ app.use('/api/portal/software', portalSoftwareRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/email-rules', emailRulesRoutes);
+app.use('/api/branding', brandingRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

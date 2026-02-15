@@ -2,6 +2,7 @@ import { ReactNode, Suspense } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useOrganization } from '../context/OrganizationContext'
+import { useBranding } from '../context/BrandingContext'
 import {
   Sidebar,
   SidebarBody,
@@ -30,6 +31,7 @@ import {
   ExclamationTriangleIcon,
   UserCircleIcon,
   EnvelopeIcon,
+  PaintBrushIcon,
 } from '@heroicons/react/24/outline'
 import { NotificationBell } from './notifications'
 import { Button } from '@/components/ui/button'
@@ -43,6 +45,7 @@ export function Layout({ children }: LayoutProps) {
   const location = useLocation()
   const { user, logout, isSuperAdmin, isImpersonating, stopImpersonating } = useAuth()
   const { currentOrg, organizations, isAdmin, selectOrganization } = useOrganization()
+  const { branding } = useBranding()
 
   const handleLogout = async () => {
     await logout()
@@ -59,6 +62,7 @@ export function Layout({ children }: LayoutProps) {
     { href: '/admin/members', label: 'Users', icon: UsersIcon },
     { href: '/admin/projects', label: 'Manage Projects', icon: Cog6ToothIcon },
     { href: '/admin/email-rules', label: 'Email Rules', icon: EnvelopeIcon },
+    { href: '/admin/branding', label: 'Branding', icon: PaintBrushIcon },
   ]
 
   const superAdminItems = [
@@ -72,10 +76,14 @@ export function Layout({ children }: LayoutProps) {
           <SidebarHeader>
             <Dropdown>
               <DropdownButton as={SidebarItem}>
-                <Avatar
-                  initials={currentOrg?.name?.charAt(0) || '?'}
-                  className="bg-blue-600 text-white"
-                />
+                {branding.logoUrl ? (
+                  <img src={branding.logoUrl} alt={currentOrg?.name || ''} className="h-6 w-6 rounded object-contain" />
+                ) : (
+                  <Avatar
+                    initials={currentOrg?.name?.charAt(0) || '?'}
+                    className="bg-primary text-white"
+                  />
+                )}
                 <SidebarLabel>{currentOrg?.name || 'Select Organization'}</SidebarLabel>
                 <ChevronUpIcon className="h-4 w-4" />
               </DropdownButton>

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Field, FieldGroup, Label } from '@/components/ui/fieldset'
 import { Heading } from '@/components/ui/heading'
 import { Text, TextLink } from '@/components/ui/text'
+import { useBranding } from '../context/BrandingContext'
 
 export default function Register() {
   const [name, setName] = useState('')
@@ -16,6 +17,7 @@ export default function Register() {
   const [loading, setLoading] = useState(false)
   const { register } = useAuth()
   const navigate = useNavigate()
+  const { branding } = useBranding()
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -49,7 +51,7 @@ export default function Register() {
         <div className="rounded-xl bg-white p-8 shadow-lg ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
           <div className="text-center">
             <Heading>Create account</Heading>
-            <Text className="mt-1">Get started with Groovi Support</Text>
+            <Text className="mt-1">Get started with {branding.appName}</Text>
           </div>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-6">

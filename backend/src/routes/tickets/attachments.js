@@ -7,7 +7,8 @@ import { uploadAttachments } from '../../middleware/upload.js';
 import { NotFoundError, ValidationError } from '../../utils/errors.js';
 import { findTicketOrFail, createTicketAttachments } from '../../utils/entityHelpers.js';
 import { MEMBER_WITH_USER_BRIEF } from '../../utils/prismaFragments.js';
-import { getPresignedUrl, deleteFile, uploadFile, generateAttachmentKey, isStorageConfigured } from '../../lib/storage.js';
+import { deleteFile, uploadFile, generateAttachmentKey, isStorageConfigured } from '../../lib/storage.js';
+import { resolveAttachmentUrl } from '../../utils/resolveS3Urls.js';
 
 const router = express.Router();
 
@@ -23,19 +24,7 @@ router.get('/:id/attachments', requireStaff, asyncHandler(async (req, res) => {
     },
   });
 
-  // Generate presigned URLs for S3-stored files
-  const withUrls = await Promise.all(attachments.map(async (att) => {
-    if (att.fileUrl.startsWith('s3:')) {
-      const key = att.fileUrl.slice(3);
-      try {
-        const url = await getPresignedUrl(key);
-        return { ...att, fileUrl: url };
-      } catch {
-        return att;
-      }
-    }
-    return att;
-  }));
+  const withUrls = await Promise.all(attachments.map(resolveAttachmentUrl));
 
   res.json(withUrls);
 }));

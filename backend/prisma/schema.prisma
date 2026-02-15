@@ -97,6 +97,11 @@ model Organization {
   createdAt DateTime @default(now()) @map("created_at")
   metadata  String?
 
+  // Branding (Phase 1 whitelabel)
+  appName      String? @map("app_name")
+  primaryColor String? @map("primary_color")
+  favicon      String?
+
   members       Member[]
   invitations   Invitation[]
   projects      Project[]

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { OrganizationProvider, useOrganization } from './context/OrganizationContext'
 import { TimerProvider } from './context/TimerContext'
+import { BrandingProvider } from './context/BrandingContext'
 import { NotificationProvider } from './context/NotificationContext'
 import { Layout } from './components/Layout'
 import { PortalLayout } from './components/PortalLayout'
@@ -34,6 +35,7 @@ const ProjectSoftwareCatalog = lazy(() => import('./pages/admin/ProjectSoftwareC
 const ProjectSoftwareDetail = lazy(() => import('./pages/admin/ProjectSoftwareDetail'))
 const ProjectEmailRules = lazy(() => import('./pages/admin/ProjectEmailRules'))
 const InboundEmailLogs = lazy(() => import('./pages/admin/InboundEmailLogs'))
+const AdminBranding = lazy(() => import('./pages/admin/Branding'))
 
 // Lazy-loaded portal pages
 const PortalDashboard = lazy(() => import('./pages/portal/PortalDashboard'))
@@ -418,6 +420,16 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/admin/branding"
+        element={
+          <ProtectedRoute>
+            <AdminRoute>
+              <AdminBranding />
+            </AdminRoute>
+          </ProtectedRoute>
+        }
+      />
       {/* Super Admin routes */}
       <Route
         path="/super-admin"
@@ -442,11 +454,13 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <OrganizationProvider>
-          <TimerProvider>
-            <NotificationProvider>
-              <AppRoutes />
-            </NotificationProvider>
-          </TimerProvider>
+          <BrandingProvider>
+            <TimerProvider>
+              <NotificationProvider>
+                <AppRoutes />
+              </NotificationProvider>
+            </TimerProvider>
+          </BrandingProvider>
         </OrganizationProvider>
       </AuthProvider>
     </BrowserRouter>

@@ -1,292 +1,43 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
-import { useOrganization } from '../context/OrganizationContext'
-import { useTimer } from '../context/TimerContext'
-import { api } from '../api/client'
-import { TicketComments, TicketTimer, TICKET_STATUSES, PRIORITY_LEVELS } from '../components/tickets'
+import { useParams, Link } from 'react-router-dom'
+import { useTicketDetail } from '../hooks/useTicketDetail'
+import { TicketComments, TicketTimer, TicketMetadata, TicketAssignment } from '../components/tickets'
 import { Heading, Subheading } from '@/components/ui/heading'
 import { Button } from '@/components/ui/button'
 import { Text } from '@/components/ui/text'
-import { Select } from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
-import { Field, Label } from '@/components/ui/fieldset'
-import { ArrowLeftIcon, TrashIcon, LinkIcon, PaperClipIcon, PencilSquareIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, TrashIcon, LinkIcon, PaperClipIcon } from '@heroicons/react/24/outline'
 import { EmailContent } from '../components/EmailContent'
 import { safeHref } from '../utils/sanitize'
 
-interface Ticket {
-  id: string
-  subject: string
-  description: string
-  descriptionHtml?: string | null
-  firstName: string
-  lastName: string
-  email: string
-  phone?: string
-  requestType: string
-  status: 'NEW_REQUEST' | 'IN_PROGRESS' | 'WAITING_FOR_INFO' | 'REVIEW' | 'RESOLVED'
-  priorityLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
-  screenRecordingLink?: string
-  dueDate?: string | null
-  createdAt: string
-  updatedAt: string
-  project: {
-    id: string
-    name: string
-    projectCode: string
-  }
-  client: {
-    id: string
-    user: { id: string; name: string; email: string }
-  }
-  owner?: {
-    id: string
-    user: { id: string; name: string; email: string }
-  } | null
-  comments: any[]
-  attachments: {
-    id: string
-    fileName: string
-    fileSize: number
-    fileType: string
-    fileUrl: string
-    isInline?: boolean
-    createdAt: string
-  }[]
-  timeEntries: any[]
-  totalTimeMinutes: number
-}
-
-interface StaffMember {
-  id: string
-  user: { id: string; name: string; email: string }
-}
-
-interface MentionableMember {
-  id: string
-  role: string
-  user: { id: string; name: string; email: string }
-}
-
 export default function TicketDetail() {
   const { projectId, ticketId } = useParams<{ projectId: string; ticketId: string }>()
-  const navigate = useNavigate()
-  const { currentOrg, isAdmin, isStaff } = useOrganization()
-  const { runningTimer, startTimer, stopTimer: stopGlobalTimer } = useTimer()
-  const [ticket, setTicket] = useState<Ticket | null>(null)
-  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
-  const [mentionableMembers, setMentionableMembers] = useState<MentionableMember[]>([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    if (currentOrg && ticketId) {
-      loadData()
-    }
-  }, [currentOrg, ticketId])
-
-  const loadData = async () => {
-    setLoading(true)
-    try {
-      const [ticketData, staffData, mentionableData] = await Promise.all([
-        api.getTicket(ticketId!),
-        api.getStaffMembers(),
-        api.getTicketMentionableMembers(ticketId!)
-      ])
-      setTicket(ticketData)
-      setStaffMembers(staffData)
-      setMentionableMembers(mentionableData)
-    } catch (error) {
-      console.error('Failed to load ticket:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Keep a ref to the latest runningTimer for cleanup functions
-  const runningTimerRef = useRef(runningTimer)
-  useEffect(() => {
-    runningTimerRef.current = runningTimer
-  }, [runningTimer])
-
-  // Auto-start/stop timer based on ticket navigation (staff only)
-  const hasAutoStarted = useRef(false)
-  useEffect(() => {
-    if (!isStaff || !ticket) return
-
-    // Don't auto-start if already running on this ticket
-    if (runningTimer?.ticketId === ticket.id) {
-      hasAutoStarted.current = true
-      return
-    }
-
-    // Auto-start (backend auto-stops any other running timer)
-    if (!hasAutoStarted.current) {
-      hasAutoStarted.current = true
-      startTimer(ticket.id)
-        .then(() => loadData())
-        .catch(err => console.error('Auto-start timer failed:', err))
-    }
-
-    return () => {
-      hasAutoStarted.current = false
-    }
-  }, [ticket?.id, isStaff])
-
-  // Auto-stop when leaving the page or switching tickets
-  // Uses api.stopTimer directly to avoid stale closures from useTimer's stopTimer
-  useEffect(() => {
-    return () => {
-      const timer = runningTimerRef.current
-      if (isStaff && timer?.ticketId === ticketId) {
-        api.stopTimer(timer.id).catch(err => console.error('Auto-stop timer failed:', err))
-      }
-    }
-  }, [ticketId, isStaff])
-
-  const handleStatusChange = async (newStatus: string) => {
-    if (!ticket) return
-    setSaving(true)
-    try {
-      await api.updateTicketStatus(ticket.id, newStatus)
-      setTicket({ ...ticket, status: newStatus as Ticket['status'] })
-    } catch (error) {
-      console.error('Failed to update status:', error)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleAssign = async (ownerId: string | null) => {
-    if (!ticket) return
-    setSaving(true)
-    try {
-      const updated = await api.assignTicket(ticket.id, ownerId)
-      setTicket({ ...ticket, owner: updated.owner })
-    } catch (error) {
-      console.error('Failed to assign ticket:', error)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handlePriorityChange = async (priority: string) => {
-    if (!ticket) return
-    setSaving(true)
-    try {
-      await api.updateTicket(ticket.id, { priorityLevel: priority })
-      setTicket({ ...ticket, priorityLevel: priority as Ticket['priorityLevel'] })
-    } catch (error) {
-      console.error('Failed to update priority:', error)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleDueDateChange = async (dueDate: string) => {
-    if (!ticket) return
-    setSaving(true)
-    try {
-      await api.updateTicket(ticket.id, { dueDate: dueDate || null })
-      setTicket({ ...ticket, dueDate: dueDate || null })
-    } catch (error) {
-      console.error('Failed to update due date:', error)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  // Inline editing for client name
-  const [editingName, setEditingName] = useState(false)
-  const [editFirstName, setEditFirstName] = useState('')
-  const [editLastName, setEditLastName] = useState('')
-  const firstNameRef = useRef<HTMLInputElement>(null)
-
-  const startEditingName = () => {
-    if (!ticket) return
-    setEditFirstName(ticket.firstName)
-    setEditLastName(ticket.lastName)
-    setEditingName(true)
-    setTimeout(() => firstNameRef.current?.focus(), 0)
-  }
-
-  const cancelEditingName = () => {
-    setEditingName(false)
-  }
-
-  const saveClientName = async () => {
-    if (!ticket) return
-    const firstName = editFirstName.trim()
-    const lastName = editLastName.trim()
-    if (!firstName) return
-    if (firstName === ticket.firstName && lastName === ticket.lastName) {
-      setEditingName(false)
-      return
-    }
-    setSaving(true)
-    try {
-      await api.updateTicket(ticket.id, { firstName, lastName })
-      setTicket({ ...ticket, firstName, lastName })
-      setEditingName(false)
-    } catch (error) {
-      console.error('Failed to update client name:', error)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleNameKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      saveClientName()
-    } else if (e.key === 'Escape') {
-      cancelEditingName()
-    }
-  }
-
-  const inlineImageMap = useRef<Map<string, string>>(new Map())
-
-  const handleImageUpload = useCallback(async (file: File): Promise<string | null> => {
-    if (!ticket) return null
-    try {
-      const { key } = await api.uploadInlineImage(ticket.id, file)
-      const blobUrl = URL.createObjectURL(file)
-      inlineImageMap.current.set(blobUrl, `s3:${key}`)
-      return blobUrl
-    } catch (error) {
-      console.error('Failed to upload image:', error)
-      return null
-    }
-  }, [ticket?.id])
-
-  const handleAddComment = async (content: string, contentHtml: string, isInternal: boolean, files?: File[]) => {
-    if (!ticket) return
-    try {
-      // Replace blob URLs with s3: references before submitting
-      let resolvedHtml = contentHtml
-      for (const [blobUrl, s3Key] of inlineImageMap.current.entries()) {
-        resolvedHtml = resolvedHtml.split(blobUrl).join(s3Key)
-        URL.revokeObjectURL(blobUrl)
-      }
-      inlineImageMap.current.clear()
-
-      const comment = await api.addTicketComment(ticket.id, { content, contentHtml: resolvedHtml, isInternal, files })
-      setTicket({ ...ticket, comments: [...ticket.comments, comment] })
-    } catch (error) {
-      console.error('Failed to add comment:', error)
-      throw error
-    }
-  }
-
-  const handleDelete = async () => {
-    if (!ticket || !confirm('Are you sure you want to delete this ticket?')) return
-    try {
-      await api.deleteTicket(ticket.id)
-      navigate(`/projects/${projectId}/tickets`)
-    } catch (error) {
-      console.error('Failed to delete ticket:', error)
-    }
-  }
+  const {
+    ticket,
+    staffMembers,
+    mentionableMembers,
+    loading,
+    saving,
+    isAdmin,
+    isStaff,
+    currentOrg,
+    loadData,
+    handleStatusChange,
+    handleAssign,
+    handlePriorityChange,
+    handleDueDateChange,
+    handleDelete,
+    handleImageUpload,
+    handleAddComment,
+    editingName,
+    editFirstName,
+    editLastName,
+    firstNameRef,
+    setEditFirstName,
+    setEditLastName,
+    startEditingName,
+    cancelEditingName,
+    saveClientName,
+    handleNameKeyDown,
+  } = useTicketDetail(ticketId, projectId)
 
   if (!currentOrg) {
     return (
@@ -311,6 +62,8 @@ export default function TicketDetail() {
       </div>
     )
   }
+
+  const fileAttachments = ticket.attachments?.filter(a => !a.isInline) || []
 
   return (
     <div className="space-y-6">
@@ -367,9 +120,7 @@ export default function TicketDetail() {
           </div>
 
           {/* Attachments (exclude inline images already shown in description) */}
-          {(() => {
-            const fileAttachments = ticket.attachments?.filter(a => !a.isInline) || []
-            return fileAttachments.length > 0 && (
+          {fileAttachments.length > 0 && (
             <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10">
               <h3 className="text-sm font-semibold text-zinc-900 dark:text-white flex items-center gap-2 mb-3">
                 <PaperClipIcon className="w-4 h-4" />
@@ -403,8 +154,7 @@ export default function TicketDetail() {
                 ))}
               </div>
             </div>
-            )
-          })()}
+          )}
 
           {/* Comments */}
           <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10">
@@ -420,7 +170,6 @@ export default function TicketDetail() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Timer Widget */}
           {isStaff && (
             <TicketTimer
               ticketId={ticket.id}
@@ -431,166 +180,30 @@ export default function TicketDetail() {
             />
           )}
 
-          {/* Status & Assignment */}
-          <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10 space-y-4">
-            <Field>
-              <Label>Status</Label>
-              <Select
-                value={ticket.status}
-                onChange={e => handleStatusChange(e.target.value)}
-                disabled={saving}
-              >
-                {TICKET_STATUSES.map(status => (
-                  <option key={status.value} value={status.value}>
-                    {status.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+          <TicketAssignment
+            ticket={ticket}
+            staffMembers={staffMembers}
+            saving={saving}
+            onStatusChange={handleStatusChange}
+            onPriorityChange={handlePriorityChange}
+            onAssign={handleAssign}
+            onDueDateChange={handleDueDateChange}
+          />
 
-            <Field>
-              <Label>Priority</Label>
-              <Select
-                value={ticket.priorityLevel}
-                onChange={e => handlePriorityChange(e.target.value)}
-                disabled={saving}
-              >
-                {PRIORITY_LEVELS.map(level => (
-                  <option key={level.value} value={level.value}>
-                    {level.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-
-            <Field>
-              <Label>Assigned To</Label>
-              <Select
-                value={ticket.owner?.id || ''}
-                onChange={e => handleAssign(e.target.value || null)}
-                disabled={saving}
-              >
-                <option value="">Unassigned</option>
-                {staffMembers.map(member => (
-                  <option key={member.id} value={member.id}>
-                    {member.user.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-
-            <Field>
-              <Label>Due Date</Label>
-              <Input
-                type="date"
-                value={ticket.dueDate ? ticket.dueDate.split('T')[0] : ''}
-                onChange={e => handleDueDateChange(e.target.value)}
-                disabled={saving}
-              />
-            </Field>
-          </div>
-
-          {/* Contact Info */}
-          <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10">
-            <Subheading>Contact Information</Subheading>
-            <dl className="mt-4 space-y-3 text-sm">
-              <div>
-                <dt className="text-zinc-500 dark:text-zinc-400">Name</dt>
-                <dd>
-                  {editingName ? (
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <input
-                        ref={firstNameRef}
-                        type="text"
-                        value={editFirstName}
-                        onChange={e => setEditFirstName(e.target.value)}
-                        onKeyDown={handleNameKeyDown}
-                        placeholder="First"
-                        disabled={saving}
-                        className="w-0 flex-1 rounded-md border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-2 py-1 text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                      <input
-                        type="text"
-                        value={editLastName}
-                        onChange={e => setEditLastName(e.target.value)}
-                        onKeyDown={handleNameKeyDown}
-                        placeholder="Last"
-                        disabled={saving}
-                        className="w-0 flex-1 rounded-md border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-2 py-1 text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                      <button onClick={saveClientName} disabled={saving} className="text-green-600 hover:text-green-700 dark:text-green-400">
-                        <CheckIcon className="h-4 w-4" />
-                      </button>
-                      <button onClick={cancelEditingName} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300">
-                        <XMarkIcon className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="group flex items-center gap-1.5">
-                      <span className="font-medium text-zinc-900 dark:text-white">
-                        {ticket.firstName} {ticket.lastName}
-                      </span>
-                      <button
-                        onClick={startEditingName}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-                      >
-                        <PencilSquareIcon className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-zinc-500 dark:text-zinc-400">Email</dt>
-                <dd>
-                  <a
-                    href={`mailto:${ticket.email}`}
-                    className="text-blue-600 dark:text-blue-400 hover:underline"
-                  >
-                    {ticket.email}
-                  </a>
-                </dd>
-              </div>
-              {ticket.phone && (
-                <div>
-                  <dt className="text-zinc-500 dark:text-zinc-400">Phone</dt>
-                  <dd>
-                    <a
-                      href={`tel:${ticket.phone}`}
-                      className="text-blue-600 dark:text-blue-400 hover:underline"
-                    >
-                      {ticket.phone}
-                    </a>
-                  </dd>
-                </div>
-              )}
-              <div>
-                <dt className="text-zinc-500 dark:text-zinc-400">Request Type</dt>
-                <dd className="font-medium text-zinc-900 dark:text-white">
-                  {ticket.requestType.replace(/_/g, ' ')}
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          {/* Client Account */}
-          <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10">
-            <Subheading>Client Account</Subheading>
-            <dl className="mt-4 space-y-3 text-sm">
-              <div>
-                <dt className="text-zinc-500 dark:text-zinc-400">Account Name</dt>
-                <dd className="font-medium text-zinc-900 dark:text-white">
-                  {ticket.client.user.name}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-zinc-500 dark:text-zinc-400">Account Email</dt>
-                <dd className="text-zinc-700 dark:text-zinc-300">
-                  {ticket.client.user.email}
-                </dd>
-              </div>
-            </dl>
-          </div>
+          <TicketMetadata
+            ticket={ticket}
+            saving={saving}
+            editingName={editingName}
+            editFirstName={editFirstName}
+            editLastName={editLastName}
+            firstNameRef={firstNameRef}
+            setEditFirstName={setEditFirstName}
+            setEditLastName={setEditLastName}
+            startEditingName={startEditingName}
+            cancelEditingName={cancelEditingName}
+            saveClientName={saveClientName}
+            handleNameKeyDown={handleNameKeyDown}
+          />
         </div>
       </div>
     </div>

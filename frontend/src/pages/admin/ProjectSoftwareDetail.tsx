@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api, ProjectSoftwareDetail as ProjectSoftwareDetailType, SoftwareAccessRequest } from '../../api/client'
+import { useModalForm } from '../../hooks/useModalForm'
+import { useCrudForm } from '../../hooks/useCrudForm'
 import { Text } from '@/components/ui/text'
 import {
   DetailsSection,
@@ -22,27 +24,28 @@ export default function ProjectSoftwareDetail() {
   const [loading, setLoading] = useState(true)
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
 
-  // Edit notes
-  const [showEditModal, setShowEditModal] = useState(false)
-  const [editNotes, setEditNotes] = useState('')
-  const [saving, setSaving] = useState(false)
+  // Edit notes modal
+  const editNotesModal = useModalForm({
+    initialData: { notes: '' },
+  })
 
   // Delete confirmation
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   // Add admin modal
-  const [showAddAdminModal, setShowAddAdminModal] = useState(false)
-  const [selectedMemberId, setSelectedMemberId] = useState('')
-  const [selectedRole, setSelectedRole] = useState<'OWNER' | 'ADMIN'>('ADMIN')
-  const [addingAdmin, setAddingAdmin] = useState(false)
+  const addAdminModal = useModalForm({
+    initialData: { memberId: '', role: 'ADMIN' as 'OWNER' | 'ADMIN' },
+  })
 
   // Review request modal
-  const [showReviewModal, setShowReviewModal] = useState(false)
-  const [reviewingRequest, setReviewingRequest] = useState<SoftwareAccessRequest | null>(null)
-  const [reviewStatus, setReviewStatus] = useState<'APPROVED' | 'DECLINED' | 'REVOKED' | 'PENDING'>('APPROVED')
-  const [reviewNotes, setReviewNotes] = useState('')
-  const [reviewing, setReviewing] = useState(false)
+  const reviewModal = useModalForm<
+    { status: 'APPROVED' | 'DECLINED' | 'REVOKED' | 'PENDING'; notes: string },
+    SoftwareAccessRequest
+  >({
+    initialData: { status: 'APPROVED', notes: '' },
+    mapEditItem: () => ({ status: 'APPROVED', notes: '' }),
+  })
 
   // Delete request modal
   const [showDeleteRequestModal, setShowDeleteRequestModal] = useState(false)
@@ -50,21 +53,22 @@ export default function ProjectSoftwareDetail() {
   const [deletingRequestLoading, setDeletingRequestLoading] = useState(false)
 
   // Edit management details
-  const [isEditingDetails, setIsEditingDetails] = useState(false)
-  const [savingDetails, setSavingDetails] = useState(false)
-  const [editForm, setEditForm] = useState<EditFormState>({
-    renewalDate: '',
-    billingCycle: '',
-    cost: '',
-    costType: '',
-    autoRenewal: false,
-    licenseType: '',
-    totalSeats: '',
-    vendorContactEmail: '',
-    vendorContactPhone: '',
-    contractUrl: '',
-    loginUrl: '',
+  const detailsForm = useCrudForm<EditFormState>({
+    initialData: {
+      renewalDate: '',
+      billingCycle: '',
+      cost: '',
+      costType: '',
+      autoRenewal: false,
+      licenseType: '',
+      totalSeats: '',
+      vendorContactEmail: '',
+      vendorContactPhone: '',
+      contractUrl: '',
+      loginUrl: '',
+    },
   })
+  const [isEditingDetails, setIsEditingDetails] = useState(false)
 
   useEffect(() => {
     if (projectId && id) {
@@ -96,13 +100,13 @@ export default function ProjectSoftwareDetail() {
   }
 
   const openEditModal = () => {
-    setEditNotes(software?.notes || '')
-    setShowEditModal(true)
+    editNotesModal.open()
+    editNotesModal.setField('notes', software?.notes || '')
   }
 
   const startEditingDetails = () => {
     if (!software) return
-    setEditForm({
+    detailsForm.setData({
       renewalDate: software.renewalDate ? new Date(software.renewalDate).toISOString().split('T')[0] : '',
       billingCycle: software.billingCycle || '',
       cost: software.cost ? String(parseFloat(software.cost)) : '',
@@ -120,41 +124,39 @@ export default function ProjectSoftwareDetail() {
 
   const handleSaveDetails = async () => {
     if (!projectId || !id) return
-    setSavingDetails(true)
     try {
-      await api.updateProjectSoftware(projectId, id, {
-        renewalDate: editForm.renewalDate || null,
-        billingCycle: editForm.billingCycle || null,
-        cost: editForm.cost || null,
-        costType: editForm.costType || null,
-        autoRenewal: editForm.autoRenewal,
-        licenseType: editForm.licenseType || null,
-        totalSeats: editForm.totalSeats ? parseInt(editForm.totalSeats) : null,
-        vendorContactEmail: editForm.vendorContactEmail || null,
-        vendorContactPhone: editForm.vendorContactPhone || null,
-        contractUrl: editForm.contractUrl || null,
-        loginUrl: editForm.loginUrl || null,
+      await detailsForm.handleSubmit(async () => {
+        await api.updateProjectSoftware(projectId!, id!, {
+          renewalDate: detailsForm.data.renewalDate || null,
+          billingCycle: detailsForm.data.billingCycle || null,
+          cost: detailsForm.data.cost || null,
+          costType: detailsForm.data.costType || null,
+          autoRenewal: detailsForm.data.autoRenewal,
+          licenseType: detailsForm.data.licenseType || null,
+          totalSeats: detailsForm.data.totalSeats ? parseInt(detailsForm.data.totalSeats) : null,
+          vendorContactEmail: detailsForm.data.vendorContactEmail || null,
+          vendorContactPhone: detailsForm.data.vendorContactPhone || null,
+          contractUrl: detailsForm.data.contractUrl || null,
+          loginUrl: detailsForm.data.loginUrl || null,
+        })
+        setIsEditingDetails(false)
+        loadSoftware()
       })
-      setIsEditingDetails(false)
-      loadSoftware()
     } catch (error) {
       console.error('Failed to save details:', error)
-    } finally {
-      setSavingDetails(false)
     }
   }
 
   const handleSaveNotes = async () => {
     if (!projectId || !id) return
-    setSaving(true)
     try {
-      await api.updateProjectSoftware(projectId, id, { notes: editNotes })
-      setShowEditModal(false)
-      loadSoftware()
+      await editNotesModal.handleSubmit(async () => {
+        await api.updateProjectSoftware(projectId!, id!, { notes: editNotesModal.formData.notes })
+        editNotesModal.close()
+        loadSoftware()
+      })
     } catch (error) {
       console.error('Failed to save notes:', error)
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -172,25 +174,22 @@ export default function ProjectSoftwareDetail() {
   }
 
   const openAddAdminModal = () => {
-    setSelectedMemberId('')
-    setSelectedRole('ADMIN')
-    setShowAddAdminModal(true)
+    addAdminModal.open()
   }
 
   const handleAddAdmin = async () => {
-    if (!projectId || !id || !selectedMemberId) return
-    setAddingAdmin(true)
+    if (!projectId || !id || !addAdminModal.formData.memberId) return
     try {
-      await api.addProjectSoftwareAdmin(projectId, id, {
-        memberId: selectedMemberId,
-        role: selectedRole
+      await addAdminModal.handleSubmit(async () => {
+        await api.addProjectSoftwareAdmin(projectId!, id!, {
+          memberId: addAdminModal.formData.memberId,
+          role: addAdminModal.formData.role
+        })
+        addAdminModal.close()
+        loadSoftware()
       })
-      setShowAddAdminModal(false)
-      loadSoftware()
     } catch (error) {
       console.error('Failed to add admin:', error)
-    } finally {
-      setAddingAdmin(false)
     }
   }
 
@@ -215,27 +214,23 @@ export default function ProjectSoftwareDetail() {
   }
 
   const openReviewModal = (request: SoftwareAccessRequest, defaultStatus?: 'APPROVED' | 'DECLINED' | 'REVOKED' | 'PENDING') => {
-    setReviewingRequest(request)
-    setReviewStatus(defaultStatus || 'APPROVED')
-    setReviewNotes('')
-    setShowReviewModal(true)
+    reviewModal.open(request)
+    if (defaultStatus) reviewModal.setField('status', defaultStatus)
   }
 
   const handleReviewRequest = async () => {
-    if (!projectId || !id || !reviewingRequest) return
-    setReviewing(true)
+    if (!projectId || !id || !reviewModal.editingItem) return
     try {
-      await api.reviewAccessRequest(projectId, id, reviewingRequest.id, {
-        status: reviewStatus,
-        reviewNotes: reviewNotes || undefined
+      await reviewModal.handleSubmit(async () => {
+        await api.reviewAccessRequest(projectId!, id!, reviewModal.editingItem!.id, {
+          status: reviewModal.formData.status,
+          reviewNotes: reviewModal.formData.notes || undefined
+        })
+        reviewModal.close()
+        loadSoftware()
       })
-      setShowReviewModal(false)
-      setReviewingRequest(null)
-      loadSoftware()
     } catch (error) {
       console.error('Failed to review request:', error)
-    } finally {
-      setReviewing(false)
     }
   }
 
@@ -260,10 +255,7 @@ export default function ProjectSoftwareDetail() {
   }
 
   const handleQuickApprove = (request: SoftwareAccessRequest) => {
-    setReviewingRequest(request)
-    setReviewStatus('APPROVED')
-    setReviewNotes('')
-    handleReviewRequest()
+    openReviewModal(request, 'APPROVED')
   }
 
   if (loading) {
@@ -291,8 +283,8 @@ export default function ProjectSoftwareDetail() {
       <DetailsSection
         software={software}
         isEditingDetails={isEditingDetails}
-        savingDetails={savingDetails}
-        editForm={editForm}
+        savingDetails={detailsForm.saving}
+        editForm={detailsForm.data}
         onNavigateBack={() => navigate(`/admin/projects/${projectId}/software`)}
         onOpenWebsite={() => window.open(software.software.websiteUrl, '_blank')}
         onShowDeleteModal={() => setShowDeleteModal(true)}
@@ -300,7 +292,7 @@ export default function ProjectSoftwareDetail() {
         onStartEditingDetails={startEditingDetails}
         onCancelEditingDetails={() => setIsEditingDetails(false)}
         onSaveDetails={handleSaveDetails}
-        onEditFormChange={setEditForm}
+        onEditFormChange={detailsForm.setData}
       />
 
       <AdminsSection
@@ -319,13 +311,13 @@ export default function ProjectSoftwareDetail() {
         onOpenDeleteRequestModal={openDeleteRequestModal}
       />
 
-      {showEditModal && (
+      {editNotesModal.isOpen && (
         <EditNotesModal
-          editNotes={editNotes}
-          saving={saving}
-          onEditNotesChange={setEditNotes}
+          editNotes={editNotesModal.formData.notes}
+          saving={editNotesModal.saving}
+          onEditNotesChange={(v) => editNotesModal.setField('notes', v)}
           onSave={handleSaveNotes}
-          onClose={() => setShowEditModal(false)}
+          onClose={editNotesModal.close}
         />
       )}
 
@@ -337,29 +329,29 @@ export default function ProjectSoftwareDetail() {
         />
       )}
 
-      {showAddAdminModal && (
+      {addAdminModal.isOpen && (
         <AddAdminModal
           availableMembers={availableMembers}
-          selectedMemberId={selectedMemberId}
-          selectedRole={selectedRole}
-          addingAdmin={addingAdmin}
-          onSelectedMemberIdChange={setSelectedMemberId}
-          onSelectedRoleChange={setSelectedRole}
+          selectedMemberId={addAdminModal.formData.memberId}
+          selectedRole={addAdminModal.formData.role}
+          addingAdmin={addAdminModal.saving}
+          onSelectedMemberIdChange={(v) => addAdminModal.setField('memberId', v)}
+          onSelectedRoleChange={(v) => addAdminModal.setField('role', v)}
           onAddAdmin={handleAddAdmin}
-          onClose={() => setShowAddAdminModal(false)}
+          onClose={addAdminModal.close}
         />
       )}
 
-      {showReviewModal && reviewingRequest && (
+      {reviewModal.isOpen && reviewModal.editingItem && (
         <ReviewRequestModal
-          reviewingRequest={reviewingRequest}
-          reviewStatus={reviewStatus}
-          reviewNotes={reviewNotes}
-          reviewing={reviewing}
-          onReviewStatusChange={setReviewStatus}
-          onReviewNotesChange={setReviewNotes}
+          reviewingRequest={reviewModal.editingItem}
+          reviewStatus={reviewModal.formData.status}
+          reviewNotes={reviewModal.formData.notes}
+          reviewing={reviewModal.saving}
+          onReviewStatusChange={(v) => reviewModal.setField('status', v)}
+          onReviewNotesChange={(v) => reviewModal.setField('notes', v)}
           onReview={handleReviewRequest}
-          onClose={() => setShowReviewModal(false)}
+          onClose={reviewModal.close}
         />
       )}
 
