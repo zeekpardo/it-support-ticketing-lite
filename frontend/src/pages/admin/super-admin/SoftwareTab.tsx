@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { api, GlobalSoftware, SoftwareCategory } from '../../../api/client'
+import { useModalForm } from '../../../hooks/useModalForm'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Text } from '@/components/ui/text'
 import { Textarea } from '@/components/ui/textarea'
-import { Field, FieldGroup, Label } from '@/components/ui/fieldset'
+import { Field, FieldGroup, Label, Description } from '@/components/ui/fieldset'
+import { FileUpload } from '@/components/ui/file-upload'
 import { Dialog, DialogTitle, DialogDescription, DialogBody, DialogActions } from '@/components/ui/dialog'
 import {
   Table,
@@ -35,19 +37,23 @@ export function SoftwareTab() {
   const [offset, setOffset] = useState(0)
   const limit = 50
 
-  // Create/Edit modal
-  const [showModal, setShowModal] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    iconUrl: '',
-    vendor: '',
-    websiteUrl: '',
-    categoryId: ''
+  const modal = useModalForm<
+    { name: string; description: string; iconUrl: string; vendor: string; websiteUrl: string; categoryId: string },
+    GlobalSoftware
+  >({
+    initialData: { name: '', description: '', iconUrl: '', vendor: '', websiteUrl: '', categoryId: '' },
+    mapEditItem: (item) => ({
+      name: item.name,
+      description: item.description || '',
+      iconUrl: item.iconUrl || '',
+      vendor: item.vendor || '',
+      websiteUrl: item.websiteUrl || '',
+      categoryId: item.categoryId || '',
+    }),
   })
-  const [formError, setFormError] = useState('')
-  const [saving, setSaving] = useState(false)
+
+  // Icon file upload (managed outside useModalForm since it's not serializable form data)
+  const [iconFile, setIconFile] = useState<File | null>(null)
 
   // Delete confirmation
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -96,62 +102,33 @@ export function SoftwareTab() {
     loadSoftware()
   }
 
-  const openCreateModal = () => {
-    setEditingId(null)
-    setFormData({
-      name: '',
-      description: '',
-      iconUrl: '',
-      vendor: '',
-      websiteUrl: '',
-      categoryId: ''
-    })
-    setFormError('')
-    setShowModal(true)
-  }
-
-  const openEditModal = (item: GlobalSoftware) => {
-    setEditingId(item.id)
-    setFormData({
-      name: item.name,
-      description: item.description || '',
-      iconUrl: item.iconUrl || '',
-      vendor: item.vendor || '',
-      websiteUrl: item.websiteUrl || '',
-      categoryId: item.categoryId || ''
-    })
-    setFormError('')
-    setShowModal(true)
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setFormError('')
-    setSaving(true)
-
-    try {
+    await modal.handleSubmit(async () => {
       const data = {
-        name: formData.name,
-        description: formData.description || undefined,
-        iconUrl: formData.iconUrl || undefined,
-        vendor: formData.vendor || undefined,
-        websiteUrl: formData.websiteUrl || undefined,
-        categoryId: formData.categoryId || undefined
+        name: modal.formData.name,
+        description: modal.formData.description || undefined,
+        iconUrl: iconFile ? undefined : (modal.formData.iconUrl || undefined),
+        vendor: modal.formData.vendor || undefined,
+        websiteUrl: modal.formData.websiteUrl || undefined,
+        categoryId: modal.formData.categoryId || undefined,
       }
 
-      if (editingId) {
-        await api.updateSuperAdminSoftware(editingId, data)
+      let software
+      if (modal.isEditing) {
+        software = await api.updateSuperAdminSoftware(modal.editingItem!.id, data)
       } else {
-        await api.createSuperAdminSoftware(data)
+        software = await api.createSuperAdminSoftware(data)
       }
 
-      setShowModal(false)
+      if (iconFile && software.id) {
+        await api.uploadSoftwareIcon(software.id, iconFile)
+      }
+
+      setIconFile(null)
+      modal.close()
       loadSoftware()
-    } catch (error) {
-      setFormError(error instanceof Error ? error.message : 'Failed to save software')
-    } finally {
-      setSaving(false)
-    }
+    })
   }
 
   const openDeleteModal = (id: string) => {
@@ -221,7 +198,7 @@ export function SoftwareTab() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <Text className="text-zinc-500">Manage the global software catalog available to all projects</Text>
-        <Button color="blue" onClick={openCreateModal}>
+        <Button color="blue" onClick={() => { setIconFile(null); modal.open() }}>
           <PlusIcon className="h-4 w-4" />
           Add Software
         </Button>
@@ -352,7 +329,7 @@ export function SoftwareTab() {
                         </Button>
                       </>
                     )}
-                    <Button plain onClick={() => openEditModal(item)}>
+                    <Button plain onClick={() => { setIconFile(null); modal.open(item) }}>
                       <PencilIcon className="h-4 w-4 text-zinc-400 hover:text-blue-500" />
                     </Button>
                     <Button plain onClick={() => openDeleteModal(item.id)}>
@@ -399,18 +376,18 @@ export function SoftwareTab() {
       )}
 
       {/* Create/Edit Modal */}
-      {showModal && (
-        <Dialog open={true} onClose={() => setShowModal(false)} size="lg">
-          <DialogTitle>{editingId ? 'Edit Software' : 'Add Software'}</DialogTitle>
+      {modal.isOpen && (
+        <Dialog open={true} onClose={modal.close} size="lg">
+          <DialogTitle>{modal.isEditing ? 'Edit Software' : 'Add Software'}</DialogTitle>
           <DialogDescription>
-            {editingId ? 'Update software details' : 'Add new software to the global catalog'}
+            {modal.isEditing ? 'Update software details' : 'Add new software to the global catalog'}
           </DialogDescription>
 
           <form onSubmit={handleSubmit}>
             <DialogBody>
-              {formError && (
+              {modal.error && (
                 <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-                  {formError}
+                  {modal.error}
                 </div>
               )}
 
@@ -419,8 +396,8 @@ export function SoftwareTab() {
                   <Label>Name *</Label>
                   <Input
                     type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    value={modal.formData.name}
+                    onChange={(e) => modal.setField('name', e.target.value)}
                     placeholder="Microsoft Office"
                     required
                   />
@@ -429,8 +406,8 @@ export function SoftwareTab() {
                 <Field>
                   <Label>Description</Label>
                   <Textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    value={modal.formData.description}
+                    onChange={(e) => modal.setField('description', e.target.value)}
                     placeholder="Brief description of the software..."
                     rows={3}
                   />
@@ -441,8 +418,8 @@ export function SoftwareTab() {
                     <Label>Vendor</Label>
                     <Input
                       type="text"
-                      value={formData.vendor}
-                      onChange={(e) => setFormData({ ...formData, vendor: e.target.value })}
+                      value={modal.formData.vendor}
+                      onChange={(e) => modal.setField('vendor', e.target.value)}
                       placeholder="Microsoft"
                     />
                   </Field>
@@ -450,8 +427,8 @@ export function SoftwareTab() {
                   <Field>
                     <Label>Category</Label>
                     <Select
-                      value={formData.categoryId}
-                      onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                      value={modal.formData.categoryId}
+                      onChange={(e) => modal.setField('categoryId', e.target.value)}
                     >
                       <option value="">No category</option>
                       {categories.map(cat => (
@@ -462,21 +439,49 @@ export function SoftwareTab() {
                 </div>
 
                 <Field>
-                  <Label>Icon URL</Label>
-                  <Input
-                    type="url"
-                    value={formData.iconUrl}
-                    onChange={(e) => setFormData({ ...formData, iconUrl: e.target.value })}
-                    placeholder="https://example.com/icon.png"
-                  />
+                  <Label>Icon</Label>
+                  <Description>Upload an icon image or paste a URL (max 512KB)</Description>
+                  <div className="flex items-start gap-4">
+                    {(modal.formData.iconUrl || iconFile) && (
+                      <img
+                        src={iconFile ? URL.createObjectURL(iconFile) : modal.formData.iconUrl}
+                        alt="Icon preview"
+                        className="h-12 w-12 rounded-lg object-cover ring-1 ring-zinc-200 dark:ring-zinc-700 shrink-0"
+                      />
+                    )}
+                    <div className="flex-1 space-y-2">
+                      <FileUpload
+                        accept="image/*"
+                        compact
+                        maxSizeMB={0.5}
+                        label="Upload icon"
+                        description="JPEG, PNG, GIF, WebP, or SVG"
+                        onFilesSelected={(files) => {
+                          setIconFile(files[0])
+                          modal.setField('iconUrl', '')
+                        }}
+                      />
+                      <div className="text-center text-xs text-zinc-400">or</div>
+                      <Input
+                        type="url"
+                        value={iconFile ? '' : modal.formData.iconUrl}
+                        onChange={(e) => {
+                          setIconFile(null)
+                          modal.setField('iconUrl', e.target.value)
+                        }}
+                        placeholder="https://example.com/icon.png"
+                        disabled={!!iconFile}
+                      />
+                    </div>
+                  </div>
                 </Field>
 
                 <Field>
                   <Label>Website URL</Label>
                   <Input
                     type="url"
-                    value={formData.websiteUrl}
-                    onChange={(e) => setFormData({ ...formData, websiteUrl: e.target.value })}
+                    value={modal.formData.websiteUrl}
+                    onChange={(e) => modal.setField('websiteUrl', e.target.value)}
                     placeholder="https://www.microsoft.com/office"
                   />
                 </Field>
@@ -484,11 +489,11 @@ export function SoftwareTab() {
             </DialogBody>
 
             <DialogActions>
-              <Button plain onClick={() => setShowModal(false)} disabled={saving}>
+              <Button plain onClick={modal.close} disabled={modal.saving}>
                 Cancel
               </Button>
-              <Button color="blue" type="submit" disabled={saving}>
-                {saving ? 'Saving...' : editingId ? 'Update' : 'Add Software'}
+              <Button color="blue" type="submit" disabled={modal.saving}>
+                {modal.saving ? 'Saving...' : modal.isEditing ? 'Update' : 'Add Software'}
               </Button>
             </DialogActions>
           </form>
