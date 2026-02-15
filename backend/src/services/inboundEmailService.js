@@ -718,7 +718,21 @@ function parseFullName(fullName) {
     return { firstName: '', lastName: '' };
   }
 
-  const parts = fullName.trim().split(/\s+/);
+  let name = fullName.trim();
+
+  // If it looks like an email address, derive a name from the local part
+  if (name.includes('@')) {
+    const localPart = name.split('@')[0];
+    const parts = localPart.split(/[._-]+/).map(
+      (part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+    );
+    return {
+      firstName: parts[0] || '',
+      lastName: parts.slice(1).join(' ') || '',
+    };
+  }
+
+  const parts = name.split(/\s+/);
   return {
     firstName: parts[0] || '',
     lastName: parts.slice(1).join(' ') || '',
