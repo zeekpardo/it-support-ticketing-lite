@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import { ReactNode, Suspense } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useOrganization } from '../context/OrganizationContext'
@@ -175,7 +175,15 @@ export function PortalLayout({ children }: PortalLayoutProps) {
         <NotificationBell />
       </div>
       <div className="p-6 lg:pt-2">
-        {children}
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center py-32">
+              <div className="text-zinc-500">Loading...</div>
+            </div>
+          }
+        >
+          {children}
+        </Suspense>
       </div>
     </SidebarLayout>
   )

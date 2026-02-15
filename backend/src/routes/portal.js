@@ -8,6 +8,7 @@ import { asyncHandler, withUpload } from '../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError, ForbiddenError } from '../utils/errors.js';
 import { createTicketAttachments } from '../utils/entityHelpers.js';
 import { sanitizeCommentHtml } from '../utils/htmlSanitizer.js';
+import { sanitizeUrl } from '../utils/sanitize.js';
 import { USER_SELECT_BRIEF, PROJECT_SELECT_BRIEF, MEMBER_WITH_USER_BRIEF, MEMBER_WITH_ROLE_AND_USER_BRIEF } from '../utils/prismaFragments.js';
 import { getPresignedUrl, uploadFile, generateAttachmentKey, isStorageConfigured } from '../lib/storage.js';
 
@@ -266,7 +267,7 @@ router.post('/tickets', asyncHandler(async (req, res) => {
       requestType: requestType || 'GENERAL_SUPPORT',
       priorityLevel: effectivePriority,
       description,
-      screenRecordingLink,
+      screenRecordingLink: sanitizeUrl(screenRecordingLink),
       dueDate
     },
     include: {

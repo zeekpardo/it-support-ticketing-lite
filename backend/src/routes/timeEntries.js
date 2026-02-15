@@ -188,18 +188,26 @@ router.post('/:id/stop', asyncHandler(async (req, res) => {
     where: {
       id: req.params.id,
       organizationId: req.organization.id,
-      isRunning: true
+    },
+    include: {
+      project: { select: PROJECT_SELECT_BRIEF },
+      user: { select: USER_SELECT }
     }
   });
 
   if (!entry) {
-    throw new NotFoundError('Running timer not found');
+    throw new NotFoundError('Time entry not found');
   }
 
   // Only the owner of the timer or admin can stop it
   const canEditAll = ['admin', 'owner'].includes(req.membership.role);
   if (!canEditAll && entry.userId !== req.user.id) {
     throw new ForbiddenError('Access denied');
+  }
+
+  // Already stopped (e.g., auto-stopped by starting another timer) — return as-is
+  if (!entry.isRunning) {
+    return res.json(entry);
   }
 
   const endTime = new Date();

@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { OrganizationProvider, useOrganization } from './context/OrganizationContext'
@@ -5,40 +6,43 @@ import { TimerProvider } from './context/TimerContext'
 import { NotificationProvider } from './context/NotificationContext'
 import { Layout } from './components/Layout'
 import { PortalLayout } from './components/PortalLayout'
+// Static imports — always needed on first load
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Onboarding from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
-import Projects from './pages/Projects'
-import Reports from './pages/Reports'
-import AdminMembers from './pages/admin/Members'
-import AdminProjects from './pages/admin/Projects'
-import AdminProjectNew from './pages/admin/ProjectNew'
-import AdminProjectEdit from './pages/admin/ProjectEdit'
-import AdminProjectDetail from './pages/admin/ProjectDetail'
-import AdminClientDetail from './pages/admin/ClientDetail'
-import SuperAdmin from './pages/admin/SuperAdmin'
-import Settings from './pages/Settings'
-// Ticket pages
-import ProjectTickets from './pages/ProjectTickets'
-import TicketDetail from './pages/TicketDetail'
-import NewTicket from './pages/NewTicket'
-// Portal pages
-import PortalDashboard from './pages/portal/PortalDashboard'
-import PortalTickets from './pages/portal/PortalTickets'
-import PortalTicketDetail from './pages/portal/PortalTicketDetail'
-import PortalNewTicket from './pages/portal/PortalNewTicket'
-import PortalSettings from './pages/portal/PortalSettings'
-import PortalProjectSoftware from './pages/portal/PortalProjectSoftware'
-import PortalProjectSoftwareDetail from './pages/portal/PortalProjectSoftwareDetail'
-import PortalCatalog from './pages/portal/PortalCatalog'
 import AcceptInvitation from './pages/AcceptInvitation'
-// Project Software pages
-import ProjectSoftwareCatalog from './pages/admin/ProjectSoftwareCatalog'
-import ProjectSoftwareDetail from './pages/admin/ProjectSoftwareDetail'
-// Email Management pages
-import ProjectEmailRules from './pages/admin/ProjectEmailRules'
-import InboundEmailLogs from './pages/admin/InboundEmailLogs'
+
+// Lazy-loaded staff pages
+const Projects = lazy(() => import('./pages/Projects'))
+const Reports = lazy(() => import('./pages/Reports'))
+const Settings = lazy(() => import('./pages/Settings'))
+const ProjectTickets = lazy(() => import('./pages/ProjectTickets'))
+const TicketDetail = lazy(() => import('./pages/TicketDetail'))
+const NewTicket = lazy(() => import('./pages/NewTicket'))
+
+// Lazy-loaded admin pages
+const AdminMembers = lazy(() => import('./pages/admin/Members'))
+const AdminProjects = lazy(() => import('./pages/admin/Projects'))
+const AdminProjectNew = lazy(() => import('./pages/admin/ProjectNew'))
+const AdminProjectEdit = lazy(() => import('./pages/admin/ProjectEdit'))
+const AdminProjectDetail = lazy(() => import('./pages/admin/ProjectDetail'))
+const AdminClientDetail = lazy(() => import('./pages/admin/ClientDetail'))
+const SuperAdmin = lazy(() => import('./pages/admin/SuperAdmin'))
+const ProjectSoftwareCatalog = lazy(() => import('./pages/admin/ProjectSoftwareCatalog'))
+const ProjectSoftwareDetail = lazy(() => import('./pages/admin/ProjectSoftwareDetail'))
+const ProjectEmailRules = lazy(() => import('./pages/admin/ProjectEmailRules'))
+const InboundEmailLogs = lazy(() => import('./pages/admin/InboundEmailLogs'))
+
+// Lazy-loaded portal pages
+const PortalDashboard = lazy(() => import('./pages/portal/PortalDashboard'))
+const PortalTickets = lazy(() => import('./pages/portal/PortalTickets'))
+const PortalTicketDetail = lazy(() => import('./pages/portal/PortalTicketDetail'))
+const PortalNewTicket = lazy(() => import('./pages/portal/PortalNewTicket'))
+const PortalSettings = lazy(() => import('./pages/portal/PortalSettings'))
+const PortalProjectSoftware = lazy(() => import('./pages/portal/PortalProjectSoftware'))
+const PortalProjectSoftwareDetail = lazy(() => import('./pages/portal/PortalProjectSoftwareDetail'))
+const PortalCatalog = lazy(() => import('./pages/portal/PortalCatalog'))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth()
@@ -147,6 +151,13 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center">
+          <div className="text-zinc-500">Loading...</div>
+        </div>
+      }
+    >
     <Routes>
       {/* Public routes */}
       <Route
@@ -420,6 +431,7 @@ function AppRoutes() {
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </Suspense>
   )
 }
 

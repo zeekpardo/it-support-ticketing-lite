@@ -5,6 +5,7 @@ import { asyncHandler } from '../../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError } from '../../utils/errors.js';
 import { findTicketOrFail } from '../../utils/entityHelpers.js';
 import { createNotification } from '../../services/notificationService.js';
+import { sanitizeUrl } from '../../utils/sanitize.js';
 import { getPresignedUrl } from '../../lib/storage.js';
 import {
   USER_SELECT, USER_SELECT_BRIEF, MEMBER_WITH_USER, MEMBER_WITH_USER_BRIEF,
@@ -237,7 +238,7 @@ router.post('/', requireStaff, asyncHandler(async (req, res) => {
       requestType: requestType || 'GENERAL_INQUIRY',
       priorityLevel: priorityLevel || 'MEDIUM',
       description,
-      screenRecordingLink,
+      screenRecordingLink: sanitizeUrl(screenRecordingLink),
       dueDate: calculatedDueDate,
     },
     include: {
@@ -294,7 +295,7 @@ router.put('/:id', requireStaff, asyncHandler(async (req, res) => {
       requestType: requestType ?? ticket.requestType,
       priorityLevel: priorityLevel ?? ticket.priorityLevel,
       description: description ?? ticket.description,
-      screenRecordingLink: screenRecordingLink !== undefined ? screenRecordingLink : ticket.screenRecordingLink,
+      screenRecordingLink: screenRecordingLink !== undefined ? sanitizeUrl(screenRecordingLink) : ticket.screenRecordingLink,
       status: status ?? ticket.status,
       ownerId: ownerId !== undefined ? ownerId : ticket.ownerId,
       dueDate: dueDate !== undefined ? (dueDate ? new Date(dueDate) : null) : ticket.dueDate,

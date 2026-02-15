@@ -7,6 +7,7 @@ import { Heading, Subheading } from '@/components/ui/heading'
 import { Text } from '@/components/ui/text'
 import { ArrowLeftIcon, LinkIcon } from '@heroicons/react/24/outline'
 import { EmailContent } from '../../components/EmailContent'
+import { safeHref } from '../../utils/sanitize'
 
 interface Ticket {
   id: string
@@ -162,10 +163,10 @@ export default function PortalTicketDetail() {
             <div className="mt-3">
               <EmailContent text={ticket.description} html={ticket.descriptionHtml} />
             </div>
-            {ticket.screenRecordingLink && (
+            {safeHref(ticket.screenRecordingLink) && (
               <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
                 <a
-                  href={ticket.screenRecordingLink}
+                  href={safeHref(ticket.screenRecordingLink)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"

@@ -110,15 +110,16 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     setIsLoading(true)
     try {
       await api.stopTimer(runningTimer.id)
+    } catch (error) {
+      // Timer was already stopped (e.g., auto-stopped by starting another timer)
+      // Clear stale state instead of surfacing the error
+      console.warn('Timer already stopped or not found, clearing local state')
+    } finally {
       setRunningTimer(null)
       setElapsedSeconds(0)
       setIsPaused(false)
       setPausedAt(null)
       setPausedElapsed(0)
-    } catch (error) {
-      console.error('Failed to stop timer:', error)
-      throw error
-    } finally {
       setIsLoading(false)
     }
   }
