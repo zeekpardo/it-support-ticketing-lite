@@ -7,10 +7,8 @@ import {
   useRef,
   useState,
 } from 'react'
-import { useEditor, EditorContent, Editor } from '@tiptap/react'
+import { useEditor, EditorContent, Editor, Extension } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import Underline from '@tiptap/extension-underline'
-import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
 import Mention from '@tiptap/extension-mention'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -417,14 +415,13 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           codeBlock: false,
           code: false,
           horizontalRule: false,
-        }),
-        Underline,
-        Link.configure({
-          openOnClick: false,
-          autolink: true,
-          HTMLAttributes: {
-            target: '_blank',
-            rel: 'noopener noreferrer',
+          link: {
+            openOnClick: false,
+            autolink: true,
+            HTMLAttributes: {
+              target: '_blank',
+              rel: 'noopener noreferrer',
+            },
           },
         }),
         Image.configure({
@@ -449,37 +446,23 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         Placeholder.configure({
           placeholder: placeholder || 'Add a comment... Use @ to mention someone',
         }),
+        Extension.create({
+          name: 'imageUpload',
+          addProseMirrorPlugins() {
+            return [
+              createImageUploadPlugin((file) => {
+                return uploadRef.current?.(file) ?? Promise.resolve(null)
+              }),
+            ]
+          },
+        }),
       ],
-      content: initialContent || '',
+      ...(initialContent ? { content: initialContent } : {}),
       editable: !disabled,
       onUpdate: ({ editor: e }) => {
         onUpdate?.(e.isEmpty)
       },
     })
-
-    // Register the paste/drop plugin when editor and upload handler are available
-    useEffect(() => {
-      if (!editor || !onImageUpload) return
-
-      const plugin = createImageUploadPlugin((file) => {
-        return uploadRef.current?.(file) ?? Promise.resolve(null)
-      })
-
-      // Add the plugin to the editor's plugin list
-      const { state } = editor
-      const newState = state.reconfigure({
-        plugins: [...state.plugins, plugin],
-      })
-      editor.view.updateState(newState)
-
-      return () => {
-        // Remove our plugin on cleanup
-        const currentState = editor.state
-        const filtered = currentState.plugins.filter((p) => p !== plugin)
-        const cleanState = currentState.reconfigure({ plugins: filtered })
-        editor.view.updateState(cleanState)
-      }
-    }, [editor, !!onImageUpload])
 
     useImperativeHandle(ref, () => ({
       getHTML: () => editor?.getHTML() || '',
