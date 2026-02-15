@@ -2,7 +2,7 @@ import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { organization, admin, openAPI, magicLink } from 'better-auth/plugins';
 import { createAccessControl } from 'better-auth/plugins/access';
-import { PrismaClient } from '@prisma/client';
+import prisma from './prisma.js';
 import { sendVerificationEmail, sendPasswordResetEmail, sendInvitationEmail, sendMagicLinkEmail, sendWelcomeEmail, consumeWelcomeContext } from './email.js';
 
 // Environment configuration
@@ -19,8 +19,6 @@ const normalizeOrigin = (value) => {
     return input.replace(/\/+$/, '');
   }
 };
-
-const prisma = new PrismaClient();
 
 // Define the access control statements
 const statement = {

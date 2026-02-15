@@ -1,7 +1,7 @@
+import 'dotenv/config';
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from './lib/auth.js';
 import { AppError } from './utils/errors.js';
@@ -22,8 +22,6 @@ import notificationsRoutes from './routes/notifications.js';
 import inboundEmailWebhook from './routes/webhooks/inbound-email.js';
 import emailRulesRoutes from './routes/email-rules.js';
 import { startCronJobs } from './services/cronService.js';
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;

@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim
+FROM node:22-bookworm-slim
 
 WORKDIR /app
 
@@ -9,7 +9,7 @@ RUN npm ci
 # Copy app source
 COPY . .
 
-# Prisma engines require OpenSSL at runtime
+# ca-certificates for HTTPS; OpenSSL kept for safety (may be needed by pg SSL)
 RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/*
