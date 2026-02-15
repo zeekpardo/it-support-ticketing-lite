@@ -211,3 +211,45 @@ export function sanitizeEmailHtml(html, cidToS3Map = new Map()) {
 
   return cleanHtml;
 }
+
+/**
+ * Sanitize comment HTML from the rich text editor.
+ * Allows formatting tags but strips dangerous content.
+ *
+ * @param {string} html - Raw HTML from Tiptap editor
+ * @returns {string|null} Sanitized HTML, or null if no meaningful content
+ */
+export function sanitizeCommentHtml(html) {
+  if (!html) return null;
+
+  const cleanHtml = sanitizeHtml(html, {
+    allowedTags: [
+      'p', 'br', 'div', 'span',
+      'b', 'strong', 'i', 'em', 'u', 's',
+      'ul', 'ol', 'li',
+      'blockquote',
+      'a', 'img',
+    ],
+    allowedAttributes: {
+      'a': ['href', 'title', 'target', 'rel'],
+      'img': ['src', 'alt'],
+      'span': ['class', 'data-type', 'data-id'],
+    },
+    allowedSchemes: ['http', 'https'],
+    allowedSchemesAppliedToAttributes: ['src', 'href'],
+    transformTags: {
+      'a': sanitizeHtml.simpleTransform('a', {
+        target: '_blank',
+        rel: 'noopener noreferrer',
+      }),
+    },
+  });
+
+  // Check if there's meaningful content
+  const textOnly = cleanHtml.replace(/<[^>]+>/g, '').trim();
+  if (!textOnly && !cleanHtml.includes('<img')) {
+    return null;
+  }
+
+  return cleanHtml;
+}

@@ -10,7 +10,7 @@ import { Text } from '@/components/ui/text'
 import { Select } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Field, Label } from '@/components/ui/fieldset'
-import { ArrowLeftIcon, TrashIcon, LinkIcon, PaperClipIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, TrashIcon, LinkIcon, PaperClipIcon, PencilSquareIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { EmailContent } from '../components/EmailContent'
 
 interface Ticket {
@@ -195,10 +195,58 @@ export default function TicketDetail() {
     }
   }
 
-  const handleAddComment = async (content: string, isInternal: boolean, files?: File[]) => {
+  // Inline editing for client name
+  const [editingName, setEditingName] = useState(false)
+  const [editFirstName, setEditFirstName] = useState('')
+  const [editLastName, setEditLastName] = useState('')
+  const firstNameRef = useRef<HTMLInputElement>(null)
+
+  const startEditingName = () => {
+    if (!ticket) return
+    setEditFirstName(ticket.firstName)
+    setEditLastName(ticket.lastName)
+    setEditingName(true)
+    setTimeout(() => firstNameRef.current?.focus(), 0)
+  }
+
+  const cancelEditingName = () => {
+    setEditingName(false)
+  }
+
+  const saveClientName = async () => {
+    if (!ticket) return
+    const firstName = editFirstName.trim()
+    const lastName = editLastName.trim()
+    if (!firstName) return
+    if (firstName === ticket.firstName && lastName === ticket.lastName) {
+      setEditingName(false)
+      return
+    }
+    setSaving(true)
+    try {
+      await api.updateTicket(ticket.id, { firstName, lastName })
+      setTicket({ ...ticket, firstName, lastName })
+      setEditingName(false)
+    } catch (error) {
+      console.error('Failed to update client name:', error)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleNameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      saveClientName()
+    } else if (e.key === 'Escape') {
+      cancelEditingName()
+    }
+  }
+
+  const handleAddComment = async (content: string, contentHtml: string, isInternal: boolean, files?: File[]) => {
     if (!ticket) return
     try {
-      const comment = await api.addTicketComment(ticket.id, { content, isInternal, files })
+      const comment = await api.addTicketComment(ticket.id, { content, contentHtml, isInternal, files })
       setTicket({ ...ticket, comments: [...ticket.comments, comment] })
     } catch (error) {
       console.error('Failed to add comment:', error)
@@ -423,8 +471,48 @@ export default function TicketDetail() {
             <dl className="mt-4 space-y-3 text-sm">
               <div>
                 <dt className="text-zinc-500 dark:text-zinc-400">Name</dt>
-                <dd className="font-medium text-zinc-900 dark:text-white">
-                  {ticket.firstName} {ticket.lastName}
+                <dd>
+                  {editingName ? (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <input
+                        ref={firstNameRef}
+                        type="text"
+                        value={editFirstName}
+                        onChange={e => setEditFirstName(e.target.value)}
+                        onKeyDown={handleNameKeyDown}
+                        placeholder="First"
+                        disabled={saving}
+                        className="w-0 flex-1 rounded-md border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-2 py-1 text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      <input
+                        type="text"
+                        value={editLastName}
+                        onChange={e => setEditLastName(e.target.value)}
+                        onKeyDown={handleNameKeyDown}
+                        placeholder="Last"
+                        disabled={saving}
+                        className="w-0 flex-1 rounded-md border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 px-2 py-1 text-sm text-zinc-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      <button onClick={saveClientName} disabled={saving} className="text-green-600 hover:text-green-700 dark:text-green-400">
+                        <CheckIcon className="h-4 w-4" />
+                      </button>
+                      <button onClick={cancelEditingName} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300">
+                        <XMarkIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="group flex items-center gap-1.5">
+                      <span className="font-medium text-zinc-900 dark:text-white">
+                        {ticket.firstName} {ticket.lastName}
+                      </span>
+                      <button
+                        onClick={startEditingName}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                      >
+                        <PencilSquareIcon className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </dd>
               </div>
               <div>

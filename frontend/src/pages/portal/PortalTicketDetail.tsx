@@ -71,10 +71,10 @@ export default function PortalTicketDetail() {
     }
   }
 
-  const handleAddMessage = async (content: string, _isInternal: boolean, files?: File[]) => {
+  const handleAddMessage = async (content: string, contentHtml: string, _isInternal: boolean, files?: File[]) => {
     if (!ticket) return
     try {
-      const comment = await api.addPortalMessage(ticket.id, content, files)
+      const comment = await api.addPortalMessage(ticket.id, content, contentHtml, files)
       setTicket({ ...ticket, comments: [...ticket.comments, comment] })
     } catch (error) {
       console.error('Failed to add message:', error)

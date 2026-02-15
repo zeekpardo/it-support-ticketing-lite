@@ -165,11 +165,12 @@ export async function getTicketComments(ticketId: string) {
   return request<any[]>(`/tickets/${ticketId}/comments`)
 }
 
-export async function addTicketComment(ticketId: string, data: { content: string; isInternal?: boolean; files?: File[] }) {
+export async function addTicketComment(ticketId: string, data: { content: string; contentHtml?: string; isInternal?: boolean; files?: File[] }) {
   const { files, ...rest } = data
   if (files && files.length > 0) {
     const formData = new FormData()
     formData.append('content', rest.content)
+    if (rest.contentHtml) formData.append('contentHtml', rest.contentHtml)
     formData.append('isInternal', String(rest.isInternal || false))
     files.forEach(file => formData.append('attachments', file))
     return upload<any>(`/tickets/${ticketId}/comments`, formData)

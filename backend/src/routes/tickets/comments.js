@@ -6,6 +6,7 @@ import { ValidationError } from '../../utils/errors.js';
 import { uploadAttachments } from '../../middleware/upload.js';
 import { findTicketOrFail, createTicketAttachments } from '../../utils/entityHelpers.js';
 import { sendCommentNotifications } from '../../services/notificationService.js';
+import { sanitizeCommentHtml } from '../../utils/htmlSanitizer.js';
 import { MEMBER_WITH_ROLE_AND_USER } from '../../utils/prismaFragments.js';
 
 const router = express.Router();
@@ -28,20 +29,22 @@ router.get('/:id/comments', requireStaff, asyncHandler(async (req, res) => {
 
 // Add comment to ticket (supports file attachments via multipart/form-data)
 router.post('/:id/comments', requireStaff, withUpload(uploadAttachments, async (req, res) => {
-  const { content, isInternal: isInternalStr } = req.body;
+  const { content, contentHtml: rawContentHtml, isInternal: isInternalStr } = req.body;
   const isInternal = isInternalStr === 'true' || isInternalStr === true;
 
-  if (!content) {
+  if (!content && !rawContentHtml) {
     throw new ValidationError('Content is required');
   }
 
   const ticket = await findTicketOrFail(req.params.id, req.organization.id);
+  const contentHtml = rawContentHtml ? sanitizeCommentHtml(rawContentHtml) : null;
 
   const comment = await prisma.ticketComment.create({
     data: {
       ticketId: req.params.id,
       authorId: req.membership.id,
-      content,
+      content: content || '',
+      contentHtml,
       isInternal: isInternal || false,
     },
     include: {
@@ -59,7 +62,8 @@ router.post('/:id/comments', requireStaff, withUpload(uploadAttachments, async (
       comment,
       authorName: comment.author.user.name,
       authorMemberId: req.membership.id,
-      content,
+      content: content || '',
+      contentHtml,
       isInternal,
       organizationId: req.organization.id,
     });

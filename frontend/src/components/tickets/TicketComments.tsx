@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { LockClosedIcon, GlobeAltIcon, PaperClipIcon, DocumentIcon } from '@heroicons/react/24/outline'
+import DOMPurify from 'dompurify'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
-import { MentionTextarea, renderMentions } from '../ui/mention-textarea'
+import { RichTextEditor, RichTextEditorRef } from '../ui/rich-text-editor'
+import { renderMentions } from '../ui/mention-textarea'
 import { FileUpload } from '../ui/file-upload'
 
 interface CommentAttachment {
@@ -16,6 +18,7 @@ interface CommentAttachment {
 interface Comment {
   id: string
   content: string
+  contentHtml?: string | null
   isInternal: boolean
   createdAt: string
   attachments?: CommentAttachment[]
@@ -37,7 +40,7 @@ interface MentionMember {
 
 interface TicketCommentsProps {
   comments: Comment[]
-  onAddComment: (content: string, isInternal: boolean, files?: File[]) => Promise<void>
+  onAddComment: (content: string, contentHtml: string, isInternal: boolean, files?: File[]) => Promise<void>
   isStaff?: boolean
   isLoading?: boolean
   mentionableMembers?: MentionMember[]
@@ -49,8 +52,20 @@ function formatFileSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+const SANITIZE_CONFIG = {
+  ALLOWED_TAGS: [
+    'p', 'br', 'div', 'span',
+    'b', 'strong', 'i', 'em', 'u', 's',
+    'ul', 'ol', 'li',
+    'blockquote', 'a', 'img',
+  ],
+  ALLOWED_ATTR: ['href', 'src', 'alt', 'target', 'rel', 'class', 'data-type', 'data-id'],
+  ALLOWED_URI_REGEXP: /^(?:(?:https?|data):)/i,
+}
+
 export function TicketComments({ comments, onAddComment, isStaff = true, isLoading, mentionableMembers = [] }: TicketCommentsProps) {
-  const [content, setContent] = useState('')
+  const editorRef = useRef<RichTextEditorRef>(null)
+  const [editorEmpty, setEditorEmpty] = useState(true)
   const [isInternal, setIsInternal] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [files, setFiles] = useState<File[]>([])
@@ -58,12 +73,19 @@ export function TicketComments({ comments, onAddComment, isStaff = true, isLoadi
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!content.trim() && files.length === 0) return
+    const editor = editorRef.current
+    if (!editor) return
+
+    const text = editor.getText()
+    const html = editor.getHTML()
+
+    if (!text.trim() && files.length === 0) return
 
     setSubmitting(true)
     try {
-      await onAddComment(content, isInternal, files.length > 0 ? files : undefined)
-      setContent('')
+      await onAddComment(text, html, isInternal, files.length > 0 ? files : undefined)
+      editor.clear()
+      setEditorEmpty(true)
       setIsInternal(false)
       setFiles([])
       setShowUpload(false)
@@ -115,8 +137,19 @@ export function TicketComments({ comments, onAddComment, isStaff = true, isLoadi
                   {new Date(comment.createdAt).toLocaleString()}
                 </span>
               </div>
-              <div className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">
-                {renderMentions(comment.content)}
+              <div className="text-sm text-zinc-700 dark:text-zinc-300">
+                {comment.contentHtml ? (
+                  <div
+                    className="prose prose-sm dark:prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_blockquote]:my-1"
+                    dangerouslySetInnerHTML={{
+                      __html: DOMPurify.sanitize(comment.contentHtml, SANITIZE_CONFIG),
+                    }}
+                  />
+                ) : (
+                  <div className="whitespace-pre-wrap">
+                    {renderMentions(comment.content)}
+                  </div>
+                )}
               </div>
               {comment.attachments && comment.attachments.length > 0 && (
                 <div className="mt-2 pt-2 border-t border-zinc-200 dark:border-zinc-700 space-y-1">
@@ -149,13 +182,12 @@ export function TicketComments({ comments, onAddComment, isStaff = true, isLoadi
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
-        <MentionTextarea
-          value={content}
-          onChange={setContent}
+        <RichTextEditor
+          ref={editorRef}
           members={mentionableMembers}
           placeholder="Add a comment... Use @ to mention someone"
-          rows={3}
           disabled={submitting || isLoading}
+          onUpdate={setEditorEmpty}
         />
 
         {showUpload && (
@@ -207,7 +239,7 @@ export function TicketComments({ comments, onAddComment, isStaff = true, isLoadi
             </button>
           </div>
 
-          <Button type="submit" disabled={(!content.trim() && files.length === 0) || submitting || isLoading}>
+          <Button type="submit" disabled={(editorEmpty && files.length === 0) || submitting || isLoading}>
             {submitting ? 'Sending...' : 'Add Comment'}
           </Button>
         </div>

@@ -206,6 +206,7 @@ async function getClientChannel(ticketId, clientMemberId) {
  * @param {string} params.authorName - Display name of comment author
  * @param {string} params.authorMemberId - Member ID of the comment author
  * @param {string} params.content - Raw comment content (for mention parsing)
+ * @param {string|null} params.contentHtml - HTML comment content (from rich text editor)
  * @param {boolean} params.isInternal - Whether the comment is internal-only
  * @param {string} params.organizationId - Organization ID
  */
@@ -215,6 +216,7 @@ export async function sendCommentNotifications(prisma, {
   authorName,
   authorMemberId,
   content,
+  contentHtml,
   isInternal,
   organizationId,
 }) {
@@ -224,6 +226,7 @@ export async function sendCommentNotifications(prisma, {
     authorName,
     commentId: comment.id,
     commentContent: content,
+    commentContentHtml: contentHtml || null,
   };
 
   const mentionedMemberIds = parseMentions(content);
@@ -266,6 +269,7 @@ export async function sendCommentNotifications(prisma, {
               recipientName: clientMember.user.name,
               ticketSubject: ticket.subject,
               commentContent: content,
+              commentContentHtml: contentHtml,
               commentId: comment.id,
             });
           }

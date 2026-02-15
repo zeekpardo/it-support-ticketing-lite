@@ -467,6 +467,7 @@ model TicketComment {
   authorId    String             @map("author_id")
   author      Member             @relation(fields: [authorId], references: [id], onDelete: Cascade)
   content     String
+  contentHtml String?            @map("content_html") @db.Text
   isInternal  Boolean            @default(false) @map("is_internal")
   createdAt   DateTime           @default(now()) @map("created_at")
   updatedAt   DateTime           @updatedAt @map("updated_at")

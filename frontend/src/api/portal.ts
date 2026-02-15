@@ -50,16 +50,17 @@ export async function uploadPortalTicketAttachments(ticketId: string, files: Fil
   return upload<any[]>(`/portal/tickets/${ticketId}/attachments`, formData)
 }
 
-export async function addPortalMessage(ticketId: string, content: string, files?: File[]) {
+export async function addPortalMessage(ticketId: string, content: string, contentHtml?: string, files?: File[]) {
   if (files && files.length > 0) {
     const formData = new FormData()
     formData.append('content', content)
+    if (contentHtml) formData.append('contentHtml', contentHtml)
     files.forEach(file => formData.append('attachments', file))
     return upload<any>(`/portal/tickets/${ticketId}/messages`, formData)
   }
   return request<any>(`/portal/tickets/${ticketId}/messages`, {
     method: 'POST',
-    body: JSON.stringify({ content })
+    body: JSON.stringify({ content, contentHtml })
   })
 }
 

@@ -6,6 +6,7 @@ import { uploadAttachments } from '../middleware/upload.js';
 import { asyncHandler, withUpload } from '../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError, ForbiddenError } from '../utils/errors.js';
 import { createTicketAttachments } from '../utils/entityHelpers.js';
+import { sanitizeCommentHtml } from '../utils/htmlSanitizer.js';
 import { USER_SELECT_BRIEF, PROJECT_SELECT_BRIEF, MEMBER_WITH_USER_BRIEF, MEMBER_WITH_ROLE_AND_USER_BRIEF } from '../utils/prismaFragments.js';
 import { getPresignedUrl } from '../lib/storage.js';
 
@@ -330,9 +331,9 @@ router.post('/tickets/:id/attachments', withUpload(uploadAttachments, async (req
 
 // Add public message to ticket (supports file attachments via multipart/form-data)
 router.post('/tickets/:id/messages', withUpload(uploadAttachments, async (req, res) => {
-  const { content } = req.body;
+  const { content, contentHtml: rawContentHtml } = req.body;
 
-  if (!content) {
+  if (!content && !rawContentHtml) {
     throw new ValidationError('Content is required');
   }
 
@@ -350,11 +351,14 @@ router.post('/tickets/:id/messages', withUpload(uploadAttachments, async (req, r
     throw new NotFoundError('Ticket not found');
   }
 
+  const contentHtml = rawContentHtml ? sanitizeCommentHtml(rawContentHtml) : null;
+
   const comment = await prisma.ticketComment.create({
     data: {
       ticketId: req.params.id,
       authorId: req.membership.id,
-      content,
+      content: content || '',
+      contentHtml,
       isInternal: false,
     },
     include: {
@@ -372,7 +376,8 @@ router.post('/tickets/:id/messages', withUpload(uploadAttachments, async (req, r
       comment,
       authorName: comment.author.user.name,
       authorMemberId: req.membership.id,
-      content,
+      content: content || '',
+      contentHtml,
       isInternal: false,
       organizationId: req.organization.id,
     });

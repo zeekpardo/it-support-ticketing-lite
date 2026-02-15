@@ -68,10 +68,10 @@ function linkFallback(url) {
 /**
  * Quote/content block component (for comments, descriptions, etc.)
  */
-function quoteBlock(content, borderColor = '#2563eb') {
+function quoteBlock(content, borderColor = '#2563eb', isHtml = false) {
   return `
     <div style="background-color: #f9fafb; border-left: 4px solid ${borderColor}; padding: 16px; margin: 20px 0; border-radius: 0 8px 8px 0;">
-      <p style="margin: 0; white-space: pre-wrap;">${content}</p>
+      ${isHtml ? content : `<p style="margin: 0; white-space: pre-wrap;">${content}</p>`}
     </div>
   `;
 }
@@ -114,7 +114,7 @@ function buildHtmlEmail({ header, greeting: greetingName, paragraphs = [], quote
   }
 
   if (quote) {
-    content += quoteBlock(quote.content, quote.borderColor);
+    content += quoteBlock(quote.content, quote.borderColor, quote.isHtml);
   }
 
   if (button) {
@@ -328,15 +328,17 @@ export async function sendMagicLinkEmail({ email, url }) {
 // ==========================================
 
 /**
- * Helper to clean and truncate comment content for emails
+ * Helper to clean and truncate comment content for emails.
+ * Returns both plain text and optional HTML versions.
  */
-function prepareCommentContent(content, maxLength = 500) {
-  // Strip @mentions from content for email display
-  const cleanContent = content.replace(/@\[([^\]]+)\]\([^)]+\)/g, '@$1');
-  // Truncate long comments
-  return cleanContent.length > maxLength
+function prepareCommentContent(content, contentHtml = null, maxLength = 500) {
+  // Strip @mentions from plain text content for email display
+  const cleanContent = (content || '').replace(/@\[([^\]]+)\]\([^)]+\)/g, '@$1');
+  const truncatedText = cleanContent.length > maxLength
     ? cleanContent.substring(0, maxLength) + '...'
     : cleanContent;
+
+  return { text: truncatedText, html: contentHtml || null };
 }
 
 /**
@@ -351,9 +353,9 @@ function getTicketUrl(ticketId, isPortal = false) {
 /**
  * Send ticket comment notification email
  */
-export async function sendTicketCommentEmail({ to, recipientName, authorName, ticketSubject, ticketId, commentContent, isPortal = false }) {
+export async function sendTicketCommentEmail({ to, recipientName, authorName, ticketSubject, ticketId, commentContent, commentContentHtml, isPortal = false }) {
   const ticketUrl = getTicketUrl(ticketId, isPortal);
-  const displayContent = prepareCommentContent(commentContent);
+  const { text: displayText, html: displayHtml } = prepareCommentContent(commentContent, commentContentHtml);
 
   return sendEmail({
     to,
@@ -361,13 +363,15 @@ export async function sendTicketCommentEmail({ to, recipientName, authorName, ti
     html: buildHtmlEmail({
       greeting: recipientName,
       paragraphs: [`<strong>${authorName}</strong> commented on the ticket:`],
-      quote: { content: displayContent },
+      quote: displayHtml
+        ? { content: displayHtml, isHtml: true }
+        : { content: displayText },
       button: { text: 'View Ticket', url: ticketUrl }
     }),
     text: buildTextEmail({
       greeting: recipientName,
       paragraphs: [`${authorName} commented on the ticket "${ticketSubject}":`],
-      quote: { content: displayContent },
+      quote: { content: displayText },
       buttonText: 'View the ticket',
       buttonUrl: ticketUrl
     })
@@ -401,9 +405,9 @@ export async function sendTicketAssignmentEmail({ to, recipientName, ticketSubje
 /**
  * Send mention notification email
  */
-export async function sendMentionEmail({ to, recipientName, authorName, ticketSubject, ticketId, commentContent, isPortal = false }) {
+export async function sendMentionEmail({ to, recipientName, authorName, ticketSubject, ticketId, commentContent, commentContentHtml, isPortal = false }) {
   const ticketUrl = getTicketUrl(ticketId, isPortal);
-  const displayContent = prepareCommentContent(commentContent);
+  const { text: displayText, html: displayHtml } = prepareCommentContent(commentContent, commentContentHtml);
 
   return sendEmail({
     to,
@@ -411,13 +415,15 @@ export async function sendMentionEmail({ to, recipientName, authorName, ticketSu
     html: buildHtmlEmail({
       greeting: recipientName,
       paragraphs: [`<strong>${authorName}</strong> mentioned you in a comment:`],
-      quote: { content: displayContent, borderColor: '#8b5cf6' },
+      quote: displayHtml
+        ? { content: displayHtml, borderColor: '#8b5cf6', isHtml: true }
+        : { content: displayText, borderColor: '#8b5cf6' },
       button: { text: 'View Ticket', url: ticketUrl }
     }),
     text: buildTextEmail({
       greeting: recipientName,
       paragraphs: [`${authorName} mentioned you in a comment on "${ticketSubject}":`],
-      quote: { content: displayContent },
+      quote: { content: displayText },
       buttonText: 'View the ticket',
       buttonUrl: ticketUrl
     })
@@ -688,9 +694,9 @@ export async function sendRenewalReminderEmail({
  * Sends a natural email (just the comment content) with proper threading headers.
  */
 export async function sendThreadedTicketReply({
-  ticketId, to, recipientName, ticketSubject, commentContent, commentId
+  ticketId, to, recipientName, ticketSubject, commentContent, commentContentHtml, commentId
 }) {
-  const displayContent = prepareCommentContent(commentContent);
+  const { text: displayText, html: displayHtml } = prepareCommentContent(commentContent, commentContentHtml);
   const messageId = generateMessageId(ticketId, 'reply');
 
   // Build threading chain from ALL emails on this ticket
@@ -747,11 +753,13 @@ export async function sendThreadedTicketReply({
     inReplyTo,
     html: buildHtmlEmail({
       greeting: recipientName,
-      paragraphs: [displayContent],
+      paragraphs: displayHtml
+        ? [{ html: displayHtml }]
+        : [displayText],
     }),
     text: buildTextEmail({
       greeting: recipientName,
-      paragraphs: [displayContent],
+      paragraphs: [displayText],
     }),
   });
 
