@@ -67,7 +67,7 @@ router.post('/create-user', authenticate, requireOrganization, requireOwner, asy
       }
     });
 
-    if (role === 'client') {
+    if (projectIds?.length > 0) {
       await createProjectAssignments(member.id, projectIds);
     }
 
@@ -116,7 +116,7 @@ router.post('/create-user', authenticate, requireOrganization, requireOwner, asy
       }
     });
 
-    if (role === 'client') {
+    if (projectIds?.length > 0) {
       await createProjectAssignments(member.id, projectIds);
     }
 

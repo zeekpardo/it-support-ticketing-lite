@@ -198,7 +198,7 @@ export default function AdminMembers() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
-                      {member.role === 'client' && isOwner && (
+                      {(member.role === 'client' || member.role === 'member') && isOwner && (
                         <Button
                           plain
                           onClick={() => setProjectsMember(member)}

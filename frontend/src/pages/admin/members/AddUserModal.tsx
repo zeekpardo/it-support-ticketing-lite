@@ -100,7 +100,7 @@ export default function AddUserModal({ open, onClose, onSuccess, isSuperAdmin, i
           phone,
           password,
           role,
-          projectIds: role === 'client' ? projectIds : undefined,
+          projectIds: (role === 'client' || role === 'member') ? projectIds : undefined,
         })
       }
 
@@ -113,7 +113,7 @@ export default function AddUserModal({ open, onClose, onSuccess, isSuperAdmin, i
     }
   }
 
-  const showProjectSelection = addMode === 'invite' || (addMode === 'create' && role === 'client')
+  const showProjectSelection = addMode === 'invite' || (addMode === 'create' && (role === 'client' || role === 'member'))
   const projectsRequired = role === 'client'
 
   return (
