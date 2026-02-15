@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useOrganization } from '../../context/OrganizationContext'
 import { api } from '../../api/client'
@@ -70,6 +70,17 @@ export default function PortalTicketDetail() {
       setLoading(false)
     }
   }
+
+  const handleImageUpload = useCallback(async (file: File): Promise<string | null> => {
+    if (!ticket) return null
+    try {
+      const { key } = await api.uploadPortalInlineImage(ticket.id, file)
+      return `s3:${key}`
+    } catch (error) {
+      console.error('Failed to upload image:', error)
+      return null
+    }
+  }, [ticket?.id])
 
   const handleAddMessage = async (content: string, contentHtml: string, _isInternal: boolean, files?: File[]) => {
     if (!ticket) return
@@ -159,6 +170,7 @@ export default function PortalTicketDetail() {
             <TicketComments
               comments={ticket.comments}
               onAddComment={handleAddMessage}
+              onImageUpload={handleImageUpload}
               isStaff={false}
               mentionableMembers={mentionableMembers}
             />

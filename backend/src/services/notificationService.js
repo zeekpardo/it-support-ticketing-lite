@@ -332,6 +332,7 @@ export async function sendCommentNotifications(prisma, {
           recipientName: clientMember.user.name,
           ticketSubject: ticket.subject,
           commentContent: content,
+          commentContentHtml: contentHtml,
           commentId: comment.id,
         });
       }

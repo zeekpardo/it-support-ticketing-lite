@@ -1,4 +1,5 @@
 import express from 'express';
+import multer from 'multer';
 import { prisma } from '../../lib/auth.js';
 import { requireStaff } from '../../middleware/auth.js';
 import { asyncHandler, withUpload } from '../../middleware/asyncHandler.js';
@@ -6,7 +7,7 @@ import { uploadAttachments, deleteUploadedFile } from '../../middleware/upload.j
 import { NotFoundError, ValidationError } from '../../utils/errors.js';
 import { findTicketOrFail, createTicketAttachments } from '../../utils/entityHelpers.js';
 import { MEMBER_WITH_USER_BRIEF } from '../../utils/prismaFragments.js';
-import { getPresignedUrl, deleteFile } from '../../lib/storage.js';
+import { getPresignedUrl, deleteFile, uploadFile, generateAttachmentKey, isStorageConfigured } from '../../lib/storage.js';
 
 const router = express.Router();
 
@@ -56,6 +57,49 @@ router.post('/:id/attachments', requireStaff, withUpload(uploadAttachments, asyn
   );
 
   res.status(201).json(attachments);
+}));
+
+// Upload inline image (for rich text editor)
+const uploadInlineImage = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only JPEG, PNG, GIF, and WebP images are allowed'));
+    }
+  }
+}).single('image');
+
+router.post('/:id/inline-image', requireStaff, withUpload(uploadInlineImage, async (req, res) => {
+  if (!req.file) {
+    throw new ValidationError('No image provided');
+  }
+
+  if (!isStorageConfigured()) {
+    throw new ValidationError('File storage is not configured');
+  }
+
+  await findTicketOrFail(req.params.id, req.organization.id);
+
+  const key = generateAttachmentKey(req.params.id, req.file.originalname);
+  await uploadFile(req.file.buffer, key, req.file.mimetype);
+
+  await prisma.ticketAttachment.create({
+    data: {
+      ticketId: req.params.id,
+      uploadedById: req.membership.id,
+      fileName: req.file.originalname,
+      fileSize: req.file.size,
+      fileType: req.file.mimetype,
+      fileUrl: `s3:${key}`,
+      isInline: true,
+    },
+  });
+
+  res.status(201).json({ key });
 }));
 
 // Delete attachment

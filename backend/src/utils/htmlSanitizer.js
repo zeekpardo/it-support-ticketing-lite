@@ -235,7 +235,7 @@ export function sanitizeCommentHtml(html) {
       'img': ['src', 'alt'],
       'span': ['class', 'data-type', 'data-id'],
     },
-    allowedSchemes: ['http', 'https'],
+    allowedSchemes: ['http', 'https', 's3'],
     allowedSchemesAppliedToAttributes: ['src', 'href'],
     transformTags: {
       'a': sanitizeHtml.simpleTransform('a', {

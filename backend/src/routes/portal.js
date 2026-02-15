@@ -1,4 +1,5 @@
 import express from 'express';
+import multer from 'multer';
 import { prisma } from '../lib/auth.js';
 import { authenticate, requireOrganization, requireClient } from '../middleware/auth.js';
 import { createNotification, sendCommentNotifications } from '../services/notificationService.js';
@@ -8,9 +9,35 @@ import { NotFoundError, ValidationError, ForbiddenError } from '../utils/errors.
 import { createTicketAttachments } from '../utils/entityHelpers.js';
 import { sanitizeCommentHtml } from '../utils/htmlSanitizer.js';
 import { USER_SELECT_BRIEF, PROJECT_SELECT_BRIEF, MEMBER_WITH_USER_BRIEF, MEMBER_WITH_ROLE_AND_USER_BRIEF } from '../utils/prismaFragments.js';
-import { getPresignedUrl } from '../lib/storage.js';
+import { getPresignedUrl, uploadFile, generateAttachmentKey, isStorageConfigured } from '../lib/storage.js';
 
 const router = express.Router();
+
+/**
+ * Replace all s3:{key} image sources in HTML with presigned URLs.
+ */
+async function resolveS3ImageUrls(html) {
+  const s3Pattern = /src="s3:([^"]+)"/g;
+  const matches = [...html.matchAll(s3Pattern)];
+  if (matches.length === 0) return html;
+
+  const replacements = await Promise.all(
+    matches.map(async (match) => {
+      try {
+        const url = await getPresignedUrl(match[1]);
+        return { original: match[0], replacement: `src="${url}"` };
+      } catch {
+        return { original: match[0], replacement: 'src=""' };
+      }
+    })
+  );
+
+  let resolved = html;
+  for (const { original, replacement } of replacements) {
+    resolved = resolved.replace(original, replacement);
+  }
+  return resolved;
+}
 
 // All routes require authentication, organization context, and client role
 router.use(authenticate);
@@ -145,30 +172,14 @@ router.get('/tickets/:id', asyncHandler(async (req, res) => {
   const attachments = await Promise.all(ticket.attachments.map(resolveUrl));
   const comments = await Promise.all(ticket.comments.map(async (c) => ({
     ...c,
+    contentHtml: c.contentHtml ? await resolveS3ImageUrls(c.contentHtml) : null,
     attachments: c.attachments ? await Promise.all(c.attachments.map(resolveUrl)) : [],
   })));
 
   // Resolve s3: image URLs in description HTML
-  let descriptionHtml = ticket.descriptionHtml;
-  if (descriptionHtml) {
-    const s3Pattern = /src="s3:([^"]+)"/g;
-    const matches = [...descriptionHtml.matchAll(s3Pattern)];
-    if (matches.length > 0) {
-      const replacements = await Promise.all(
-        matches.map(async (match) => {
-          try {
-            const url = await getPresignedUrl(match[1]);
-            return { original: match[0], replacement: `src="${url}"` };
-          } catch {
-            return { original: match[0], replacement: 'src=""' };
-          }
-        })
-      );
-      for (const { original, replacement } of replacements) {
-        descriptionHtml = descriptionHtml.replace(original, replacement);
-      }
-    }
-  }
+  const descriptionHtml = ticket.descriptionHtml
+    ? await resolveS3ImageUrls(ticket.descriptionHtml)
+    : null;
 
   res.json({ ...ticket, attachments, descriptionHtml, comments });
 }));
@@ -327,6 +338,59 @@ router.post('/tickets/:id/attachments', withUpload(uploadAttachments, async (req
   );
 
   res.status(201).json(attachments);
+}));
+
+// Upload inline image for rich text editor (portal)
+const uploadInlineImage = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only JPEG, PNG, GIF, and WebP images are allowed'));
+    }
+  }
+}).single('image');
+
+router.post('/tickets/:id/inline-image', withUpload(uploadInlineImage, async (req, res) => {
+  if (!req.file) {
+    throw new ValidationError('No image provided');
+  }
+
+  if (!isStorageConfigured()) {
+    throw new ValidationError('File storage is not configured');
+  }
+
+  const ticket = await prisma.supportTicket.findFirst({
+    where: {
+      id: req.params.id,
+      organizationId: req.organization.id,
+      clientId: req.membership.id,
+    },
+  });
+
+  if (!ticket) {
+    throw new NotFoundError('Ticket not found');
+  }
+
+  const key = generateAttachmentKey(req.params.id, req.file.originalname);
+  await uploadFile(req.file.buffer, key, req.file.mimetype);
+
+  await prisma.ticketAttachment.create({
+    data: {
+      ticketId: req.params.id,
+      uploadedById: req.membership.id,
+      fileName: req.file.originalname,
+      fileSize: req.file.size,
+      fileType: req.file.mimetype,
+      fileUrl: `s3:${key}`,
+      isInline: true,
+    },
+  });
+
+  res.status(201).json({ key });
 }));
 
 // Add public message to ticket (supports file attachments via multipart/form-data)

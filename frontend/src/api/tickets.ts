@@ -222,3 +222,9 @@ export async function uploadTicketAttachments(ticketId: string, files: File[]) {
   files.forEach(file => formData.append('attachments', file))
   return upload<any[]>(`/tickets/${ticketId}/attachments`, formData)
 }
+
+export async function uploadInlineImage(ticketId: string, file: File) {
+  const formData = new FormData()
+  formData.append('image', file)
+  return upload<{ key: string }>(`/tickets/${ticketId}/inline-image`, formData)
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useOrganization } from '../context/OrganizationContext'
 import { useTimer } from '../context/TimerContext'
@@ -243,6 +243,17 @@ export default function TicketDetail() {
     }
   }
 
+  const handleImageUpload = useCallback(async (file: File): Promise<string | null> => {
+    if (!ticket) return null
+    try {
+      const { key } = await api.uploadInlineImage(ticket.id, file)
+      return `s3:${key}`
+    } catch (error) {
+      console.error('Failed to upload image:', error)
+      return null
+    }
+  }, [ticket?.id])
+
   const handleAddComment = async (content: string, contentHtml: string, isInternal: boolean, files?: File[]) => {
     if (!ticket) return
     try {
@@ -387,6 +398,7 @@ export default function TicketDetail() {
             <TicketComments
               comments={ticket.comments}
               onAddComment={handleAddComment}
+              onImageUpload={handleImageUpload}
               isStaff={true}
               mentionableMembers={mentionableMembers}
             />

@@ -126,6 +126,7 @@ class ApiClient {
   getTicketAttachments = ticketsApi.getTicketAttachments
   deleteTicketAttachment = ticketsApi.deleteTicketAttachment
   uploadTicketAttachments = ticketsApi.uploadTicketAttachments
+  uploadInlineImage = ticketsApi.uploadInlineImage
 
   // === Portal (Client) ===
   getPortalProjects = portalApi.getPortalProjects
@@ -135,6 +136,7 @@ class ApiClient {
   submitPortalTicket = portalApi.submitPortalTicket
   uploadPortalTicketAttachments = portalApi.uploadPortalTicketAttachments
   addPortalMessage = portalApi.addPortalMessage
+  uploadPortalInlineImage = portalApi.uploadPortalInlineImage
   getPortalTicketMentionableMembers = portalApi.getPortalTicketMentionableMembers
 
   // === Members ===

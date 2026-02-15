@@ -41,6 +41,7 @@ interface MentionMember {
 interface TicketCommentsProps {
   comments: Comment[]
   onAddComment: (content: string, contentHtml: string, isInternal: boolean, files?: File[]) => Promise<void>
+  onImageUpload?: (file: File) => Promise<string | null>
   isStaff?: boolean
   isLoading?: boolean
   mentionableMembers?: MentionMember[]
@@ -63,7 +64,7 @@ const SANITIZE_CONFIG = {
   ALLOWED_URI_REGEXP: /^(?:(?:https?|data):)/i,
 }
 
-export function TicketComments({ comments, onAddComment, isStaff = true, isLoading, mentionableMembers = [] }: TicketCommentsProps) {
+export function TicketComments({ comments, onAddComment, onImageUpload, isStaff = true, isLoading, mentionableMembers = [] }: TicketCommentsProps) {
   const editorRef = useRef<RichTextEditorRef>(null)
   const [editorEmpty, setEditorEmpty] = useState(true)
   const [isInternal, setIsInternal] = useState(false)
@@ -79,7 +80,7 @@ export function TicketComments({ comments, onAddComment, isStaff = true, isLoadi
     const text = editor.getText()
     const html = editor.getHTML()
 
-    if (!text.trim() && files.length === 0) return
+    if (!text.trim() && !html.includes('<img') && files.length === 0) return
 
     setSubmitting(true)
     try {
@@ -140,7 +141,7 @@ export function TicketComments({ comments, onAddComment, isStaff = true, isLoadi
               <div className="text-sm text-zinc-700 dark:text-zinc-300">
                 {comment.contentHtml ? (
                   <div
-                    className="prose prose-sm dark:prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_blockquote]:my-1"
+                    className="prose prose-sm dark:prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_blockquote]:my-1 [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-2"
                     dangerouslySetInnerHTML={{
                       __html: DOMPurify.sanitize(comment.contentHtml, SANITIZE_CONFIG),
                     }}
@@ -188,6 +189,7 @@ export function TicketComments({ comments, onAddComment, isStaff = true, isLoadi
           placeholder="Add a comment... Use @ to mention someone"
           disabled={submitting || isLoading}
           onUpdate={setEditorEmpty}
+          onImageUpload={onImageUpload}
         />
 
         {showUpload && (

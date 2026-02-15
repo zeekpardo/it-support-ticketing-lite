@@ -133,6 +133,7 @@ router.get('/:id', requireStaff, asyncHandler(async (req, res) => {
   const attachments = await Promise.all(ticket.attachments.map(resolveUrl));
   const comments = await Promise.all(ticket.comments.map(async (c) => ({
     ...c,
+    contentHtml: c.contentHtml ? await resolveHtmlImageUrls(c.contentHtml) : null,
     attachments: c.attachments ? await Promise.all(c.attachments.map(resolveUrl)) : [],
   })));
 

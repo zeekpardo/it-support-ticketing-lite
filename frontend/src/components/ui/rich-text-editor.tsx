@@ -11,10 +11,12 @@ import { useEditor, EditorContent, Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
+import Image from '@tiptap/extension-image'
 import Mention from '@tiptap/extension-mention'
 import Placeholder from '@tiptap/extension-placeholder'
+import { Plugin } from '@tiptap/pm/state'
 import clsx from 'clsx'
-import { LinkIcon, ListBulletIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { LinkIcon, ListBulletIcon, PhotoIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { createMentionSuggestion, MentionMember } from './mention-suggestion'
 
 export interface RichTextEditorRef {
@@ -30,6 +32,7 @@ interface RichTextEditorProps {
   disabled?: boolean
   className?: string
   onUpdate?: (isEmpty: boolean) => void
+  onImageUpload?: (file: File) => Promise<string | null>
 }
 
 /**
@@ -215,8 +218,9 @@ function LinkPopover({
   )
 }
 
-function Toolbar({ editor }: { editor: Editor }) {
+function Toolbar({ editor, onImageUpload }: { editor: Editor; onImageUpload?: (file: File) => Promise<string | null> }) {
   const [showLinkPopover, setShowLinkPopover] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleLinkToggle = () => {
     if (showLinkPopover) {
@@ -225,6 +229,23 @@ function Toolbar({ editor }: { editor: Editor }) {
       return
     }
     setShowLinkPopover(true)
+  }
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !onImageUpload) return
+
+    // Reset input so re-selecting same file triggers change
+    e.target.value = ''
+
+    const src = await onImageUpload(file)
+    if (src) {
+      editor.chain().focus().setImage({ src }).run()
+    }
   }
 
   return (
@@ -297,6 +318,23 @@ function Toolbar({ editor }: { editor: Editor }) {
       >
         <LinkIcon className="w-4 h-4" />
       </ToolbarButton>
+      {onImageUpload && (
+        <>
+          <ToolbarButton
+            onClick={handleImageClick}
+            title="Insert image"
+          >
+            <PhotoIcon className="w-4 h-4" />
+          </ToolbarButton>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            onChange={handleImageSelect}
+            className="hidden"
+          />
+        </>
+      )}
 
       {showLinkPopover && (
         <LinkPopover
@@ -308,12 +346,67 @@ function Toolbar({ editor }: { editor: Editor }) {
   )
 }
 
+/**
+ * Create a ProseMirror plugin that handles image paste and drop events.
+ */
+function createImageUploadPlugin(onImageUpload: (file: File) => Promise<string | null>) {
+  return new Plugin({
+    props: {
+      handlePaste(view, event) {
+        const items = event.clipboardData?.items
+        if (!items) return false
+
+        for (const item of items) {
+          if (item.type.startsWith('image/')) {
+            event.preventDefault()
+            const file = item.getAsFile()
+            if (!file) return false
+
+            onImageUpload(file).then((src) => {
+              if (src) {
+                const node = view.state.schema.nodes.image.create({ src })
+                const tr = view.state.tr.replaceSelectionWith(node)
+                view.dispatch(tr)
+              }
+            })
+            return true
+          }
+        }
+        return false
+      },
+      handleDrop(view, event) {
+        const files = event.dataTransfer?.files
+        if (!files || files.length === 0) return false
+
+        const imageFile = Array.from(files).find((f) => f.type.startsWith('image/'))
+        if (!imageFile) return false
+
+        event.preventDefault()
+        const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })
+
+        onImageUpload(imageFile).then((src) => {
+          if (src) {
+            const node = view.state.schema.nodes.image.create({ src })
+            const tr = view.state.tr.insert(pos?.pos ?? view.state.doc.content.size, node)
+            view.dispatch(tr)
+          }
+        })
+        return true
+      },
+    },
+  })
+}
+
 export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
-  ({ members = [], placeholder, disabled, className, onUpdate }, ref) => {
+  ({ members = [], placeholder, disabled, className, onUpdate, onImageUpload }, ref) => {
     const mentionSuggestion = useMemo(
       () => createMentionSuggestion(members),
       [members],
     )
+
+    // Stable ref for the upload callback so the plugin doesn't recreate
+    const uploadRef = useRef(onImageUpload)
+    uploadRef.current = onImageUpload
 
     const editor = useEditor({
       extensions: [
@@ -331,6 +424,10 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
             target: '_blank',
             rel: 'noopener noreferrer',
           },
+        }),
+        Image.configure({
+          inline: false,
+          allowBase64: false,
         }),
         Mention.configure({
           HTMLAttributes: { class: 'mention' },
@@ -356,6 +453,30 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         onUpdate?.(e.isEmpty)
       },
     })
+
+    // Register the paste/drop plugin when editor and upload handler are available
+    useEffect(() => {
+      if (!editor || !onImageUpload) return
+
+      const plugin = createImageUploadPlugin((file) => {
+        return uploadRef.current?.(file) ?? Promise.resolve(null)
+      })
+
+      // Add the plugin to the editor's plugin list
+      const { state } = editor
+      const newState = state.reconfigure({
+        plugins: [...state.plugins, plugin],
+      })
+      editor.view.updateState(newState)
+
+      return () => {
+        // Remove our plugin on cleanup
+        const currentState = editor.state
+        const filtered = currentState.plugins.filter((p) => p !== plugin)
+        const cleanState = currentState.reconfigure({ plugins: filtered })
+        editor.view.updateState(cleanState)
+      }
+    }, [editor, !!onImageUpload])
 
     useImperativeHandle(ref, () => ({
       getHTML: () => editor?.getHTML() || '',
@@ -387,7 +508,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
               'bg-transparent dark:bg-white/5',
             ])}
           >
-            <Toolbar editor={editor} />
+            <Toolbar editor={editor} onImageUpload={onImageUpload} />
             <EditorContent
               editor={editor}
               className={clsx([
@@ -396,6 +517,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
                 '[&_.tiptap]:outline-none [&_.tiptap]:min-h-[4.5rem]',
                 '[&_.tiptap]:prose [&_.tiptap]:prose-sm [&_.tiptap]:dark:prose-invert [&_.tiptap]:max-w-none',
                 '[&_.tiptap_p]:my-1 [&_.tiptap_ul]:my-1 [&_.tiptap_ol]:my-1 [&_.tiptap_blockquote]:my-1',
+                '[&_.tiptap_img]:max-w-full [&_.tiptap_img]:h-auto [&_.tiptap_img]:rounded-lg [&_.tiptap_img]:my-2',
               ])}
             />
           </div>

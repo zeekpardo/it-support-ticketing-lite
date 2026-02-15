@@ -64,6 +64,12 @@ export async function addPortalMessage(ticketId: string, content: string, conten
   })
 }
 
+export async function uploadPortalInlineImage(ticketId: string, file: File) {
+  const formData = new FormData()
+  formData.append('image', file)
+  return upload<{ key: string }>(`/portal/tickets/${ticketId}/inline-image`, formData)
+}
+
 export async function getPortalTicketMentionableMembers(ticketId: string) {
   return request<Array<{
     id: string
