@@ -1,6 +1,6 @@
 import express from 'express';
+import helmet from 'helmet';
 import cors from 'cors';
-import path from 'path';
 import dotenv from 'dotenv';
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from './lib/auth.js';
@@ -40,6 +40,18 @@ const normalizeOrigin = (value) => {
     return input.replace(/\/+$/, '').toLowerCase();
   }
 };
+
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      imgSrc: ["'self'", "https://*.railway.app"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+    },
+  },
+}));
 
 // CORS configuration
 const allowedOrigins = [
@@ -84,9 +96,6 @@ app.use('/api/webhooks/inbound-email', inboundEmailWebhook);
 // JSON parsing for other routes
 app.use(express.json());
 
-// Serve uploaded files
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
-
 // API Routes
 app.use('/api/time-entries', timeEntriesRoutes);
 app.use('/api/projects', projectsRoutes);
@@ -107,17 +116,6 @@ app.use('/api/email-rules', emailRulesRoutes);
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-// Email configuration check (for debugging)
-app.get('/api/email-config', (req, res) => {
-  res.json({
-    hasResendKey: !!process.env.RESEND_API_KEY,
-    fromEmail: process.env.FROM_EMAIL || 'Not set',
-    frontendUrl: process.env.FRONTEND_URL || 'Not set',
-    appName: process.env.APP_NAME || 'Not set',
-    nodeEnv: process.env.NODE_ENV || 'Not set'
-  });
 });
 
 // Error handling middleware

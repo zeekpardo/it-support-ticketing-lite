@@ -153,6 +153,7 @@ class ApiClient {
   updateProfile = membersApi.updateProfile
   uploadAvatar = membersApi.uploadAvatar
   removeAvatar = membersApi.removeAvatar
+  getAvatarUrl = membersApi.getAvatarUrl
 
   // === Super Admin ===
   getSuperAdminUsers = superAdminApi.getSuperAdminUsers

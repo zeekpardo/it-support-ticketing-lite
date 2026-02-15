@@ -1,5 +1,6 @@
 import { prisma } from '../lib/auth.js';
 import { NotFoundError } from './errors.js';
+import { uploadFile, generateAttachmentKey } from '../lib/storage.js';
 
 export async function findProjectOrFail(projectId, organizationId, options = {}) {
   const project = await prisma.project.findFirst({
@@ -72,20 +73,22 @@ export async function createTicketAttachments(ticketId, uploadedById, files, com
   if (!files || files.length === 0) return [];
 
   return Promise.all(
-    files.map(file =>
-      prisma.ticketAttachment.create({
+    files.map(async (file) => {
+      const key = generateAttachmentKey(ticketId, file.originalname);
+      await uploadFile(file.buffer, key, file.mimetype);
+      return prisma.ticketAttachment.create({
         data: {
           ticketId,
           commentId,
           fileName: file.originalname,
           fileSize: file.size,
           fileType: file.mimetype,
-          fileUrl: `/uploads/attachments/${file.filename}`,
+          fileUrl: `s3:${key}`,
           uploadedById,
         },
         ...options,
-      })
-    )
+      });
+    })
   );
 }
 

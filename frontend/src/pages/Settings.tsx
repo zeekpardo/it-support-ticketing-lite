@@ -22,8 +22,9 @@ export default function Settings() {
   const [profileSuccess, setProfileSuccess] = useState('')
   const [profileError, setProfileError] = useState('')
   const [avatarUploading, setAvatarUploading] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
-  // Load user profile on mount
+  // Load user profile and resolve avatar URL on mount
   useEffect(() => {
     const loadProfile = async () => {
       try {
@@ -33,7 +34,14 @@ export default function Settings() {
         console.error('Failed to load profile:', error)
       }
     }
+    const loadAvatar = async () => {
+      try {
+        const { url } = await api.getAvatarUrl()
+        setAvatarUrl(url)
+      } catch {}
+    }
     loadProfile()
+    loadAvatar()
   }, [])
 
   // Email form state
@@ -168,7 +176,7 @@ export default function Settings() {
             <span className="text-sm/6 font-medium text-zinc-950 dark:text-white">Profile Photo</span>
             <div className="mt-2 flex items-center gap-6">
               <Avatar
-                src={user?.image}
+                src={avatarUrl}
                 initials={user?.name?.charAt(0).toUpperCase()}
                 className="size-16"
               />
@@ -176,15 +184,16 @@ export default function Settings() {
                 <FileUpload
                   accept="image/*"
                   compact
-                  maxSizeMB={2}
+                  maxSizeMB={0.5}
                   label={avatarUploading ? 'Uploading...' : 'Upload photo'}
-                  description="JPEG, PNG, GIF or WebP. Max 2MB."
+                  description="JPEG, PNG, GIF or WebP. Max 512KB."
                   onFilesSelected={async (files) => {
                     setAvatarUploading(true)
                     setProfileError('')
                     try {
                       const result = await api.uploadAvatar(files[0])
                       await authClient.updateUser({ image: result.image })
+                      setAvatarUrl(result.imageUrl)
                       setProfileSuccess('Profile photo updated')
                     } catch (err) {
                       setProfileError(err instanceof Error ? err.message : 'Upload failed')
@@ -193,7 +202,7 @@ export default function Settings() {
                     }
                   }}
                 />
-                {user?.image && (
+                {avatarUrl && (
                   <button
                     type="button"
                     onClick={async () => {
@@ -201,6 +210,7 @@ export default function Settings() {
                       try {
                         await api.removeAvatar()
                         await authClient.updateUser({ image: '' })
+                        setAvatarUrl(null)
                         setProfileSuccess('Profile photo removed')
                       } catch (err) {
                         setProfileError(err instanceof Error ? err.message : 'Failed to remove photo')

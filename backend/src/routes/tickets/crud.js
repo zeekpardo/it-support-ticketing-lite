@@ -238,7 +238,7 @@ router.post('/', requireStaff, asyncHandler(async (req, res) => {
       requestType: requestType || 'GENERAL_INQUIRY',
       priorityLevel: priorityLevel || 'MEDIUM',
       description,
-      screenRecordingLink: sanitizeUrl(screenRecordingLink),
+      screenRecordingLink: sanitizeUrl(screenRecordingLink, 'screenRecordingLink'),
       dueDate: calculatedDueDate,
     },
     include: {
@@ -295,7 +295,7 @@ router.put('/:id', requireStaff, asyncHandler(async (req, res) => {
       requestType: requestType ?? ticket.requestType,
       priorityLevel: priorityLevel ?? ticket.priorityLevel,
       description: description ?? ticket.description,
-      screenRecordingLink: screenRecordingLink !== undefined ? sanitizeUrl(screenRecordingLink) : ticket.screenRecordingLink,
+      screenRecordingLink: screenRecordingLink !== undefined ? sanitizeUrl(screenRecordingLink, 'screenRecordingLink') : ticket.screenRecordingLink,
       status: status ?? ticket.status,
       ownerId: ownerId !== undefined ? ownerId : ticket.ownerId,
       dueDate: dueDate !== undefined ? (dueDate ? new Date(dueDate) : null) : ticket.dueDate,

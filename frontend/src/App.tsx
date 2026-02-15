@@ -12,6 +12,7 @@ import Register from './pages/Register'
 import Onboarding from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
 import AcceptInvitation from './pages/AcceptInvitation'
+import ResetPassword from './pages/ResetPassword'
 
 // Lazy-loaded staff pages
 const Projects = lazy(() => import('./pages/Projects'))
@@ -180,7 +181,8 @@ function AppRoutes() {
       {/* Onboarding - requires auth but not org */}
       <Route path="/onboarding" element={<Onboarding />} />
 
-      {/* Accept invitation - public route that handles auth internally */}
+      {/* Public routes that handle their own state */}
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/accept-invitation" element={<AcceptInvitation />} />
 
       {/* Protected routes */}

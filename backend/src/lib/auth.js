@@ -3,7 +3,7 @@ import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { organization, admin, openAPI, magicLink } from 'better-auth/plugins';
 import { createAccessControl } from 'better-auth/plugins/access';
 import { PrismaClient } from '@prisma/client';
-import { sendVerificationEmail, sendPasswordResetEmail, sendInvitationEmail, sendMagicLinkEmail } from './email.js';
+import { sendVerificationEmail, sendPasswordResetEmail, sendInvitationEmail, sendMagicLinkEmail, sendWelcomeEmail, consumeWelcomeContext } from './email.js';
 
 // Environment configuration
 const isDev = process.env.NODE_ENV !== 'production';
@@ -90,8 +90,18 @@ export const auth = betterAuth({
     minPasswordLength: 8,
     maxPasswordLength: 128,
     sendResetPassword: async ({ user, url }) => {
-      // Use void to prevent timing attacks (don't await email sending)
-      void sendPasswordResetEmail({ user, url });
+      // Check if this is a welcome email (admin just created the account)
+      const welcomeCtx = consumeWelcomeContext(user.email);
+      if (welcomeCtx) {
+        void sendWelcomeEmail({
+          to: user.email,
+          name: welcomeCtx.name,
+          organizationName: welcomeCtx.organizationName,
+          setPasswordUrl: url
+        });
+      } else {
+        void sendPasswordResetEmail({ user, url });
+      }
     },
   },
 
@@ -113,8 +123,8 @@ export const auth = betterAuth({
 
   // Session configuration
   session: {
-    expiresIn: 60 * 60 * 24 * 7, // 7 days
-    updateAge: 60 * 60 * 24, // Update session every day
+    expiresIn: 60 * 60 * 4, // 4 hours
+    updateAge: 60 * 60, // Refresh session every hour
     cookieCache: {
       enabled: true,
       maxAge: 60 * 5 // 5 minutes cache

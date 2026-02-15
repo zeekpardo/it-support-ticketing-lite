@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import { prisma } from './auth.js';
+import { escapeHtml } from '../utils/sanitize.js';
 
 // Lazy-load Resend client to avoid initialization errors when API key is not set
 let resend = null;
@@ -71,7 +72,7 @@ function linkFallback(url) {
 function quoteBlock(content, borderColor = '#2563eb', isHtml = false) {
   return `
     <div style="background-color: #f9fafb; border-left: 4px solid ${borderColor}; padding: 16px; margin: 20px 0; border-radius: 0 8px 8px 0;">
-      ${isHtml ? content : `<p style="margin: 0; white-space: pre-wrap;">${content}</p>`}
+      ${isHtml ? content : `<p style="margin: 0; white-space: pre-wrap;">${escapeHtml(content)}</p>`}
     </div>
   `;
 }
@@ -80,14 +81,14 @@ function quoteBlock(content, borderColor = '#2563eb', isHtml = false) {
  * Greeting component
  */
 function greeting(name) {
-  return `<p>Hi ${name || 'there'},</p>`;
+  return `<p>Hi ${escapeHtml(name) || 'there'},</p>`;
 }
 
 /**
  * Header/title component
  */
 function headerComponent(text) {
-  return `<h2>${text}</h2>`;
+  return `<h2>${escapeHtml(text)}</h2>`;
 }
 
 /**
@@ -276,7 +277,7 @@ export async function sendInvitationEmail({ email, inviterName, organizationName
       header: "You've been invited!",
       greeting: null,
       paragraphs: [
-        `<strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> on ${APP_NAME}.`
+        `<strong>${escapeHtml(inviterName)}</strong> has invited you to join <strong>${escapeHtml(organizationName)}</strong> on ${APP_NAME}.`
       ],
       button: { text: 'Accept Invitation', url: inviteUrl },
       showLinkFallback: true
@@ -362,7 +363,7 @@ export async function sendTicketCommentEmail({ to, recipientName, authorName, ti
     subject: `Re: ${ticketSubject}`,
     html: buildHtmlEmail({
       greeting: recipientName,
-      paragraphs: [`<strong>${authorName}</strong> commented on the ticket:`],
+      paragraphs: [`<strong>${escapeHtml(authorName)}</strong> commented on the ticket:`],
       quote: displayHtml
         ? { content: displayHtml, isHtml: true }
         : { content: displayText },
@@ -414,7 +415,7 @@ export async function sendMentionEmail({ to, recipientName, authorName, ticketSu
     subject: `${authorName} mentioned you in: ${ticketSubject}`,
     html: buildHtmlEmail({
       greeting: recipientName,
-      paragraphs: [`<strong>${authorName}</strong> mentioned you in a comment:`],
+      paragraphs: [`<strong>${escapeHtml(authorName)}</strong> mentioned you in a comment:`],
       quote: displayHtml
         ? { content: displayHtml, borderColor: '#8b5cf6', isHtml: true }
         : { content: displayText, borderColor: '#8b5cf6' },
@@ -441,7 +442,7 @@ export async function sendAccessRequestEmail({ to, recipientName, requesterName,
     subject: `Software access request: ${softwareName}`,
     html: buildHtmlEmail({
       greeting: recipientName,
-      paragraphs: [`<strong>${requesterName}</strong> has requested access to <strong>${softwareName}</strong>.`],
+      paragraphs: [`<strong>${escapeHtml(requesterName)}</strong> has requested access to <strong>${escapeHtml(softwareName)}</strong>.`],
       button: { text: 'Review Request', url: requestUrl }
     }),
     text: buildTextEmail({
@@ -495,16 +496,16 @@ export async function sendTicketSubmittedEmail({ to, recipientName, projectName,
     html: buildHtmlEmail({
       greeting: recipientName,
       paragraphs: [
-        `Thank you for contacting Support for <strong>${projectName}</strong>. Your request for <strong>${ticketSubject}</strong> has been received and is under review. Requests are prioritized and addressed based on urgency.`,
+        `Thank you for contacting Support for <strong>${escapeHtml(projectName)}</strong>. Your request for <strong>${escapeHtml(ticketSubject)}</strong> has been received and is under review. Requests are prioritized and addressed based on urgency.`,
         { html: `
           <table style="width: 100%; margin: 20px 0; border-collapse: collapse;">
             <tr>
               <td style="padding: 12px; background-color: #f9fafb; border-bottom: 1px solid #e5e7eb; font-weight: 600; width: 140px;">Request Type</td>
-              <td style="padding: 12px; background-color: #f9fafb; border-bottom: 1px solid #e5e7eb;">${formattedRequestType}</td>
+              <td style="padding: 12px; background-color: #f9fafb; border-bottom: 1px solid #e5e7eb;">${escapeHtml(formattedRequestType)}</td>
             </tr>
             <tr>
               <td style="padding: 12px; background-color: #ffffff; border-bottom: 1px solid #e5e7eb; font-weight: 600;">Priority Level</td>
-              <td style="padding: 12px; background-color: #ffffff; border-bottom: 1px solid #e5e7eb;">${formattedPriority}</td>
+              <td style="padding: 12px; background-color: #ffffff; border-bottom: 1px solid #e5e7eb;">${escapeHtml(formattedPriority)}</td>
             </tr>
           </table>
         ` },
@@ -570,20 +571,20 @@ export async function sendNewTicketAssignedEmail({ to, recipientName, clientName
     html: buildHtmlEmail({
       greeting: recipientName,
       paragraphs: [
-        `A new support request has been submitted by <strong>${clientName}</strong> for <strong>${projectName}</strong>.`,
+        `A new support request has been submitted by <strong>${escapeHtml(clientName)}</strong> for <strong>${escapeHtml(projectName)}</strong>.`,
         { html: `
           <table style="width: 100%; margin: 20px 0; border-collapse: collapse;">
             <tr>
               <td style="padding: 12px; background-color: #f9fafb; border-bottom: 1px solid #e5e7eb; font-weight: 600; width: 140px;">Subject</td>
-              <td style="padding: 12px; background-color: #f9fafb; border-bottom: 1px solid #e5e7eb;">${ticketSubject}</td>
+              <td style="padding: 12px; background-color: #f9fafb; border-bottom: 1px solid #e5e7eb;">${escapeHtml(ticketSubject)}</td>
             </tr>
             <tr>
               <td style="padding: 12px; background-color: #ffffff; border-bottom: 1px solid #e5e7eb; font-weight: 600;">Request Type</td>
-              <td style="padding: 12px; background-color: #ffffff; border-bottom: 1px solid #e5e7eb;">${formattedRequestType}</td>
+              <td style="padding: 12px; background-color: #ffffff; border-bottom: 1px solid #e5e7eb;">${escapeHtml(formattedRequestType)}</td>
             </tr>
             <tr>
               <td style="padding: 12px; background-color: #f9fafb; border-bottom: 1px solid #e5e7eb; font-weight: 600;">Priority Level</td>
-              <td style="padding: 12px; background-color: #f9fafb; border-bottom: 1px solid #e5e7eb;">${formattedPriority}</td>
+              <td style="padding: 12px; background-color: #f9fafb; border-bottom: 1px solid #e5e7eb;">${escapeHtml(formattedPriority)}</td>
             </tr>
           </table>
         ` },
@@ -628,7 +629,7 @@ export async function sendAccessStatusEmail({ to, recipientName, softwareName, s
     html: buildHtmlEmail({
       greeting: recipientName,
       paragraphs: [
-        { html: `<p>Your access request for <strong>${softwareName}</strong> has been <span style="color: ${color}; font-weight: 600;">${verb}</span>.</p>` }
+        { html: `<p>Your access request for <strong>${escapeHtml(softwareName)}</strong> has been <span style="color: ${color}; font-weight: 600;">${verb}</span>.</p>` }
       ],
       button: { text: 'View My Requests', url: requestsUrl }
     }),
@@ -652,7 +653,7 @@ export async function sendRenewalReminderEmail({
   const urgencyColor = daysUntilRenewal <= 3 ? '#ef4444' : '#f59e0b';
 
   const paragraphs = [
-    { html: `<p><strong>${softwareName}</strong> for project <strong>${projectName}</strong> renews on <span style="color: ${urgencyColor}; font-weight: 600;">${renewalDate}</span> (in ${daysUntilRenewal} day${daysUntilRenewal === 1 ? '' : 's'}).</p>` }
+    { html: `<p><strong>${escapeHtml(softwareName)}</strong> for project <strong>${escapeHtml(projectName)}</strong> renews on <span style="color: ${urgencyColor}; font-weight: 600;">${escapeHtml(renewalDate)}</span> (in ${daysUntilRenewal} day${daysUntilRenewal === 1 ? '' : 's'}).</p>` }
   ];
 
   if (cost) {
@@ -755,7 +756,7 @@ export async function sendThreadedTicketReply({
       greeting: recipientName,
       paragraphs: displayHtml
         ? [{ html: displayHtml }]
-        : [displayText],
+        : [escapeHtml(displayText)],
     }),
     text: buildTextEmail({
       greeting: recipientName,
@@ -785,12 +786,27 @@ export async function sendThreadedTicketReply({
 // User Account Emails
 // ==========================================
 
-/**
- * Send welcome email when admin creates a user account
- */
-export async function sendWelcomeEmail({ to, name, organizationName, email, temporaryPassword }) {
-  const loginUrl = `${FRONTEND_URL}/sign-in`;
+// Context bridge: when admin creates a user, we stash context here so that
+// the sendResetPassword callback in auth.js can send a welcome email instead
+// of the generic "Reset your password" email.
+const pendingWelcomeEmails = new Map();
 
+export function markWelcomeEmail(email, context) {
+  pendingWelcomeEmails.set(email.toLowerCase(), context);
+}
+
+export function consumeWelcomeContext(email) {
+  const key = email.toLowerCase();
+  const ctx = pendingWelcomeEmails.get(key);
+  if (ctx) pendingWelcomeEmails.delete(key);
+  return ctx;
+}
+
+/**
+ * Send welcome email when admin creates a user account.
+ * Contains a "Set your password" link instead of a plaintext password.
+ */
+export async function sendWelcomeEmail({ to, name, organizationName, setPasswordUrl }) {
   return sendEmail({
     to,
     subject: `Welcome to ${organizationName} - ${APP_NAME}`,
@@ -799,22 +815,9 @@ export async function sendWelcomeEmail({ to, name, organizationName, email, temp
       greeting: name,
       paragraphs: [
         `An account has been created for you on <strong>${APP_NAME}</strong> by your organization administrator.`,
-        'You can sign in using the credentials below:',
-        { html: `
-          <table style="width: 100%; margin: 20px 0; border-collapse: collapse; background-color: #f9fafb; border-radius: 8px;">
-            <tr>
-              <td style="padding: 12px; font-weight: 600; width: 140px;">Email:</td>
-              <td style="padding: 12px;">${email}</td>
-            </tr>
-            <tr>
-              <td style="padding: 12px; font-weight: 600; border-top: 1px solid #e5e7eb;">Password:</td>
-              <td style="padding: 12px; border-top: 1px solid #e5e7eb; font-family: monospace;">${temporaryPassword}</td>
-            </tr>
-          </table>
-        ` },
-        '<strong style="color: #f59e0b;">⚠️ For security, please change your password after your first login.</strong>'
+        'Click the button below to set your password and get started:'
       ],
-      button: { text: 'Sign In', url: loginUrl },
+      button: { text: 'Set Your Password', url: setPasswordUrl },
       showLinkFallback: true
     }),
     text: buildTextEmail({
@@ -822,13 +825,10 @@ export async function sendWelcomeEmail({ to, name, organizationName, email, temp
       paragraphs: [
         `Welcome to ${organizationName}!`,
         `An account has been created for you on ${APP_NAME} by your organization administrator.`,
-        'You can sign in using these credentials:',
-        `Email: ${email}`,
-        `Password: ${temporaryPassword}`,
-        '⚠️ For security, please change your password after your first login.'
+        'Visit the link below to set your password and get started:'
       ],
-      buttonText: 'Sign in',
-      buttonUrl: loginUrl
+      buttonText: 'Set your password',
+      buttonUrl: setPasswordUrl
     })
   });
 }

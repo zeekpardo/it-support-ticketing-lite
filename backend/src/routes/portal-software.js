@@ -5,6 +5,7 @@ import { createNotification } from '../services/notificationService.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError, ForbiddenError } from '../utils/errors.js';
 import { USER_SELECT_BRIEF, USER_SELECT, MEMBER_WITH_ROLE_AND_USER } from '../utils/prismaFragments.js';
+import { resolveFileUrl } from '../lib/storage.js';
 
 const router = express.Router();
 
@@ -85,18 +86,18 @@ router.get('/projects/:projectId/software', asyncHandler(async (req, res) => {
   });
 
   // Transform to flatten structure and include user's request status
-  const result = projectSoftware.map(ps => ({
+  const result = await Promise.all(projectSoftware.map(async (ps) => ({
     id: ps.id,
     softwareId: ps.software.id,
     name: ps.software.name,
     description: ps.software.description,
-    iconUrl: ps.software.iconUrl,
+    iconUrl: await resolveFileUrl(ps.software.iconUrl),
     vendor: ps.software.vendor,
     websiteUrl: ps.software.websiteUrl,
     category: ps.software.category,
     notes: ps.notes, // Project-specific notes
     myAccessRequest: ps.accessRequests[0] || null
-  }));
+  })));
 
   res.json(result);
 }));
@@ -186,7 +187,7 @@ router.get('/my-requests', asyncHandler(async (req, res) => {
   });
 
   // Transform to flatten structure
-  const result = requests.map(r => ({
+  const result = await Promise.all(requests.map(async (r) => ({
     id: r.id,
     status: r.status,
     reason: r.reason,
@@ -195,9 +196,9 @@ router.get('/my-requests', asyncHandler(async (req, res) => {
     updatedAt: r.updatedAt,
     projectSoftwareId: r.projectSoftwareId,
     project: r.projectSoftware.project,
-    software: r.projectSoftware.software,
+    software: { ...r.projectSoftware.software, iconUrl: await resolveFileUrl(r.projectSoftware.software.iconUrl) },
     reviewer: r.reviewer
-  }));
+  })));
 
   res.json(result);
 }));
@@ -246,7 +247,7 @@ router.get('/projects/:projectId/software/:id', asyncHandler(async (req, res) =>
     softwareId: projectSoftware.software.id,
     name: projectSoftware.software.name,
     description: projectSoftware.software.description,
-    iconUrl: projectSoftware.software.iconUrl,
+    iconUrl: await resolveFileUrl(projectSoftware.software.iconUrl),
     vendor: projectSoftware.software.vendor,
     websiteUrl: projectSoftware.software.websiteUrl,
     category: projectSoftware.software.category,

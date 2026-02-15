@@ -267,7 +267,7 @@ router.post('/tickets', asyncHandler(async (req, res) => {
       requestType: requestType || 'GENERAL_SUPPORT',
       priorityLevel: effectivePriority,
       description,
-      screenRecordingLink: sanitizeUrl(screenRecordingLink),
+      screenRecordingLink: sanitizeUrl(screenRecordingLink, 'screenRecordingLink'),
       dueDate
     },
     include: {

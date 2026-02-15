@@ -10,9 +10,11 @@ import crypto from 'crypto';
 export function validateResendWebhook(req, res, next) {
   const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
 
-  // Allow webhook processing even without secret in development
   if (!webhookSecret) {
-    console.warn('[Webhook] RESEND_WEBHOOK_SECRET not set - skipping signature validation (NOT SAFE FOR PRODUCTION)');
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('RESEND_WEBHOOK_SECRET must be set in production');
+    }
+    console.warn('[Webhook] RESEND_WEBHOOK_SECRET not set - skipping signature validation');
     return next();
   }
 

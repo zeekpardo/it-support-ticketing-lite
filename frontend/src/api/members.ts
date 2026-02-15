@@ -157,13 +157,17 @@ export async function updateProfile(data: { phone?: string }) {
 export async function uploadAvatar(file: File) {
   const formData = new FormData()
   formData.append('avatar', file)
-  return upload<{ id: string; name: string; email: string; phone: string | null; image: string }>('/members/profile/avatar', formData)
+  return upload<{ id: string; name: string; email: string; phone: string | null; image: string; imageUrl: string }>('/members/profile/avatar', formData)
 }
 
 export async function removeAvatar() {
   return request<{ message: string }>('/members/profile/avatar', {
     method: 'DELETE'
   })
+}
+
+export async function getAvatarUrl() {
+  return request<{ url: string | null }>('/members/profile/avatar-url')
 }
 
 // ==========================================

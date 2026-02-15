@@ -5,6 +5,12 @@ import { asyncHandler } from '../../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError, ForbiddenError } from '../../utils/errors.js';
 import { findProjectOrFail, hasProjectAccess, isSoftwareOwner } from '../../utils/entityHelpers.js';
 import { USER_SELECT } from '../../utils/prismaFragments.js';
+import { resolveFileUrl } from '../../lib/storage.js';
+
+async function resolveNestedIcon(item) {
+  if (!item?.software) return item;
+  return { ...item, software: { ...item.software, iconUrl: await resolveFileUrl(item.software.iconUrl) } };
+}
 
 const router = express.Router();
 
@@ -39,7 +45,8 @@ router.get('/projects/:projectId/software', asyncHandler(async (req, res) => {
     orderBy: { createdAt: 'desc' }
   });
 
-  res.json(software);
+  const resolved = await Promise.all(software.map(resolveNestedIcon));
+  res.json(resolved);
 }));
 
 // Get single project software detail
@@ -102,7 +109,7 @@ router.get('/projects/:projectId/software/:id', asyncHandler(async (req, res) =>
     throw new NotFoundError('Software not found in project');
   }
 
-  res.json(software);
+  res.json(await resolveNestedIcon(software));
 }));
 
 // Add software from catalog to project
@@ -196,7 +203,7 @@ router.post('/projects/:projectId/software/:softwareId', requireAdmin, asyncHand
     }
   });
 
-  res.status(201).json(projectSoftware);
+  res.status(201).json(await resolveNestedIcon(projectSoftware));
 }));
 
 // Update project software
@@ -259,7 +266,7 @@ router.put('/projects/:projectId/software/:id', requireAdmin, asyncHandler(async
     }
   });
 
-  res.json(software);
+  res.json(await resolveNestedIcon(software));
 }));
 
 // Remove software from project
@@ -310,7 +317,7 @@ router.get('/projects/:projectId/software-budget', requireAdmin, asyncHandler(as
   let totalMonthly = 0;
   let totalYearly = 0;
 
-  const breakdown = software.map(sw => {
+  const breakdown = await Promise.all(software.map(async (sw) => {
     const costNum = parseFloat(sw.cost) || 0;
     const users = sw.costType === 'PER_USER' ? (sw._count.accessRequests || 1) : 1;
     const effectiveCost = costNum * users;
@@ -331,7 +338,7 @@ router.get('/projects/:projectId/software-budget', requireAdmin, asyncHandler(as
     return {
       id: sw.id,
       name: sw.software.name,
-      iconUrl: sw.software.iconUrl,
+      iconUrl: await resolveFileUrl(sw.software.iconUrl),
       cost: costNum,
       costType: sw.costType,
       billingCycle: sw.billingCycle,
@@ -342,7 +349,7 @@ router.get('/projects/:projectId/software-budget', requireAdmin, asyncHandler(as
       renewalDate: sw.renewalDate,
       autoRenewal: sw.autoRenewal
     };
-  });
+  }));
 
   res.json({
     totalMonthly: Math.round(totalMonthly * 100) / 100,

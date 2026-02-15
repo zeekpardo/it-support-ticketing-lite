@@ -1,9 +1,10 @@
 import express from 'express';
 import { prisma } from '../lib/auth.js';
 import { authenticate } from '../middleware/auth.js';
-import { uploadAvatar, deleteUploadedFile } from '../middleware/upload.js';
+import { uploadAvatar } from '../middleware/upload.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { NotFoundError } from '../utils/errors.js';
+import { uploadFile, deleteFile, generateStorageKey, resolveFileUrl } from '../lib/storage.js';
 
 const router = express.Router();
 
@@ -55,30 +56,42 @@ router.post('/profile/avatar', authenticate, (req, res) => {
     }
 
     try {
-      const imageUrl = `/uploads/avatars/${req.file.filename}`;
+      const key = generateStorageKey('avatars', req.file.originalname);
+      await uploadFile(req.file.buffer, key, req.file.mimetype);
+      const s3Ref = `s3:${key}`;
 
       const currentUser = await prisma.user.findUnique({
         where: { id: req.user.id },
         select: { image: true }
       });
 
-      if (currentUser?.image?.startsWith('/uploads/')) {
-        deleteUploadedFile(currentUser.image);
+      if (currentUser?.image?.startsWith('s3:')) {
+        await deleteFile(currentUser.image.slice(3));
       }
 
       const updatedUser = await prisma.user.update({
         where: { id: req.user.id },
-        data: { image: imageUrl },
+        data: { image: s3Ref },
         select: { ...PROFILE_SELECT, image: true }
       });
 
-      res.json(updatedUser);
+      res.json({ ...updatedUser, imageUrl: await resolveFileUrl(updatedUser.image) });
     } catch (error) {
       console.error('Error uploading avatar:', error);
       res.status(500).json({ error: 'Failed to upload avatar' });
     }
   });
 });
+
+// Get resolved avatar URL
+// GET /api/members/profile/avatar-url
+router.get('/profile/avatar-url', authenticate, asyncHandler(async (req, res) => {
+  const user = await prisma.user.findUnique({
+    where: { id: req.user.id },
+    select: { image: true }
+  });
+  res.json({ url: await resolveFileUrl(user?.image) });
+}));
 
 // Delete profile photo
 // DELETE /api/members/profile/avatar
@@ -88,8 +101,8 @@ router.delete('/profile/avatar', authenticate, asyncHandler(async (req, res) => 
     select: { image: true }
   });
 
-  if (currentUser?.image?.startsWith('/uploads/')) {
-    deleteUploadedFile(currentUser.image);
+  if (currentUser?.image?.startsWith('s3:')) {
+    await deleteFile(currentUser.image.slice(3));
   }
 
   await prisma.user.update({

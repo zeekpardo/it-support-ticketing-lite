@@ -145,10 +145,13 @@ function LinkPopover({
         .run()
     } else {
       // No selection — insert the URL as linked text
+      const insertPos = sel ? sel.from : editor.state.selection.from
       editor
         .chain()
         .focus()
-        .insertContent(`<a href="${href}">${trimmed}</a>`)
+        .insertContent(trimmed)
+        .setTextSelection({ from: insertPos, to: insertPos + trimmed.length })
+        .setLink({ href })
         .run()
     }
 

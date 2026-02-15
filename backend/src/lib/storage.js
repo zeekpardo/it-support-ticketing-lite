@@ -101,3 +101,33 @@ export function generateAttachmentKey(ticketId, filename) {
   const ext = filename.includes('.') ? filename.substring(filename.lastIndexOf('.')) : '';
   return `attachments/${ticketId}/${hash}${ext}`;
 }
+
+/**
+ * Generate a unique S3 key with a given prefix.
+ *
+ * @param {string} prefix - Key prefix (e.g. 'avatars', 'icons')
+ * @param {string} filename - Original filename
+ * @returns {string} S3 key
+ */
+export function generateStorageKey(prefix, filename) {
+  const hash = crypto.randomBytes(8).toString('hex');
+  const ext = filename.includes('.') ? filename.substring(filename.lastIndexOf('.')) : '';
+  return `${prefix}/${hash}${ext}`;
+}
+
+/**
+ * Resolve a file URL — converts s3: references to presigned URLs,
+ * passes through external URLs unchanged, returns null for empty values.
+ *
+ * @param {string|null|undefined} url - Stored file URL (may start with 's3:')
+ * @returns {Promise<string|null>} Resolved URL
+ */
+export async function resolveFileUrl(url) {
+  if (!url) return null;
+  if (!url.startsWith('s3:')) return url;
+  try {
+    return await getPresignedUrl(url.slice(3));
+  } catch {
+    return null;
+  }
+}

@@ -3,7 +3,7 @@ import multer from 'multer';
 import { prisma } from '../../lib/auth.js';
 import { requireStaff } from '../../middleware/auth.js';
 import { asyncHandler, withUpload } from '../../middleware/asyncHandler.js';
-import { uploadAttachments, deleteUploadedFile } from '../../middleware/upload.js';
+import { uploadAttachments } from '../../middleware/upload.js';
 import { NotFoundError, ValidationError } from '../../utils/errors.js';
 import { findTicketOrFail, createTicketAttachments } from '../../utils/entityHelpers.js';
 import { MEMBER_WITH_USER_BRIEF } from '../../utils/prismaFragments.js';
@@ -117,11 +117,9 @@ router.delete('/:id/attachments/:attachmentId', requireStaff, asyncHandler(async
     throw new NotFoundError('Attachment not found');
   }
 
-  // Delete file from appropriate storage
+  // Delete file from S3
   if (attachment.fileUrl.startsWith('s3:')) {
     await deleteFile(attachment.fileUrl.slice(3));
-  } else if (attachment.fileUrl?.startsWith('/uploads/')) {
-    deleteUploadedFile(attachment.fileUrl);
   }
 
   await prisma.ticketAttachment.delete({

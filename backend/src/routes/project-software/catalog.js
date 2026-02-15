@@ -3,6 +3,8 @@ import { prisma } from '../../lib/auth.js';
 import { requireAdmin, requireStaff } from '../../middleware/auth.js';
 import { asyncHandler } from '../../middleware/asyncHandler.js';
 import { ValidationError } from '../../utils/errors.js';
+import { sanitizeUrl } from '../../utils/sanitize.js';
+import { resolveFileUrl } from '../../lib/storage.js';
 
 const router = express.Router();
 
@@ -32,7 +34,10 @@ router.get('/catalog', requireStaff, asyncHandler(async (req, res) => {
     orderBy: { name: 'asc' }
   });
 
-  res.json(software);
+  const resolved = await Promise.all(
+    software.map(async (sw) => ({ ...sw, iconUrl: await resolveFileUrl(sw.iconUrl) }))
+  );
+  res.json(resolved);
 }));
 
 // Get categories from global catalog
@@ -65,9 +70,9 @@ router.post('/submit', requireAdmin, asyncHandler(async (req, res) => {
     data: {
       name,
       description,
-      iconUrl,
+      iconUrl: sanitizeUrl(iconUrl, 'iconUrl'),
       vendor,
-      websiteUrl,
+      websiteUrl: sanitizeUrl(websiteUrl, 'websiteUrl'),
       categoryId: categoryId || null,
       status: 'PENDING',
       submittedById: req.user.id
@@ -77,7 +82,7 @@ router.post('/submit', requireAdmin, asyncHandler(async (req, res) => {
     }
   });
 
-  res.status(201).json(software);
+  res.status(201).json({ ...software, iconUrl: await resolveFileUrl(software.iconUrl) });
 }));
 
 export default router;

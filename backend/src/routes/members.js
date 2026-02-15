@@ -7,7 +7,9 @@ import { NotFoundError, ValidationError, ForbiddenError, ConflictError } from '.
 import { createProjectAssignments } from '../utils/entityHelpers.js';
 import { USER_SELECT, MEMBER_WITH_USER } from '../utils/prismaFragments.js';
 import { PROJECT_ASSIGNMENT_INCLUDE, PROJECT_SELECT_ACTIVE, PROJECT_SELECT_BRIEF } from '../utils/prismaFragments.js';
-import { sendWelcomeEmail } from '../lib/email.js';
+import { markWelcomeEmail } from '../lib/email.js';
+import { resolveFileUrl } from '../lib/storage.js';
+import { auth } from '../lib/auth.js';
 
 const router = express.Router();
 
@@ -118,14 +120,12 @@ router.post('/create-user', authenticate, requireOrganization, requireOwner, asy
       await createProjectAssignments(member.id, projectIds);
     }
 
-    // Send welcome email with login credentials
-    // Use void to prevent timing attacks (don't await email sending)
-    void sendWelcomeEmail({
-      to: email,
-      name,
-      organizationName: req.organization.name,
-      email,
-      temporaryPassword: password
+    // Stash context so the sendResetPassword callback sends a welcome email
+    markWelcomeEmail(email, { name, organizationName: req.organization.name });
+    // Trigger Better Auth's forgot-password flow to generate a set-password link
+    void auth.api.forgetPassword({
+      body: { email, redirectTo: '/reset-password' },
+      headers: new Headers()
     });
 
     res.json({
@@ -268,10 +268,18 @@ router.get('/clients/:memberId', authenticate, requireOrganization, requireAdmin
     }
   });
 
+  const resolvedAccess = await Promise.all(softwareAccess.map(async (sa) => ({
+    ...sa,
+    projectSoftware: {
+      ...sa.projectSoftware,
+      software: { ...sa.projectSoftware.software, iconUrl: await resolveFileUrl(sa.projectSoftware.software.iconUrl) }
+    }
+  })));
+
   res.json({
     ...client,
     tickets,
-    softwareAccess
+    softwareAccess: resolvedAccess
   });
 }));
 

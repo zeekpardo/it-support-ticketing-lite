@@ -4,8 +4,14 @@ import { authenticate } from '../middleware/auth.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
 import { ForbiddenError } from '../utils/errors.js';
-import { uploadIcon, deleteUploadedFile } from '../middleware/upload.js';
+import { uploadIcon } from '../middleware/upload.js';
 import { USER_SELECT } from '../utils/prismaFragments.js';
+import { uploadFile, deleteFile, generateStorageKey, resolveFileUrl } from '../lib/storage.js';
+
+async function resolveSoftwareIcon(software) {
+  if (!software) return software;
+  return { ...software, iconUrl: await resolveFileUrl(software.iconUrl) };
+}
 
 const router = express.Router();
 
@@ -117,7 +123,8 @@ router.get('/software', authenticate, requireSuperAdmin, asyncHandler(async (req
     prisma.softwareCatalog.count({ where })
   ]);
 
-  res.json({ software, total });
+  const resolved = await Promise.all(software.map(resolveSoftwareIcon));
+  res.json({ software: resolved, total });
 }));
 
 // ==========================================
@@ -243,7 +250,7 @@ router.get('/software/:id', authenticate, requireSuperAdmin, asyncHandler(async 
     throw new NotFoundError('Software not found');
   }
 
-  res.json(software);
+  res.json(await resolveSoftwareIcon(software));
 }));
 
 // Create new software (auto-approved when created by super admin)
@@ -279,7 +286,7 @@ router.post('/software', authenticate, requireSuperAdmin, asyncHandler(async (re
     }
   });
 
-  res.status(201).json(software);
+  res.status(201).json(await resolveSoftwareIcon(software));
 }));
 
 // Update software
@@ -321,7 +328,7 @@ router.put('/software/:id', authenticate, requireSuperAdmin, asyncHandler(async 
     }
   });
 
-  res.json(software);
+  res.json(await resolveSoftwareIcon(software));
 }));
 
 // Upload software icon - LEAVE as multer callback pattern
@@ -347,11 +354,13 @@ router.post('/software/:id/icon', authenticate, requireSuperAdmin, (req, res) =>
         return res.status(404).json({ error: 'Software not found' });
       }
 
-      if (existing.iconUrl?.startsWith('/uploads/')) {
-        deleteUploadedFile(existing.iconUrl);
+      if (existing.iconUrl?.startsWith('s3:')) {
+        await deleteFile(existing.iconUrl.slice(3));
       }
 
-      const iconUrl = `/uploads/icons/${req.file.filename}`;
+      const key = generateStorageKey('icons', req.file.originalname);
+      await uploadFile(req.file.buffer, key, req.file.mimetype);
+      const iconUrl = `s3:${key}`;
 
       const software = await prisma.softwareCatalog.update({
         where: { id },
@@ -361,7 +370,7 @@ router.post('/software/:id/icon', authenticate, requireSuperAdmin, (req, res) =>
         }
       });
 
-      res.json(software);
+      res.json(await resolveSoftwareIcon(software));
     } catch (error) {
       console.error('Error uploading icon:', error);
       res.status(500).json({ error: 'Failed to upload icon' });
@@ -387,6 +396,10 @@ router.delete('/software/:id', authenticate, requireSuperAdmin, asyncHandler(asy
   // Warn if software is in use by projects
   if (existing._count.projectSoftware > 0) {
     throw new ValidationError(`Cannot delete software that is used by ${existing._count.projectSoftware} project(s). Remove from projects first.`);
+  }
+
+  if (existing.iconUrl?.startsWith('s3:')) {
+    await deleteFile(existing.iconUrl.slice(3));
   }
 
   await prisma.softwareCatalog.delete({
@@ -423,7 +436,7 @@ router.put('/software/:id/approve', authenticate, requireSuperAdmin, asyncHandle
     }
   });
 
-  res.json(software);
+  res.json(await resolveSoftwareIcon(software));
 }));
 
 // Reject pending software
@@ -453,7 +466,7 @@ router.put('/software/:id/reject', authenticate, requireSuperAdmin, asyncHandler
     }
   });
 
-  res.json(software);
+  res.json(await resolveSoftwareIcon(software));
 }));
 
 export default router;
