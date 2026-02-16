@@ -209,7 +209,8 @@ router.post('/clients', authenticate, requireOrganization, requireAdmin, asyncHa
           body: {
             email,
             callbackURL: callbackUrl
-          }
+          },
+          headers: req.headers,
         });
 
         summary.magicLinksSent++;

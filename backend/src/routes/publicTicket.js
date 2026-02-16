@@ -182,6 +182,7 @@ router.post('/:token', asyncHandler(async (req, res) => {
         email,
         callbackURL: callbackUrl,
       },
+      headers: req.headers,
     });
   } catch (err) {
     console.error('Failed to send magic link for public ticket:', err);
