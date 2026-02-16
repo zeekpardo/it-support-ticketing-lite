@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { signIn } from '../lib/auth-client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Field, FieldGroup, Label, ErrorMessage } from '@/components/ui/fieldset'
@@ -12,10 +13,12 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [mode, setMode] = useState<'password' | 'magicLink'>('password')
+  const [magicLinkSent, setMagicLinkSent] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handlePasswordSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
@@ -30,6 +33,30 @@ export default function Login() {
     }
   }
 
+  const handleMagicLinkSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    try {
+      const { error: magicError } = await signIn.magicLink({ email })
+      if (magicError) {
+        throw new Error(magicError.message || 'Failed to send magic link')
+      }
+      setMagicLinkSent(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send magic link')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const switchMode = (newMode: 'password' | 'magicLink') => {
+    setMode(newMode)
+    setError('')
+    setMagicLinkSent(false)
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-900">
       <div className="w-full max-w-sm">
@@ -39,48 +66,113 @@ export default function Login() {
             <Text className="mt-1">Sign in to your account</Text>
           </div>
 
-          <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-            {error && (
-              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-                {error}
+          {mode === 'password' ? (
+            <form onSubmit={handlePasswordSubmit} className="mt-8 space-y-6">
+              {error && (
+                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+                  {error}
+                </div>
+              )}
+
+              <FieldGroup>
+                <Field>
+                  <Label>Email</Label>
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                    autoComplete="email"
+                  />
+                </Field>
+
+                <Field>
+                  <Label>Password</Label>
+                  <Input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    autoComplete="current-password"
+                  />
+                </Field>
+              </FieldGroup>
+
+              <Button
+                type="submit"
+                color="blue"
+                className="w-full"
+                disabled={loading}
+              >
+                {loading ? 'Signing in...' : 'Sign in'}
+              </Button>
+
+              <Text className="text-center text-sm">
+                <TextLink href="/forgot-password">Forgot your password?</TextLink>
+              </Text>
+            </form>
+          ) : magicLinkSent ? (
+            <div className="mt-8 space-y-4 text-center">
+              <div className="rounded-lg bg-green-50 p-4 text-sm text-green-700 dark:bg-green-900/20 dark:text-green-400">
+                Check your email for a sign-in link. It will expire in 5 minutes.
               </div>
-            )}
+              <Text className="text-sm">
+                Didn't receive it?{' '}
+                <button
+                  type="button"
+                  className="text-blue-600 hover:underline dark:text-blue-400"
+                  onClick={() => setMagicLinkSent(false)}
+                >
+                  Try again
+                </button>
+              </Text>
+            </div>
+          ) : (
+            <form onSubmit={handleMagicLinkSubmit} className="mt-8 space-y-6">
+              {error && (
+                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+                  {error}
+                </div>
+              )}
 
-            <FieldGroup>
-              <Field>
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  required
-                  autoComplete="email"
-                />
-              </Field>
+              <FieldGroup>
+                <Field>
+                  <Label>Email</Label>
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                    autoComplete="email"
+                  />
+                </Field>
+              </FieldGroup>
 
-              <Field>
-                <Label>Password</Label>
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  autoComplete="current-password"
-                />
-              </Field>
-            </FieldGroup>
+              <Button
+                type="submit"
+                color="blue"
+                className="w-full"
+                disabled={loading}
+              >
+                {loading ? 'Sending...' : 'Send Magic Link'}
+              </Button>
+            </form>
+          )}
 
-            <Button
-              type="submit"
-              color="blue"
-              className="w-full"
-              disabled={loading}
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+              onClick={() => switchMode(mode === 'password' ? 'magicLink' : 'password')}
             >
-              {loading ? 'Signing in...' : 'Sign in'}
-            </Button>
-          </form>
+              {mode === 'password'
+                ? 'Sign in with a magic link instead'
+                : 'Sign in with password instead'}
+            </button>
+          </div>
 
           <Text className="mt-6 text-center">
             Don't have an account?{' '}
