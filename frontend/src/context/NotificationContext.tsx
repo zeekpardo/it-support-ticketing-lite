@@ -4,6 +4,8 @@ import { useOrganization } from './OrganizationContext'
 import { API_BASE } from '../api/base'
 import { getOrganizationId } from '../api/base'
 
+const browserNotificationsSupported = 'Notification' in window
+
 interface NotificationContextType {
   notifications: Notification[]
   unreadCount: number
@@ -13,6 +15,8 @@ interface NotificationContextType {
   markAsRead: (id: string) => Promise<void>
   markAllAsRead: () => Promise<void>
   deleteNotification: (id: string) => Promise<void>
+  browserPermission: NotificationPermission
+  requestBrowserNotifications: () => Promise<NotificationPermission>
 }
 
 const NotificationContext = createContext<NotificationContextType | null>(null)
@@ -26,7 +30,34 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [offset, setOffset] = useState(0)
+  const [browserPermission, setBrowserPermission] = useState<NotificationPermission>(
+    browserNotificationsSupported ? Notification.permission : 'denied'
+  )
   const eventSourceRef = useRef<EventSource | null>(null)
+
+  const requestBrowserNotifications = useCallback(async () => {
+    if (!browserNotificationsSupported) return 'denied' as NotificationPermission
+    const permission = await Notification.requestPermission()
+    setBrowserPermission(permission)
+    return permission
+  }, [])
+
+  const showBrowserNotification = useCallback((data: { title: string; message: string; link?: string; id: string }) => {
+    if (!browserNotificationsSupported || Notification.permission !== 'granted') return
+
+    const notification = new window.Notification(data.title, {
+      body: data.message,
+      tag: data.id,
+    })
+
+    notification.onclick = () => {
+      window.focus()
+      if (data.link) {
+        window.location.href = data.link
+      }
+      notification.close()
+    }
+  }, [])
 
   const fetchNotifications = useCallback(async (reset = false) => {
     if (!currentOrg) {
@@ -107,7 +138,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, [notifications])
 
-  // SSE connection for real-time unread count
+  // SSE connection for real-time unread count + browser notifications
   useEffect(() => {
     if (!currentOrg) {
       setUnreadCount(0)
@@ -128,6 +159,33 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    // Listen for named notification events (for browser notifications)
+    es.addEventListener('notification', (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data)
+        showBrowserNotification(data)
+
+        // Prepend to local notification list so dropdown stays current
+        setNotifications(prev => {
+          if (prev.length === 0) return prev // list not loaded yet
+          if (prev.some(n => n.id === data.id)) return prev // already present
+          return [{
+            id: data.id,
+            type: data.type,
+            title: data.title,
+            message: data.message,
+            link: data.link,
+            isRead: false,
+            createdAt: new Date().toISOString(),
+            organizationId: '',
+            recipientId: '',
+          } as Notification, ...prev]
+        })
+      } catch {
+        // Ignore malformed notification events
+      }
+    })
+
     es.onerror = () => {
       // EventSource auto-reconnects; nothing to do here
     }
@@ -136,7 +194,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       es.close()
       eventSourceRef.current = null
     }
-  }, [currentOrg])
+  }, [currentOrg, showBrowserNotification])
 
   // Reset notification list when org changes
   useEffect(() => {
@@ -158,6 +216,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         markAsRead,
         markAllAsRead,
         deleteNotification,
+        browserPermission,
+        requestBrowserNotifications,
       }}
     >
       {children}

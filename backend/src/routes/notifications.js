@@ -44,11 +44,16 @@ router.get('/stream', async (req, res) => {
   }, 25000);
 
   // Push updates when this user's notifications change
-  const onChange = async ({ recipientId, organizationId: orgId }) => {
+  const onChange = async ({ recipientId, organizationId: orgId, notification }) => {
     if (recipientId === memberId && orgId === organizationId) {
       try {
         const count = await getUnreadCount(prisma, memberId, organizationId);
         res.write(`data: ${JSON.stringify({ count })}\n\n`);
+
+        // Send notification details as a named event (for browser notifications)
+        if (notification) {
+          res.write(`event: notification\ndata: ${JSON.stringify({ title: notification.title, message: notification.message, link: notification.link, id: notification.id, type: notification.type })}\n\n`);
+        }
       } catch {
         // Connection likely closed — listener will be cleaned up
       }

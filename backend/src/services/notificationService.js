@@ -45,7 +45,7 @@ export async function createNotification(prisma, { type, recipientId, organizati
     },
   });
 
-  notificationEmitter.emit('change', { recipientId, organizationId });
+  notificationEmitter.emit('change', { recipientId, organizationId, notification });
 
   // Send email notification if configured and enabled
   if (sendEmail && config.sendEmail) {
