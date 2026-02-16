@@ -5,6 +5,9 @@ import { asyncHandler } from '../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
 import { resolveFileUrl } from '../lib/storage.js';
 import { markPublicTicketEmail, consumePublicTicketContext, sendPublicTicketConfirmationEmail, getOrgBranding } from '../lib/email/index.js';
+import { createTicketAttachments } from '../utils/entityHelpers.js';
+import { uploadAttachments } from '../middleware/upload.js';
+import { withUpload } from '../middleware/asyncHandler.js';
 import { createNotification } from '../services/notificationService.js';
 
 const router = express.Router();
@@ -51,7 +54,9 @@ router.get('/:token', asyncHandler(async (req, res) => {
 
 // POST /:token — Submit ticket
 router.post('/:token', asyncHandler(async (req, res) => {
-  const { firstName, lastName, email, subject, description } = req.body;
+  const { firstName, lastName, email, subject, description, priorityLevel: rawPriority } = req.body;
+  const VALID_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+  const priorityLevel = VALID_PRIORITIES.includes(rawPriority) ? rawPriority : 'MEDIUM';
 
   // Validate required fields
   if (!firstName || !lastName || !email || !subject || !description) {
@@ -131,8 +136,9 @@ router.post('/:token', asyncHandler(async (req, res) => {
     where: { inboxId: inbox.id, isDefault: true },
   });
 
-  // Calculate due date from MEDIUM priority
-  const dueDays = inbox.dueDateMediumDays;
+  // Calculate due date based on priority
+  const dueDaysMap = { LOW: inbox.dueDateLowDays, MEDIUM: inbox.dueDateMediumDays, HIGH: inbox.dueDateHighDays, URGENT: inbox.dueDateUrgentDays };
+  const dueDays = dueDaysMap[priorityLevel];
   const dueDate = dueDays != null ? new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000) : null;
 
   // Create ticket
@@ -148,7 +154,7 @@ router.post('/:token', asyncHandler(async (req, res) => {
       email,
       subject,
       requestType: 'GENERAL_SUPPORT',
-      priorityLevel: 'MEDIUM',
+      priorityLevel,
       description,
       dueDate,
     },
@@ -170,10 +176,11 @@ router.post('/:token', asyncHandler(async (req, res) => {
   markPublicTicketEmail(email, emailContext);
 
   try {
+    const callbackUrl = (process.env.FRONTEND_URL || 'http://localhost:5173') + `/portal/tickets/${ticket.id}`;
     await auth.api.signInMagicLink({
       body: {
         email,
-        callbackURL: `/portal/tickets/${ticket.id}`,
+        callbackURL: callbackUrl,
       },
     });
   } catch (err) {
@@ -196,7 +203,7 @@ router.post('/:token', asyncHandler(async (req, res) => {
           ticketSubject: subject,
           inboxName: inbox.name,
           requestType: 'GENERAL_SUPPORT',
-          priorityLevel: 'MEDIUM',
+          priorityLevel,
           description,
           clientName: `${firstName} ${lastName}`,
         },
@@ -209,6 +216,33 @@ router.post('/:token', asyncHandler(async (req, res) => {
   }
 
   res.status(201).json({ success: true, ticketId: ticket.id });
+}));
+
+// POST /:token/attachments/:ticketId — Upload attachments to a public ticket
+router.post('/:token/attachments/:ticketId', withUpload(uploadAttachments, async (req, res) => {
+  if (!req.files || req.files.length === 0) {
+    throw new ValidationError('No files provided');
+  }
+
+  const inbox = await findInboxByToken(req.params.token);
+
+  // Verify ticket belongs to this inbox
+  const ticket = await prisma.supportTicket.findFirst({
+    where: {
+      id: req.params.ticketId,
+      inboxId: inbox.id,
+    },
+  });
+
+  if (!ticket) {
+    throw new NotFoundError('Ticket not found');
+  }
+
+  const attachments = await createTicketAttachments(
+    ticket.id, ticket.clientId, req.files
+  );
+
+  res.status(201).json(attachments);
 }));
 
 export default router;

@@ -86,3 +86,17 @@ export async function upload<T>(endpoint: string, formData: FormData): Promise<T
 
   return response.json()
 }
+
+export async function publicUpload<T>(endpoint: string, formData: FormData): Promise<T> {
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Upload failed' }))
+    throw new Error(error.error || 'Upload failed')
+  }
+
+  return response.json()
+}

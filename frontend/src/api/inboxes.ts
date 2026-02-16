@@ -1,4 +1,4 @@
-import { request, publicRequest } from './base'
+import { request, publicRequest, publicUpload } from './base'
 import type { TicketStage } from './types'
 
 // ==========================================
@@ -171,9 +171,16 @@ export async function submitPublicTicket(token: string, data: {
   email: string
   subject: string
   description: string
+  priorityLevel?: string
 }) {
   return publicRequest<{ success: boolean; ticketId: string }>(`/public/submit/${token}`, {
     method: 'POST',
     body: JSON.stringify(data),
   })
+}
+
+export async function uploadPublicTicketAttachments(token: string, ticketId: string, files: File[]) {
+  const formData = new FormData()
+  files.forEach(file => formData.append('attachments', file))
+  return publicUpload<any[]>(`/public/submit/${token}/attachments/${ticketId}`, formData)
 }

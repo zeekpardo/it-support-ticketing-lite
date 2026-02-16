@@ -205,7 +205,15 @@ async function getClientChannel(ticketId, clientMemberId) {
     where: { ticketId },
   });
 
-  return ticketInboundEmail ? 'email' : 'portal';
+  if (ticketInboundEmail) return 'email';
+
+  // Check if we've already sent outbound emails (e.g. public form confirmation)
+  const hasOutboundEmail = await prisma.outboundEmail.findFirst({
+    where: { ticketId },
+    select: { id: true },
+  });
+
+  return hasOutboundEmail ? 'email' : 'portal';
 }
 
 /**

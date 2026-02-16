@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
-import { getPublicFormInfo, submitPublicTicket } from '../api/inboxes'
+import { useParams, useSearchParams, Link } from 'react-router-dom'
+import { getPublicFormInfo, submitPublicTicket, uploadPublicTicketAttachments } from '../api/inboxes'
 import { TicketForm } from '../components/tickets/TicketForm'
 import { Heading } from '@/components/ui/heading'
 import { Text } from '@/components/ui/text'
+import { Button } from '@/components/ui/button'
 import { XCircleIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
 
 interface FormInfo {
@@ -69,6 +70,13 @@ export default function PublicTicketForm() {
           <Text className="mt-2 text-zinc-600 dark:text-zinc-400">
             Your request has been submitted. Check your email for a link to track your ticket.
           </Text>
+          <Button
+            outline
+            className="mt-6"
+            onClick={() => { setStatus('ready'); setDomainError('') }}
+          >
+            Submit Another Request
+          </Button>
         </div>
       </div>
     )
@@ -94,6 +102,7 @@ export default function PublicTicketForm() {
       email: data.email,
       subject: data.subject,
       description: data.description,
+      priorityLevel: data.priorityLevel,
     })
   }
 
@@ -118,11 +127,18 @@ export default function PublicTicketForm() {
             inboxes={[{ id: info!.inboxId, name: info!.inboxName, inboxCode: '' }]}
             onSubmit={handleSubmit}
             showContactFields={true}
-            showPriority={false}
-            showAttachments={false}
+            showPriority={true}
+            showAttachments={true}
+            onUploadAttachments={(ticketId, files) => uploadPublicTicketAttachments(token!, ticketId, files)}
             preselectedInboxId={info!.inboxId}
             onSuccess={() => setStatus('submitted')}
           />
+
+          <Text className="mt-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
+            Already have an account?{' '}
+            <Link to="/login" className="text-blue-500 hover:underline">Log in</Link>{' '}
+            to view your tickets.
+          </Text>
         </div>
       </div>
     </div>
