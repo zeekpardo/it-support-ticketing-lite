@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react'
-import { api, Notification } from '../api/client'
+import { api } from '../api/client'
+import type { Notification } from '../api/types'
 import { useOrganization } from './OrganizationContext'
 import { API_BASE } from '../api/base'
 import { getOrganizationId } from '../api/base'
