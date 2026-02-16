@@ -79,7 +79,7 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
     orderBy: { updatedAt: 'desc' },
     take: 5,
     include: {
-      project: { select: { id: true, name: true } }
+      inbox: { select: { id: true, name: true } }
     }
   });
 

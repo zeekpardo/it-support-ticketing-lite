@@ -11,35 +11,35 @@ import { downloadAndStoreAttachments } from './attachmentProcessor.js';
  */
 export async function createTicketFromEmail(inboundEmail, emailRule, attachments, { allToAddresses = [], allCcAddresses = [], from: rawFrom, emailId } = {}) {
   const { from, fromName, subject, htmlBody, textBody } = inboundEmail;
-  const { project } = emailRule;
+  const { inbox } = emailRule;
   const EMAIL_DOMAIN = process.env.EMAIL_DOMAIN || 'groovi.support';
 
   // Parse sender name into first/last name
   const { firstName, lastName } = parseFullName(fromName || from);
 
   // Find or create client member
-  const client = await findOrCreateClient(from, firstName, lastName, project.organizationId, project.id);
+  const client = await findOrCreateClient(from, firstName, lastName, inbox.organizationId, inbox.id);
 
-  // Get default stage for project
+  // Get default stage for inbox
   const defaultStage = await prisma.ticketStage.findFirst({
-    where: { projectId: project.id, isDefault: true },
+    where: { inboxId: inbox.id, isDefault: true },
   });
 
   // Sanitize email body for description
   const description = sanitizeEmailBody(htmlBody || textBody || '');
 
   // Calculate due date based on default priority (MEDIUM)
-  const dueDays = project.dueDateMediumDays;
+  const dueDays = inbox.dueDateMediumDays;
   const dueDate = dueDays != null ? new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000) : null;
 
   // Create ticket
   const ticket = await prisma.supportTicket.create({
     data: {
-      organizationId: project.organizationId,
-      projectId: project.id,
+      organizationId: inbox.organizationId,
+      inboxId: inbox.id,
       clientId: client.id,
       stageId: defaultStage?.id || null,
-      ownerId: project.defaultAssigneeId,
+      ownerId: inbox.defaultAssigneeId,
       firstName,
       lastName,
       email: from,
@@ -69,8 +69,8 @@ export async function createTicketFromEmail(inboundEmail, emailRule, attachments
     toAddresses: allToAddresses,
     ccAddresses: allCcAddresses,
     emailDomain: EMAIL_DOMAIN,
-    organizationId: project.organizationId,
-    projectId: project.id,
+    organizationId: inbox.organizationId,
+    inboxId: inbox.id,
     primaryClientId: client.id,
   });
 
@@ -92,16 +92,16 @@ export async function createTicketFromEmail(inboundEmail, emailRule, attachments
   }
 
   // Notify the assigned staff member
-  if (project.defaultAssigneeId) {
+  if (inbox.defaultAssigneeId) {
     try {
       await createNotification(prisma, {
         type: 'NEW_TICKET_ASSIGNED',
-        recipientId: project.defaultAssigneeId,
-        organizationId: project.organizationId,
+        recipientId: inbox.defaultAssigneeId,
+        organizationId: inbox.organizationId,
         data: {
           ticketId: ticket.id,
           ticketSubject: subject || '(No Subject)',
-          projectName: project.name,
+          inboxName: inbox.name,
           requestType: 'GENERAL_SUPPORT',
           priorityLevel: 'MEDIUM',
           description,
@@ -115,15 +115,15 @@ export async function createTicketFromEmail(inboundEmail, emailRule, attachments
     }
   }
 
-  // Send auto-reply to client if enabled for this project
-  if (project.autoReplyEnabled && project.autoReplyHtml) {
+  // Send auto-reply to client if enabled for this inbox
+  if (inbox.autoReplyEnabled && inbox.autoReplyHtml) {
     try {
-      const branding = await getOrgBranding(project.organizationId);
+      const branding = await getOrgBranding(inbox.organizationId);
       await sendAutoReplyEmail({
         ticketId: ticket.id,
         to: from,
         ticketSubject: subject || '(No Subject)',
-        autoReplyHtml: project.autoReplyHtml,
+        autoReplyHtml: inbox.autoReplyHtml,
         inboundMessageId: inboundEmail.messageId,
         branding,
       });

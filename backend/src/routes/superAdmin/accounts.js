@@ -36,7 +36,7 @@ router.get('/', asyncHandler(async (req, res) => {
         _count: {
           select: {
             members: true,
-            projects: true,
+            inboxes: true,
             tickets: true,
             timeEntries: true,
           }
@@ -76,13 +76,13 @@ router.get('/:id/members', asyncHandler(async (req, res) => {
           banned: true,
         }
       },
-      projectAssignments: {
+      inboxAssignments: {
         select: {
-          project: {
+          inbox: {
             select: {
               id: true,
               name: true,
-              projectCode: true,
+              inboxCode: true,
             }
           }
         }
@@ -128,7 +128,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
       primaryColor: true,
       createdAt: true,
       _count: {
-        select: { members: true, projects: true, tickets: true, timeEntries: true }
+        select: { members: true, inboxes: true, tickets: true, timeEntries: true }
       }
     }
   });
@@ -163,10 +163,10 @@ router.put('/:id/members/:memberId', asyncHandler(async (req, res) => {
       user: {
         select: { id: true, name: true, email: true, image: true, banned: true }
       },
-      projectAssignments: {
+      inboxAssignments: {
         select: {
-          project: {
-            select: { id: true, name: true, projectCode: true }
+          inbox: {
+            select: { id: true, name: true, inboxCode: true }
           }
         }
       }

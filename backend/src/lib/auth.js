@@ -25,7 +25,7 @@ const statement = {
   organization: ['update', 'delete'],
   member: ['create', 'read', 'update', 'delete'],
   invitation: ['create', 'cancel'],
-  project: ['create', 'read', 'update', 'delete'],
+  inbox: ['create', 'read', 'update', 'delete'],
   ticket: ['create', 'read', 'update', 'delete', 'assign'],
   timeEntry: ['create', 'read', 'update', 'delete'],
   report: ['read'],
@@ -39,7 +39,7 @@ const owner = ac.newRole({
   organization: ['update', 'delete'],
   member: ['create', 'read', 'update', 'delete'],
   invitation: ['create', 'cancel'],
-  project: ['create', 'read', 'update', 'delete'],
+  inbox: ['create', 'read', 'update', 'delete'],
   ticket: ['create', 'read', 'update', 'delete', 'assign'],
   timeEntry: ['create', 'read', 'update', 'delete'],
   report: ['read'],
@@ -48,21 +48,21 @@ const owner = ac.newRole({
 const manager = ac.newRole({
   member: ['create', 'read', 'update', 'delete'],
   invitation: ['create', 'cancel'],
-  project: ['create', 'read', 'update', 'delete'],
+  inbox: ['create', 'read', 'update', 'delete'],
   ticket: ['create', 'read', 'update', 'delete', 'assign'],
   timeEntry: ['create', 'read', 'update', 'delete'],
   report: ['read'],
 });
 
 const member = ac.newRole({
-  project: ['read'],
+  inbox: ['read'],
   ticket: ['create', 'read', 'update'],
   timeEntry: ['create', 'read', 'update', 'delete'],
   report: ['read'],
 });
 
 const client = ac.newRole({
-  project: ['read'],
+  inbox: ['read'],
   ticket: ['create', 'read'],
 });
 

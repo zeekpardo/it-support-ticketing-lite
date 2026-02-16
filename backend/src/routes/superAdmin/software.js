@@ -35,7 +35,7 @@ router.get('/', asyncHandler(async (req, res) => {
           select: USER_SELECT
         },
         _count: {
-          select: { projectSoftware: true }
+          select: { inboxSoftware: true }
         }
       },
       orderBy: { createdAt: 'desc' },
@@ -61,7 +61,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
         select: USER_SELECT
       },
       _count: {
-        select: { projectSoftware: true }
+        select: { inboxSoftware: true }
       }
     }
   });
@@ -203,7 +203,7 @@ router.delete('/:id', asyncHandler(async (req, res) => {
   const existing = await prisma.softwareCatalog.findUnique({
     where: { id },
     include: {
-      _count: { select: { projectSoftware: true } }
+      _count: { select: { inboxSoftware: true } }
     }
   });
 
@@ -211,8 +211,8 @@ router.delete('/:id', asyncHandler(async (req, res) => {
     throw new NotFoundError('Software not found');
   }
 
-  if (existing._count.projectSoftware > 0) {
-    throw new ValidationError(`Cannot delete software that is used by ${existing._count.projectSoftware} project(s). Remove from projects first.`);
+  if (existing._count.inboxSoftware > 0) {
+    throw new ValidationError(`Cannot delete software that is used by ${existing._count.inboxSoftware} inbox(es). Remove from inboxes first.`);
   }
 
   if (existing.iconUrl?.startsWith('s3:')) {

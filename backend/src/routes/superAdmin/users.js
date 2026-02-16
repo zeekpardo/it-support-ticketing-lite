@@ -4,7 +4,7 @@ import { asyncHandler } from '../../middleware/asyncHandler.js';
 
 const router = express.Router();
 
-// Get all users with their organization memberships and project assignments
+// Get all users with their organization memberships and inbox assignments
 router.get('/', asyncHandler(async (req, res) => {
   const { limit = 20, offset = 0, search } = req.query;
 
@@ -40,13 +40,13 @@ router.get('/', asyncHandler(async (req, res) => {
                 slug: true
               }
             },
-            projectAssignments: {
+            inboxAssignments: {
               select: {
-                project: {
+                inbox: {
                   select: {
                     id: true,
                     name: true,
-                    projectCode: true
+                    inboxCode: true
                   }
                 }
               }

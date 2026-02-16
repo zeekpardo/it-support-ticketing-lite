@@ -12,7 +12,7 @@ export async function findMatchingEmailRule(toAddress, fromAddress) {
     where: { isActive: true },
     orderBy: { priority: 'desc' },
     include: {
-      project: {
+      inbox: {
         select: {
           id: true,
           organizationId: true,

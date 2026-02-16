@@ -116,7 +116,7 @@ export const hasPermission = (permission) => {
         'organization:delete', 'organization:update',
         'member:create', 'member:delete', 'member:update',
         'invitation:create', 'invitation:cancel',
-        'project:create', 'project:update', 'project:delete',
+        'inbox:create', 'inbox:update', 'inbox:delete',
         'time-entry:view-all', 'time-entry:edit-all', 'time-entry:delete-all',
         'reports:view-all',
         'ticket:view-all', 'ticket:edit-all', 'ticket:delete', 'ticket:assign',
@@ -125,21 +125,21 @@ export const hasPermission = (permission) => {
       manager: [
         'member:create', 'member:delete', 'member:update',
         'invitation:create', 'invitation:cancel',
-        'project:create', 'project:update', 'project:delete',
+        'inbox:create', 'inbox:update', 'inbox:delete',
         'time-entry:view-all', 'time-entry:edit-all', 'time-entry:delete-all',
         'reports:view-all',
         'ticket:view-all', 'ticket:edit-all', 'ticket:assign',
         'client:manage'
       ],
       member: [
-        'project:view',
+        'inbox:view',
         'time-entry:create', 'time-entry:view-own', 'time-entry:edit-own', 'time-entry:delete-own',
         'reports:view-own',
         'ticket:view-all', 'ticket:edit-own'
       ],
       client: [
         'ticket:create', 'ticket:view-own', 'ticket:comment-public',
-        'project:view-assigned'
+        'inbox:view-assigned'
       ]
     };
 
