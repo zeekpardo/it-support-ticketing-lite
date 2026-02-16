@@ -33,9 +33,9 @@ export default function SoftwareAccessRequests() {
   }
 
   const handleReview = async (requestId: string, status: 'APPROVED' | 'DECLINED', reviewNotes?: string) => {
-    // Find the request to get projectId and softwareId
+    // Find the request to get inboxId and softwareId
     const request = requests.find((r) => r.id === requestId)
-    if (!request?.software?.project?.id || !request.softwareId) {
+    if (!request?.inboxSoftware?.inbox?.id || !request.inboxSoftwareId) {
       alert('Unable to review request - missing data')
       return
     }
@@ -43,8 +43,8 @@ export default function SoftwareAccessRequests() {
     setSaving(true)
     try {
       await api.reviewAccessRequest(
-        request.software.project.id,
-        request.softwareId,
+        request.inboxSoftware.inbox.id,
+        request.inboxSoftwareId,
         requestId,
         { status, reviewNotes }
       )

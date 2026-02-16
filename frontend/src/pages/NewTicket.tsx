@@ -9,10 +9,10 @@ import { Select } from '@/components/ui/select'
 import { Field, Label } from '@/components/ui/fieldset'
 import { ArrowLeftIcon } from '@heroicons/react/24/outline'
 
-interface Project {
+interface Inbox {
   id: string
   name: string
-  projectCode: string
+  inboxCode: string
 }
 
 interface Client {
@@ -21,28 +21,28 @@ interface Client {
 }
 
 export default function NewTicket() {
-  const { projectId } = useParams<{ projectId: string }>()
+  const { inboxId } = useParams<{ inboxId: string }>()
   const navigate = useNavigate()
   const { currentOrg } = useOrganization()
-  const [project, setProject] = useState<Project | null>(null)
+  const [inbox, setInbox] = useState<Inbox | null>(null)
   const [clients, setClients] = useState<Client[]>([])
   const [selectedClientId, setSelectedClientId] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (currentOrg && projectId) {
+    if (currentOrg && inboxId) {
       loadData()
     }
-  }, [currentOrg, projectId])
+  }, [currentOrg, inboxId])
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const [projectData, clientsData] = await Promise.all([
-        api.getProject(projectId!),
+      const [inboxData, clientsData] = await Promise.all([
+        api.getInbox(inboxId!),
         api.getClients()
       ])
-      setProject(projectData)
+      setInbox(inboxData)
       setClients(clientsData)
     } catch (error) {
       console.error('Failed to load data:', error)
@@ -59,10 +59,10 @@ export default function NewTicket() {
     try {
       const ticket = await api.createTicket({
         ...data,
-        projectId: projectId!,
+        inboxId: inboxId!,
         clientId: selectedClientId
       })
-      navigate(`/projects/${projectId}/tickets/${ticket.id}`)
+      navigate(`/inboxes/${inboxId}/tickets/${ticket.id}`)
     } catch (error) {
       console.error('Failed to create ticket:', error)
       throw error
@@ -85,10 +85,10 @@ export default function NewTicket() {
     )
   }
 
-  if (!project) {
+  if (!inbox) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Text>Project not found</Text>
+        <Text>Inbox not found</Text>
       </div>
     )
   }
@@ -97,14 +97,14 @@ export default function NewTicket() {
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
         <Link
-          to={`/projects/${projectId}/tickets`}
+          to={`/inboxes/${inboxId}/tickets`}
           className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
         >
           <ArrowLeftIcon className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
         </Link>
         <div>
           <Heading>New Ticket</Heading>
-          <Text className="text-zinc-500">{project.name}</Text>
+          <Text className="text-zinc-500">{inbox.name}</Text>
         </div>
       </div>
 
@@ -131,10 +131,10 @@ export default function NewTicket() {
         </Field>
 
         <TicketForm
-          projects={[project]}
+          inboxes={[inbox]}
           onSubmit={handleSubmit}
           showPriority={true}
-          preselectedProjectId={projectId}
+          preselectedInboxId={inboxId}
         />
       </div>
     </div>

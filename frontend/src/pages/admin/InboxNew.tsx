@@ -18,7 +18,7 @@ interface StaffMember {
   user: { id: string; name: string; email: string }
 }
 
-export default function ProjectNew() {
+export default function InboxNew() {
   const navigate = useNavigate()
   const { currentOrg } = useOrganization()
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
@@ -27,7 +27,7 @@ export default function ProjectNew() {
   const form = useCrudForm({
     initialData: {
       name: '',
-      projectCode: '',
+      inboxCode: '',
       clientName: '',
       description: '',
       defaultAssigneeId: '',
@@ -66,7 +66,7 @@ export default function ProjectNew() {
 
   const handleNameChange = (value: string) => {
     form.setField('name', value)
-    form.setField('projectCode', generateCode(value))
+    form.setField('inboxCode', generateCode(value))
   }
 
   const handleSubmit = async (e: FormEvent) => {
@@ -74,9 +74,9 @@ export default function ProjectNew() {
     const parseDays = (val: string) => val ? parseInt(val, 10) : null
 
     await form.handleSubmit(async () => {
-      await api.createProject({
+      await api.createInbox({
         name: form.data.name,
-        projectCode: form.data.projectCode,
+        inboxCode: form.data.inboxCode,
         clientName: form.data.clientName || undefined,
         description: form.data.description || undefined,
         defaultAssigneeId: form.data.defaultAssigneeId || null,
@@ -85,7 +85,7 @@ export default function ProjectNew() {
         dueDateHighDays: parseDays(form.data.dueDateHighDays),
         dueDateUrgentDays: parseDays(form.data.dueDateUrgentDays),
       })
-      navigate('/admin/projects')
+      navigate('/admin/inboxes')
     })
   }
 
@@ -109,14 +109,14 @@ export default function ProjectNew() {
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
         <Link
-          to="/admin/projects"
+          to="/admin/inboxes"
           className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
         >
           <ArrowLeftIcon className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
         </Link>
         <div>
-          <Heading>New Project</Heading>
-          <Text className="text-zinc-500">Create a new project for your team to track time against.</Text>
+          <Heading>New Inbox</Heading>
+          <Text className="text-zinc-500">Create a new inbox for your team to track time against.</Text>
         </div>
       </div>
 
@@ -130,7 +130,7 @@ export default function ProjectNew() {
 
           <FieldGroup>
             <Field>
-              <Label>Project Name</Label>
+              <Label>Inbox Name</Label>
               <Input
                 type="text"
                 value={form.data.name}
@@ -141,11 +141,11 @@ export default function ProjectNew() {
             </Field>
 
             <Field>
-              <Label>Project Code</Label>
+              <Label>Inbox Code</Label>
               <Input
                 type="text"
-                value={form.data.projectCode}
-                onChange={(e) => form.setField('projectCode', e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))}
+                value={form.data.inboxCode}
+                onChange={(e) => form.setField('inboxCode', e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))}
                 placeholder="WEB-REDESIGN"
                 required
                 maxLength={10}
@@ -168,7 +168,7 @@ export default function ProjectNew() {
               <Textarea
                 value={form.data.description}
                 onChange={(e) => form.setField('description', e.target.value)}
-                placeholder="Brief description of the project..."
+                placeholder="Brief description of the inbox..."
                 rows={3}
               />
             </Field>
@@ -186,7 +186,7 @@ export default function ProjectNew() {
                   </option>
                 ))}
               </Select>
-              <Description>Tickets created for this project will be automatically assigned to this person</Description>
+              <Description>Tickets created for this inbox will be automatically assigned to this person</Description>
             </Field>
 
             <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4 mt-4">
@@ -238,11 +238,11 @@ export default function ProjectNew() {
           </FieldGroup>
 
           <div className="mt-6 flex justify-end gap-3">
-            <Button plain onClick={() => navigate('/admin/projects')} disabled={form.saving}>
+            <Button plain onClick={() => navigate('/admin/inboxes')} disabled={form.saving}>
               Cancel
             </Button>
             <Button color="blue" type="submit" disabled={form.saving}>
-              {form.saving ? 'Creating...' : 'Create Project'}
+              {form.saving ? 'Creating...' : 'Create Inbox'}
             </Button>
           </div>
         </form>

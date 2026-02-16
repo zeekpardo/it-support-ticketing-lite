@@ -9,10 +9,10 @@
  * Modules:
  *   base.ts          - shared request/upload helpers, org-id state
  *   types.ts         - all shared TypeScript types
- *   projects.ts      - project CRUD, stages
+ *   inboxes.ts       - inbox CRUD, stages
  *   tickets.ts       - ticket & time-entry CRUD, comments, attachments
- *   members.ts       - member management, project assignments, profile
- *   software.ts      - software catalog, project software, access requests
+ *   members.ts       - member management, inbox assignments, profile
+ *   software.ts      - software catalog, inbox software, access requests
  *   reports.ts       - report generation endpoints
  *   notifications.ts - notification CRUD, unread count
  *   portal.ts        - portal-specific endpoints
@@ -23,11 +23,11 @@
 export type {
   SoftwareCategory,
   GlobalSoftware,
-  ProjectSoftware,
+  InboxSoftware,
   SoftwareBudgetSummary,
-  ProjectSoftwareAdmin,
+  InboxSoftwareAdmin,
   SoftwareAccessRequest,
-  ProjectSoftwareDetail,
+  InboxSoftwareDetail,
   PortalSoftware,
   PortalAccessRequest,
   TicketStage,
@@ -42,14 +42,14 @@ export type {
   MyAccessRequest
 } from './types'
 
-export type { SuperAdminAccount, SuperAdminAccountMember, AccountProject } from './superAdmin'
+export type { SuperAdminAccount, SuperAdminAccountMember, AccountInbox } from './superAdmin'
 export type { RequestOptions } from './base'
 
 // Import base helpers (used by the class)
 import { setOrganizationId, request, upload } from './base'
 
 // Import all module functions
-import * as projectsApi from './projects'
+import * as inboxesApi from './inboxes'
 import * as ticketsApi from './tickets'
 import * as membersApi from './members'
 import * as softwareApi from './software'
@@ -83,25 +83,25 @@ class ApiClient {
   deleteTimeEntry = ticketsApi.deleteTimeEntry
   stopTimer = ticketsApi.stopTimer
 
-  // === Projects ===
-  getProjects = projectsApi.getProjects
-  getProject = projectsApi.getProject
-  createProject = projectsApi.createProject
-  updateProject = projectsApi.updateProject
-  deleteProject = projectsApi.deleteProject
-  getProjectStats = projectsApi.getProjectStats
+  // === Inboxes ===
+  getInboxes = inboxesApi.getInboxes
+  getInbox = inboxesApi.getInbox
+  createInbox = inboxesApi.createInbox
+  updateInbox = inboxesApi.updateInbox
+  deleteInbox = inboxesApi.deleteInbox
+  getInboxStats = inboxesApi.getInboxStats
 
   // === Client Signup Links ===
-  generateSignupLink = projectsApi.generateSignupLink
-  toggleSignupLink = projectsApi.toggleSignupLink
-  deleteSignupLink = projectsApi.deleteSignupLink
+  generateSignupLink = inboxesApi.generateSignupLink
+  toggleSignupLink = inboxesApi.toggleSignupLink
+  deleteSignupLink = inboxesApi.deleteSignupLink
 
-  // === Project Stages ===
-  getProjectStages = projectsApi.getProjectStages
-  createStage = projectsApi.createStage
-  updateStage = projectsApi.updateStage
-  reorderStages = projectsApi.reorderStages
-  deleteStage = projectsApi.deleteStage
+  // === Inbox Stages ===
+  getInboxStages = inboxesApi.getInboxStages
+  createStage = inboxesApi.createStage
+  updateStage = inboxesApi.updateStage
+  reorderStages = inboxesApi.reorderStages
+  deleteStage = inboxesApi.deleteStage
 
   // === Reports ===
   getReportSummary = reportsApi.getReportSummary
@@ -134,7 +134,7 @@ class ApiClient {
   uploadInlineImage = ticketsApi.uploadInlineImage
 
   // === Portal (Client) ===
-  getPortalProjects = portalApi.getPortalProjects
+  getPortalInboxes = portalApi.getPortalInboxes
   getPortalDashboard = portalApi.getPortalDashboard
   getPortalTickets = portalApi.getPortalTickets
   getPortalTicket = portalApi.getPortalTicket
@@ -150,12 +150,12 @@ class ApiClient {
   getClients = membersApi.getClients
   getClientDetail = membersApi.getClientDetail
   updateClient = membersApi.updateClient
-  getMemberProjects = membersApi.getMemberProjects
-  assignProject = membersApi.assignProject
-  unassignProject = membersApi.unassignProject
-  updateMemberProjects = membersApi.updateMemberProjects
-  getInvitationProjects = membersApi.getInvitationProjects
-  saveInvitationProjects = membersApi.saveInvitationProjects
+  getMemberInboxes = membersApi.getMemberInboxes
+  assignInbox = membersApi.assignInbox
+  unassignInbox = membersApi.unassignInbox
+  updateMemberInboxes = membersApi.updateMemberInboxes
+  getInvitationInboxes = membersApi.getInvitationInboxes
+  saveInvitationInboxes = membersApi.saveInvitationInboxes
   getProfile = membersApi.getProfile
   updateProfile = membersApi.updateProfile
   uploadAvatar = membersApi.uploadAvatar
@@ -171,8 +171,8 @@ class ApiClient {
   updateSuperAdminAccount = superAdminApi.updateSuperAdminAccount
   updateSuperAdminAccountMember = superAdminApi.updateSuperAdminAccountMember
   deleteSuperAdminAccount = superAdminApi.deleteSuperAdminAccount
-  getSuperAdminAccountProjects = superAdminApi.getSuperAdminAccountProjects
-  updateSuperAdminMemberProjects = superAdminApi.updateSuperAdminMemberProjects
+  getSuperAdminAccountInboxes = superAdminApi.getSuperAdminAccountInboxes
+  updateSuperAdminMemberInboxes = superAdminApi.updateSuperAdminMemberInboxes
   removeSuperAdminAccountMember = superAdminApi.removeSuperAdminAccountMember
 
   // === Super Admin - Software Catalog ===
@@ -191,34 +191,34 @@ class ApiClient {
   updateSuperAdminCategory = softwareApi.updateSuperAdminCategory
   deleteSuperAdminCategory = softwareApi.deleteSuperAdminCategory
 
-  // === Project Software (Admin) ===
+  // === Inbox Software (Admin) ===
   getGlobalCatalog = softwareApi.getGlobalCatalog
   getGlobalCatalogCategories = softwareApi.getGlobalCatalogCategories
   submitNewSoftware = softwareApi.submitNewSoftware
-  getProjectSoftware = softwareApi.getProjectSoftware
-  getProjectSoftwareById = softwareApi.getProjectSoftwareById
-  addSoftwareToProject = softwareApi.addSoftwareToProject
-  updateProjectSoftware = softwareApi.updateProjectSoftware
-  getProjectSoftwareBudget = softwareApi.getProjectSoftwareBudget
-  removeProjectSoftware = softwareApi.removeProjectSoftware
+  getInboxSoftware = softwareApi.getInboxSoftware
+  getInboxSoftwareById = softwareApi.getInboxSoftwareById
+  addSoftwareToInbox = softwareApi.addSoftwareToInbox
+  updateInboxSoftware = softwareApi.updateInboxSoftware
+  getInboxSoftwareBudget = softwareApi.getInboxSoftwareBudget
+  removeInboxSoftware = softwareApi.removeInboxSoftware
 
-  // Project software admins
-  getProjectSoftwareAdmins = softwareApi.getProjectSoftwareAdmins
-  addProjectSoftwareAdmin = softwareApi.addProjectSoftwareAdmin
-  updateProjectSoftwareAdmin = softwareApi.updateProjectSoftwareAdmin
-  removeProjectSoftwareAdmin = softwareApi.removeProjectSoftwareAdmin
+  // Inbox software admins
+  getInboxSoftwareAdmins = softwareApi.getInboxSoftwareAdmins
+  addInboxSoftwareAdmin = softwareApi.addInboxSoftwareAdmin
+  updateInboxSoftwareAdmin = softwareApi.updateInboxSoftwareAdmin
+  removeInboxSoftwareAdmin = softwareApi.removeInboxSoftwareAdmin
 
-  // Project software access requests
-  getProjectSoftwareRequests = softwareApi.getProjectSoftwareRequests
-  getAllProjectRequests = softwareApi.getAllProjectRequests
+  // Inbox software access requests
+  getInboxSoftwareRequests = softwareApi.getInboxSoftwareRequests
+  getAllInboxRequests = softwareApi.getAllInboxRequests
   getAllPendingAccessRequests = softwareApi.getAllPendingAccessRequests
   assignAccessRequest = softwareApi.assignAccessRequest
   reviewAccessRequest = softwareApi.reviewAccessRequest
   deleteAccessRequest = softwareApi.deleteAccessRequest
 
   // === Portal Software ===
-  getPortalProjectSoftware = portalApi.getPortalProjectSoftware
-  getPortalProjectSoftwareById = portalApi.getPortalProjectSoftwareById
+  getPortalInboxSoftware = portalApi.getPortalInboxSoftware
+  getPortalInboxSoftwareById = portalApi.getPortalInboxSoftwareById
   getPortalSoftwareCategories = portalApi.getPortalSoftwareCategories
   submitPortalAccessRequest = portalApi.submitPortalAccessRequest
   getPortalMyRequests = portalApi.getPortalMyRequests

@@ -6,53 +6,53 @@ import { Dialog, DialogTitle, DialogBody } from '@/components/ui/dialog'
 import { Field, Label } from '@/components/ui/fieldset'
 import { Select } from '@/components/ui/select'
 
-interface Project {
+interface Inbox {
   id: string
   name: string
-  projectCode: string
+  inboxCode: string
 }
 
 interface Client {
   id: string
   user: { id: string; name: string; email: string }
-  projectAssignments: Array<{
+  inboxAssignments: Array<{
     id: string
-    project: { id: string; name: string; projectCode: string; isActive: boolean }
+    inbox: { id: string; name: string; inboxCode: string; isActive: boolean }
   }>
 }
 
 interface NewTicketDialogProps {
   open: boolean
   onClose: () => void
-  projects: Project[]
+  inboxes: Inbox[]
   clients: Client[]
 }
 
-export function NewTicketDialog({ open, onClose, projects, clients }: NewTicketDialogProps) {
+export function NewTicketDialog({ open, onClose, inboxes, clients }: NewTicketDialogProps) {
   const navigate = useNavigate()
-  const [selectedProjectId, setSelectedProjectId] = useState('')
+  const [selectedInboxId, setSelectedInboxId] = useState('')
   const [selectedClientId, setSelectedClientId] = useState('')
 
-  const availableClients = selectedProjectId
+  const availableClients = selectedInboxId
     ? clients.filter(client =>
-        client.projectAssignments.some(pa => pa.project.id === selectedProjectId)
+        client.inboxAssignments.some(ia => ia.inbox.id === selectedInboxId)
       )
     : []
 
-  const handleProjectChange = (projectId: string) => {
-    setSelectedProjectId(projectId)
+  const handleInboxChange = (inboxId: string) => {
+    setSelectedInboxId(inboxId)
     setSelectedClientId('')
   }
 
   const handleClose = () => {
-    setSelectedProjectId('')
+    setSelectedInboxId('')
     setSelectedClientId('')
     onClose()
   }
 
   const handleCreateTicket = async (data: any) => {
-    if (!selectedProjectId) {
-      throw new Error('Please select a project')
+    if (!selectedInboxId) {
+      throw new Error('Please select an inbox')
     }
     if (!selectedClientId) {
       throw new Error('Please select a client')
@@ -60,11 +60,11 @@ export function NewTicketDialog({ open, onClose, projects, clients }: NewTicketD
 
     const ticket = await api.createTicket({
       ...data,
-      projectId: selectedProjectId,
+      inboxId: selectedInboxId,
       clientId: selectedClientId,
     })
     handleClose()
-    navigate(`/projects/${ticket.projectId}/tickets/${ticket.id}`)
+    navigate(`/inboxes/${ticket.inboxId}/tickets/${ticket.id}`)
   }
 
   return (
@@ -73,16 +73,16 @@ export function NewTicketDialog({ open, onClose, projects, clients }: NewTicketD
       <DialogBody>
         <div className="grid grid-cols-2 gap-4 mb-6">
           <Field>
-            <Label>Project *</Label>
+            <Label>Inbox *</Label>
             <Select
-              value={selectedProjectId}
-              onChange={e => handleProjectChange(e.target.value)}
+              value={selectedInboxId}
+              onChange={e => handleInboxChange(e.target.value)}
               required
             >
-              <option value="">Select a project</option>
-              {projects.map(project => (
-                <option key={project.id} value={project.id}>
-                  {project.name} ({project.projectCode})
+              <option value="">Select an inbox</option>
+              {inboxes.map(inbox => (
+                <option key={inbox.id} value={inbox.id}>
+                  {inbox.name} ({inbox.inboxCode})
                 </option>
               ))}
             </Select>
@@ -93,11 +93,11 @@ export function NewTicketDialog({ open, onClose, projects, clients }: NewTicketD
             <Select
               value={selectedClientId}
               onChange={e => setSelectedClientId(e.target.value)}
-              disabled={!selectedProjectId}
+              disabled={!selectedInboxId}
               required
             >
               <option value="">
-                {selectedProjectId ? 'Select a client' : 'Select a project first'}
+                {selectedInboxId ? 'Select a client' : 'Select an inbox first'}
               </option>
               {availableClients.map(client => (
                 <option key={client.id} value={client.id}>
@@ -105,20 +105,20 @@ export function NewTicketDialog({ open, onClose, projects, clients }: NewTicketD
                 </option>
               ))}
             </Select>
-            {selectedProjectId && availableClients.length === 0 && (
+            {selectedInboxId && availableClients.length === 0 && (
               <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">
-                No clients assigned to this project. Assign a client first from the Users page.
+                No clients assigned to this inbox. Assign a client first from the Users page.
               </p>
             )}
           </Field>
         </div>
 
         <TicketForm
-          projects={projects.filter(p => p.id === selectedProjectId)}
+          inboxes={inboxes.filter(p => p.id === selectedInboxId)}
           onSubmit={handleCreateTicket}
           showPriority={true}
           showContactFields={true}
-          preselectedProjectId={selectedProjectId}
+          preselectedInboxId={selectedInboxId}
         />
       </DialogBody>
     </Dialog>

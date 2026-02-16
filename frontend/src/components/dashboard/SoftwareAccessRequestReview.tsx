@@ -9,9 +9,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
 
 interface PendingSoftwareRequest extends SoftwareAccessRequest {
-  projectSoftware: {
+  inboxSoftware: {
     software: { id: string; name: string; iconUrl?: string }
-    project: { id: string; name: string; projectCode: string; defaultAssigneeId?: string }
+    inbox: { id: string; name: string; inboxCode: string; defaultAssigneeId?: string }
   }
 }
 
@@ -60,8 +60,8 @@ export function SoftwareAccessRequestReview({
     setReviewLoading(true)
     try {
       await api.reviewAccessRequest(
-        reviewingRequest.projectSoftware.project.id,
-        reviewingRequest.projectSoftwareId,
+        reviewingRequest.inboxSoftware.inbox.id,
+        reviewingRequest.inboxSoftwareId,
         reviewingRequest.id,
         { status: reviewAction, reviewNotes: reviewNotes.trim() || undefined }
       )
@@ -89,18 +89,18 @@ export function SoftwareAccessRequestReview({
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    {request.projectSoftware.software.iconUrl && (
+                    {request.inboxSoftware.software.iconUrl && (
                       <img
-                        src={request.projectSoftware.software.iconUrl}
+                        src={request.inboxSoftware.software.iconUrl}
                         alt=""
                         className="w-6 h-6 rounded"
                       />
                     )}
                     <p className="text-sm font-medium text-zinc-900 dark:text-white">
-                      {request.projectSoftware.software.name}
+                      {request.inboxSoftware.software.name}
                     </p>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300">
-                      {request.projectSoftware.project.name}
+                      {request.inboxSoftware.inbox.name}
                     </span>
                   </div>
                   <p className="text-sm text-zinc-600 dark:text-zinc-300 mt-1">
@@ -161,8 +161,8 @@ export function SoftwareAccessRequestReview({
             <div className="space-y-4">
               <p className="text-sm text-zinc-600 dark:text-zinc-300">
                 {reviewAction === 'APPROVED'
-                  ? `Grant ${reviewingRequest.requester?.user.name} access to ${reviewingRequest.projectSoftware.software.name}?`
-                  : `Decline ${reviewingRequest.requester?.user.name}'s request for ${reviewingRequest.projectSoftware.software.name}?`}
+                  ? `Grant ${reviewingRequest.requester?.user.name} access to ${reviewingRequest.inboxSoftware.software.name}?`
+                  : `Decline ${reviewingRequest.requester?.user.name}'s request for ${reviewingRequest.inboxSoftware.software.name}?`}
               </p>
               <Field>
                 <Label>Notes (optional)</Label>

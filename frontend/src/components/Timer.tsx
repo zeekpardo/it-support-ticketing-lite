@@ -5,10 +5,10 @@ import { Select } from '@/components/ui/select'
 import { Field, FieldGroup, Label } from '@/components/ui/fieldset'
 import { PlayIcon, StopIcon } from '@heroicons/react/24/solid'
 
-interface Project {
+interface Inbox {
   id: string
   name: string
-  projectCode: string
+  inboxCode: string
 }
 
 interface TimeEntry {
@@ -17,22 +17,22 @@ interface TimeEntry {
   startTime: string
   endTime?: string
   isRunning: boolean
-  project: {
+  inbox: {
     id: string
     name: string
-    projectCode: string
+    inboxCode: string
   }
 }
 
 interface TimerProps {
-  projects: Project[]
+  inboxes: Inbox[]
   runningEntry: TimeEntry | null
-  onStart: (projectId: string, taskName: string) => Promise<void>
+  onStart: (inboxId: string, taskName: string) => Promise<void>
   onStop: () => Promise<void>
 }
 
-export function Timer({ projects, runningEntry, onStart, onStop }: TimerProps) {
-  const [projectId, setProjectId] = useState('')
+export function Timer({ inboxes, runningEntry, onStart, onStop }: TimerProps) {
+  const [inboxId, setInboxId] = useState('')
   const [taskName, setTaskName] = useState('')
   const [elapsed, setElapsed] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -60,7 +60,7 @@ export function Timer({ projects, runningEntry, onStart, onStop }: TimerProps) {
   // Prefill form when timer is running
   useEffect(() => {
     if (runningEntry) {
-      setProjectId(runningEntry.project.id)
+      setInboxId(runningEntry.inbox.id)
       setTaskName(runningEntry.taskName)
     }
   }, [runningEntry])
@@ -74,11 +74,11 @@ export function Timer({ projects, runningEntry, onStart, onStop }: TimerProps) {
   }
 
   const handleStart = async () => {
-    if (!projectId || !taskName.trim()) return
+    if (!inboxId || !taskName.trim()) return
 
     setLoading(true)
     try {
-      await onStart(projectId, taskName.trim())
+      await onStart(inboxId, taskName.trim())
     } finally {
       setLoading(false)
     }
@@ -109,7 +109,7 @@ export function Timer({ projects, runningEntry, onStart, onStop }: TimerProps) {
         </div>
         {runningEntry && (
           <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-            Working on: {runningEntry.taskName} ({runningEntry.project.name})
+            Working on: {runningEntry.taskName} ({runningEntry.inbox.name})
           </p>
         )}
       </div>
@@ -120,16 +120,16 @@ export function Timer({ projects, runningEntry, onStart, onStop }: TimerProps) {
           <FieldGroup>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field>
-                <Label>Project</Label>
+                <Label>Inbox</Label>
                 <Select
-                  value={projectId}
-                  onChange={(e) => setProjectId(e.target.value)}
+                  value={inboxId}
+                  onChange={(e) => setInboxId(e.target.value)}
                   disabled={!!runningEntry}
                 >
-                  <option value="">Select a project...</option>
-                  {projects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      [{project.projectCode}] {project.name}
+                  <option value="">Select an inbox...</option>
+                  {inboxes.map((inbox) => (
+                    <option key={inbox.id} value={inbox.id}>
+                      [{inbox.inboxCode}] {inbox.name}
                     </option>
                   ))}
                 </Select>
@@ -164,7 +164,7 @@ export function Timer({ projects, runningEntry, onStart, onStop }: TimerProps) {
             <Button
               color="green"
               onClick={handleStart}
-              disabled={loading || !projectId || !taskName.trim()}
+              disabled={loading || !inboxId || !taskName.trim()}
               className="h-[42px] px-6"
             >
               <PlayIcon className="h-5 w-5" />

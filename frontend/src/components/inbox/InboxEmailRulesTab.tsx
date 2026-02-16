@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { emailRulesApi, EmailRule, CreateEmailRuleData } from '../../api/emailRules'
 import { useModalForm } from '../../hooks/useModalForm'
-import { getMatchTypeBadge, getMatchTypeDescription } from './emailRuleHelpers'
+import { getMatchTypeBadge, getMatchTypeDescription } from '../inbox/emailRuleHelpers'
 import { Subheading } from '@/components/ui/heading'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -19,11 +19,11 @@ import {
 } from '@/components/ui/dialog'
 import { TrashIcon, PlusIcon, EnvelopeIcon } from '@heroicons/react/24/outline'
 
-interface ProjectEmailRulesTabProps {
-  projectId: string
+interface InboxEmailRulesTabProps {
+  inboxId: string
 }
 
-export function ProjectEmailRulesTab({ projectId }: ProjectEmailRulesTabProps) {
+export function InboxEmailRulesTab({ inboxId }: InboxEmailRulesTabProps) {
   const navigate = useNavigate()
   const [emailRules, setEmailRules] = useState<EmailRule[]>([])
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -39,12 +39,12 @@ export function ProjectEmailRulesTab({ projectId }: ProjectEmailRulesTabProps) {
 
   const loadEmailRules = useCallback(async () => {
     try {
-      const rules = await emailRulesApi.getEmailRules({ projectId })
+      const rules = await emailRulesApi.getEmailRules({ inboxId })
       setEmailRules(rules)
     } catch (error) {
       console.error('Failed to load email rules:', error)
     }
-  }, [projectId])
+  }, [inboxId])
 
   useEffect(() => {
     loadEmailRules()
@@ -54,7 +54,7 @@ export function ProjectEmailRulesTab({ projectId }: ProjectEmailRulesTabProps) {
     try {
       await createRuleModal.handleSubmit(async () => {
         const data: CreateEmailRuleData = {
-          projectId,
+          inboxId,
           matchType: createRuleModal.formData.matchType,
           priority: createRuleModal.formData.priority || 0,
         }
@@ -98,7 +98,7 @@ export function ProjectEmailRulesTab({ projectId }: ProjectEmailRulesTabProps) {
           <div>
             <Subheading>Email Routing Rules</Subheading>
             <Text className="mt-1 text-zinc-500">
-              Rules that route incoming emails to this project.
+              Rules that route incoming emails to this inbox.
             </Text>
           </div>
           <div className="flex gap-2">
@@ -115,9 +115,9 @@ export function ProjectEmailRulesTab({ projectId }: ProjectEmailRulesTabProps) {
         {emailRules.length === 0 ? (
           <div className="rounded-lg bg-zinc-50 dark:bg-zinc-900 p-8 text-center">
             <EnvelopeIcon className="mx-auto h-10 w-10 text-zinc-400" />
-            <Text className="mt-3 font-medium">No email rules for this project</Text>
+            <Text className="mt-3 font-medium">No email rules for this inbox</Text>
             <Text className="mt-1 text-zinc-500">
-              Create a rule to route incoming emails to this project as tickets.
+              Create a rule to route incoming emails to this inbox as tickets.
             </Text>
           </div>
         ) : (
@@ -163,7 +163,7 @@ export function ProjectEmailRulesTab({ projectId }: ProjectEmailRulesTabProps) {
       <Dialog open={createRuleModal.isOpen} onClose={createRuleModal.close}>
         <DialogTitle>Create Email Routing Rule</DialogTitle>
         <DialogDescription>
-          Route matching emails to this project as tickets.
+          Route matching emails to this inbox as tickets.
         </DialogDescription>
         <DialogBody>
           <FieldGroup>

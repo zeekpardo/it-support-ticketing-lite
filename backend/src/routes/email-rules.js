@@ -19,18 +19,18 @@ router.get(
   '/',
   asyncHandler(async (req, res) => {
     const where = { organizationId: req.organization.id };
-    if (req.query.projectId) {
-      where.projectId = req.query.projectId;
+    if (req.query.inboxId) {
+      where.inboxId = req.query.inboxId;
     }
 
     const rules = await prisma.emailRule.findMany({
       where,
       include: {
-        project: {
+        inbox: {
           select: {
             id: true,
             name: true,
-            projectCode: true,
+            inboxCode: true,
           },
         },
         _count: {
@@ -51,11 +51,11 @@ router.get(
 router.post(
   '/',
   asyncHandler(async (req, res) => {
-    const { projectId, matchType, matchValue, priority } = req.body;
+    const { inboxId, matchType, matchValue, priority } = req.body;
 
     // Validate required fields
-    if (!projectId || !matchType) {
-      throw new ValidationError('Project and match type are required');
+    if (!inboxId || !matchType) {
+      throw new ValidationError('Inbox and match type are required');
     }
 
     // Validate match type
@@ -69,13 +69,13 @@ router.post(
       throw new ValidationError('Match value is required for this match type');
     }
 
-    // Verify project belongs to organization
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, organizationId: req.organization.id },
+    // Verify inbox belongs to organization
+    const inbox = await prisma.inbox.findFirst({
+      where: { id: inboxId, organizationId: req.organization.id },
     });
 
-    if (!project) {
-      throw new NotFoundError('Project not found');
+    if (!inbox) {
+      throw new NotFoundError('Inbox not found');
     }
 
     // Check for duplicate catch-all rule
@@ -97,17 +97,17 @@ router.post(
     const rule = await prisma.emailRule.create({
       data: {
         organizationId: req.organization.id,
-        projectId,
+        inboxId,
         matchType,
         matchValue: matchValue || null,
         priority: priority !== undefined ? priority : 0,
       },
       include: {
-        project: {
+        inbox: {
           select: {
             id: true,
             name: true,
-            projectCode: true,
+            inboxCode: true,
           },
         },
       },
@@ -164,11 +164,11 @@ router.put(
         isActive: isActive !== undefined ? isActive : rule.isActive,
       },
       include: {
-        project: {
+        inbox: {
           select: {
             id: true,
             name: true,
-            projectCode: true,
+            inboxCode: true,
           },
         },
       },
@@ -233,7 +233,7 @@ router.get(
             id: true,
             matchType: true,
             matchValue: true,
-            project: {
+            inbox: {
               select: { id: true, name: true },
             },
           },

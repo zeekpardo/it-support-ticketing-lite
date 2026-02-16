@@ -57,14 +57,14 @@ export function Layout({ children }: LayoutProps) {
 
   const navItems = [
     { href: '/', label: 'Dashboard', icon: ClockIcon },
-    { href: '/projects', label: 'Projects', icon: FolderIcon },
+    { href: '/inboxes', label: 'Inboxes', icon: FolderIcon },
     { href: '/reports', label: 'Reports', icon: ChartBarIcon },
   ]
 
   const settingsItems = [
     ...(isAdmin ? [
       { href: '/admin/members', label: 'Users', icon: UsersIcon },
-      { href: '/admin/projects', label: 'Manage Projects', icon: Cog6ToothIcon },
+      { href: '/admin/inboxes', label: 'Manage Inboxes', icon: Cog6ToothIcon },
       { href: '/admin/email-rules', label: 'Email Rules', icon: EnvelopeIcon },
       { href: '/admin/branding', label: 'Branding', icon: PaintBrushIcon },
     ] : []),

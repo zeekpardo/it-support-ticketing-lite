@@ -4,7 +4,7 @@ import { authenticate, requireOrganization } from '../middleware/auth.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError, ForbiddenError } from '../utils/errors.js';
 import { findTimeEntryOrFail } from '../utils/entityHelpers.js';
-import { PROJECT_SELECT_BRIEF, USER_SELECT } from '../utils/prismaFragments.js';
+import { INBOX_SELECT_BRIEF, USER_SELECT } from '../utils/prismaFragments.js';
 
 const router = express.Router();
 
@@ -14,7 +14,7 @@ router.use(requireOrganization);
 
 // Get time entries (members see own, admins/owners see all)
 router.get('/', asyncHandler(async (req, res) => {
-  const { startDate, endDate, projectId, userId } = req.query;
+  const { startDate, endDate, inboxId, userId } = req.query;
   const canViewAll = ['admin', 'owner'].includes(req.membership.role);
 
   const where = {
@@ -28,8 +28,8 @@ router.get('/', asyncHandler(async (req, res) => {
     where.userId = userId;
   }
 
-  if (projectId) {
-    where.projectId = projectId;
+  if (inboxId) {
+    where.inboxId = inboxId;
   }
 
   if (startDate || endDate) {
@@ -41,7 +41,7 @@ router.get('/', asyncHandler(async (req, res) => {
   const entries = await prisma.timeEntry.findMany({
     where,
     include: {
-      project: { select: PROJECT_SELECT_BRIEF },
+      inbox: { select: INBOX_SELECT_BRIEF },
       user: { select: USER_SELECT }
     },
     orderBy: { startTime: 'desc' }
@@ -54,7 +54,7 @@ router.get('/', asyncHandler(async (req, res) => {
 router.get('/:id', asyncHandler(async (req, res) => {
   const entry = await findTimeEntryOrFail(req.params.id, req.organization.id, {
     include: {
-      project: true,
+      inbox: true,
       user: { select: USER_SELECT }
     }
   });
@@ -70,21 +70,21 @@ router.get('/:id', asyncHandler(async (req, res) => {
 
 // Create time entry (manual entry or start timer)
 router.post('/', asyncHandler(async (req, res) => {
-  const { projectId, taskName, startTime, endTime, notes, isRunning } = req.body;
+  const { inboxId, taskName, startTime, endTime, notes, isRunning } = req.body;
 
-  if (!projectId || !taskName) {
-    throw new ValidationError('Project ID and task name are required');
+  if (!inboxId || !taskName) {
+    throw new ValidationError('Inbox ID and task name are required');
   }
 
-  // Verify project belongs to organization and is active
-  const project = await prisma.project.findFirst({
+  // Verify inbox belongs to organization and is active
+  const inbox = await prisma.inbox.findFirst({
     where: {
-      id: projectId,
+      id: inboxId,
       organizationId: req.organization.id,
       isActive: true
     }
   });
-  if (!project) throw new NotFoundError('Project not found');
+  if (!inbox) throw new NotFoundError('Inbox not found');
 
   // If starting a timer, stop any running timers for this user
   if (isRunning) {
@@ -114,7 +114,7 @@ router.post('/', asyncHandler(async (req, res) => {
     data: {
       organizationId: req.organization.id,
       userId: req.user.id,
-      projectId,
+      inboxId,
       taskName,
       startTime: startTime ? new Date(startTime) : new Date(),
       endTime: endTime ? new Date(endTime) : null,
@@ -123,7 +123,7 @@ router.post('/', asyncHandler(async (req, res) => {
       notes
     },
     include: {
-      project: { select: PROJECT_SELECT_BRIEF },
+      inbox: { select: INBOX_SELECT_BRIEF },
       user: { select: USER_SELECT }
     }
   });
@@ -141,18 +141,18 @@ router.put('/:id', asyncHandler(async (req, res) => {
     throw new ForbiddenError('Access denied');
   }
 
-  const { projectId, taskName, startTime, endTime, notes } = req.body;
+  const { inboxId, taskName, startTime, endTime, notes } = req.body;
 
-  // Verify project if changing
-  if (projectId && projectId !== entry.projectId) {
-    const newProject = await prisma.project.findFirst({
+  // Verify inbox if changing
+  if (inboxId && inboxId !== entry.inboxId) {
+    const newInbox = await prisma.inbox.findFirst({
       where: {
-        id: projectId,
+        id: inboxId,
         organizationId: req.organization.id,
         isActive: true
       }
     });
-    if (!newProject) throw new NotFoundError('Project not found');
+    if (!newInbox) throw new NotFoundError('Inbox not found');
   }
 
   // Calculate duration
@@ -166,7 +166,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
   const updated = await prisma.timeEntry.update({
     where: { id: req.params.id },
     data: {
-      projectId: projectId || entry.projectId,
+      inboxId: inboxId || entry.inboxId,
       taskName: taskName || entry.taskName,
       startTime: newStartTime,
       endTime: newEndTime,
@@ -174,7 +174,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
       notes: notes !== undefined ? notes : entry.notes
     },
     include: {
-      project: { select: PROJECT_SELECT_BRIEF },
+      inbox: { select: INBOX_SELECT_BRIEF },
       user: { select: USER_SELECT }
     }
   });
@@ -190,7 +190,7 @@ router.post('/:id/stop', asyncHandler(async (req, res) => {
       organizationId: req.organization.id,
     },
     include: {
-      project: { select: PROJECT_SELECT_BRIEF },
+      inbox: { select: INBOX_SELECT_BRIEF },
       user: { select: USER_SELECT }
     }
   });
@@ -221,7 +221,7 @@ router.post('/:id/stop', asyncHandler(async (req, res) => {
       durationMins
     },
     include: {
-      project: { select: PROJECT_SELECT_BRIEF },
+      inbox: { select: INBOX_SELECT_BRIEF },
       user: { select: USER_SELECT }
     }
   });
@@ -238,12 +238,12 @@ router.get('/running/current', asyncHandler(async (req, res) => {
       isRunning: true
     },
     include: {
-      project: { select: PROJECT_SELECT_BRIEF },
+      inbox: { select: INBOX_SELECT_BRIEF },
       ticket: {
         select: {
           id: true,
           subject: true,
-          project: { select: PROJECT_SELECT_BRIEF }
+          inbox: { select: INBOX_SELECT_BRIEF }
         }
       }
     }

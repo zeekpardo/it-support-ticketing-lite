@@ -16,14 +16,14 @@ async function checkRenewalNotifications() {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
 
-    // Get all project software with future renewal dates
-    const softwareWithRenewals = await prisma.projectSoftware.findMany({
+    // Get all inbox software with future renewal dates
+    const softwareWithRenewals = await prisma.inboxSoftware.findMany({
       where: {
         renewalDate: { gte: now },
       },
       include: {
         software: { select: { name: true } },
-        project: {
+        inbox: {
           select: {
             id: true,
             name: true,
@@ -52,8 +52,8 @@ async function checkRenewalNotifications() {
         // Check if this notification was already sent
         const alreadySent = await prisma.softwareRenewalNotification.findUnique({
           where: {
-            projectSoftwareId_threshold_renewalDate: {
-              projectSoftwareId: sw.id,
+            inboxSoftwareId_threshold_renewalDate: {
+              inboxSoftwareId: sw.id,
               threshold: threshold.label,
               renewalDate: sw.renewalDate,
             },
@@ -76,25 +76,25 @@ async function checkRenewalNotifications() {
         await notifyMultiple(prisma, {
           type: 'SOFTWARE_RENEWAL_REMINDER',
           recipientIds,
-          organizationId: sw.project.organizationId,
+          organizationId: sw.inbox.organizationId,
           data: {
             softwareName: sw.software.name,
             daysUntilRenewal: threshold.days,
             renewalDateFormatted,
             cost: sw.cost ? parseFloat(sw.cost).toFixed(2) : null,
             billingCycle: sw.billingCycle,
-            projectName: sw.project.name,
-            projectId: sw.project.id,
-            projectSoftwareId: sw.id,
+            inboxName: sw.inbox.name,
+            inboxId: sw.inbox.id,
+            inboxSoftwareId: sw.id,
           },
-          entityType: 'project_software',
+          entityType: 'inbox_software',
           entityId: sw.id,
         });
 
         // Record that this notification was sent
         await prisma.softwareRenewalNotification.create({
           data: {
-            projectSoftwareId: sw.id,
+            inboxSoftwareId: sw.id,
             threshold: threshold.label,
             renewalDate: sw.renewalDate,
           },

@@ -4,9 +4,9 @@ import { prisma } from '../lib/auth.js';
 import { authenticate, requireOrganization, requireOwner, requireAdmin, requireStaff } from '../middleware/auth.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError, ForbiddenError, ConflictError } from '../utils/errors.js';
-import { createProjectAssignments } from '../utils/entityHelpers.js';
+import { createInboxAssignments } from '../utils/entityHelpers.js';
 import { USER_SELECT, MEMBER_WITH_USER } from '../utils/prismaFragments.js';
-import { PROJECT_ASSIGNMENT_INCLUDE, PROJECT_SELECT_ACTIVE, PROJECT_SELECT_BRIEF } from '../utils/prismaFragments.js';
+import { INBOX_ASSIGNMENT_INCLUDE, INBOX_SELECT_ACTIVE, INBOX_SELECT_BRIEF } from '../utils/prismaFragments.js';
 import { markWelcomeEmail } from '../lib/email/index.js';
 import { resolveFileUrl } from '../lib/storage.js';
 import { auth } from '../lib/auth.js';
@@ -18,7 +18,7 @@ const generateId = () => crypto.randomBytes(16).toString('hex');
 // Create a new user and add them directly to the organization
 // POST /api/members/create-user
 router.post('/create-user', authenticate, requireOrganization, requireOwner, asyncHandler(async (req, res) => {
-  const { name, email, phone, password, role, projectIds } = req.body;
+  const { name, email, phone, password, role, inboxIds } = req.body;
 
   if (!name || !email || !password) {
     throw new ValidationError('Name, email, and password are required');
@@ -29,8 +29,8 @@ router.post('/create-user', authenticate, requireOrganization, requireOwner, asy
     throw new ValidationError('Invalid role. Must be manager, member, or client');
   }
 
-  if (role === 'client' && (!projectIds || projectIds.length === 0)) {
-    throw new ValidationError('At least one project must be selected for client users');
+  if (role === 'client' && (!inboxIds || inboxIds.length === 0)) {
+    throw new ValidationError('At least one inbox must be selected for client users');
   }
 
   if (req.user.role !== 'admin') {
@@ -67,8 +67,8 @@ router.post('/create-user', authenticate, requireOrganization, requireOwner, asy
       }
     });
 
-    if (projectIds?.length > 0) {
-      await createProjectAssignments(member.id, projectIds);
+    if (inboxIds?.length > 0) {
+      await createInboxAssignments(member.id, inboxIds);
     }
 
     return res.json({
@@ -116,8 +116,8 @@ router.post('/create-user', authenticate, requireOrganization, requireOwner, asy
       }
     });
 
-    if (projectIds?.length > 0) {
-      await createProjectAssignments(member.id, projectIds);
+    if (inboxIds?.length > 0) {
+      await createInboxAssignments(member.id, inboxIds);
     }
 
     // Stash context so the sendResetPassword callback sends a welcome email
@@ -145,10 +145,10 @@ router.post('/create-user', authenticate, requireOrganization, requireOwner, asy
   }
 }));
 
-// Get all invitation project assignments for pending invitations in this org
-// GET /api/members/invitations/projects
-router.get('/invitations/projects', authenticate, requireOrganization, requireAdmin, asyncHandler(async (req, res) => {
-  const invitationProjects = await prisma.invitationProject.findMany({
+// Get all invitation inbox assignments for pending invitations in this org
+// GET /api/members/invitations/inboxes
+router.get('/invitations/inboxes', authenticate, requireOrganization, requireAdmin, asyncHandler(async (req, res) => {
+  const invitationInboxes = await prisma.invitationInbox.findMany({
     where: {
       invitation: {
         organizationId: req.organization.id,
@@ -156,30 +156,30 @@ router.get('/invitations/projects', authenticate, requireOrganization, requireAd
       }
     },
     include: {
-      project: {
-        select: { id: true, name: true, projectCode: true }
+      inbox: {
+        select: { id: true, name: true, inboxCode: true }
       }
     }
   });
 
   // Group by invitation ID
   const grouped = {};
-  for (const ip of invitationProjects) {
+  for (const ip of invitationInboxes) {
     if (!grouped[ip.invitationId]) grouped[ip.invitationId] = [];
-    grouped[ip.invitationId].push(ip.project);
+    grouped[ip.invitationId].push(ip.inbox);
   }
 
   res.json(grouped);
 }));
 
-// Save project assignments for a pending invitation
-// POST /api/members/invitations/:invitationId/projects
-router.post('/invitations/:invitationId/projects', authenticate, requireOrganization, requireAdmin, asyncHandler(async (req, res) => {
+// Save inbox assignments for a pending invitation
+// POST /api/members/invitations/:invitationId/inboxes
+router.post('/invitations/:invitationId/inboxes', authenticate, requireOrganization, requireAdmin, asyncHandler(async (req, res) => {
   const { invitationId } = req.params;
-  const { projectIds } = req.body;
+  const { inboxIds } = req.body;
 
-  if (!projectIds || !Array.isArray(projectIds) || projectIds.length === 0) {
-    throw new ValidationError('At least one project ID is required');
+  if (!inboxIds || !Array.isArray(inboxIds) || inboxIds.length === 0) {
+    throw new ValidationError('At least one inbox ID is required');
   }
 
   // Verify invitation exists, belongs to this org, and is still pending
@@ -195,30 +195,30 @@ router.post('/invitations/:invitationId/projects', authenticate, requireOrganiza
     throw new NotFoundError('Pending invitation not found');
   }
 
-  // Verify all projects belong to this organization
-  const projects = await prisma.project.findMany({
+  // Verify all inboxes belong to this organization
+  const inboxes = await prisma.inbox.findMany({
     where: {
-      id: { in: projectIds },
+      id: { in: inboxIds },
       organizationId: req.organization.id
     }
   });
 
-  if (projects.length !== projectIds.length) {
-    throw new ValidationError('One or more projects not found in this organization');
+  if (inboxes.length !== inboxIds.length) {
+    throw new ValidationError('One or more inboxes not found in this organization');
   }
 
-  // Delete existing invitation projects and create new ones (atomic)
+  // Delete existing invitation inboxes and create new ones (atomic)
   await prisma.$transaction([
-    prisma.invitationProject.deleteMany({ where: { invitationId } }),
-    ...projectIds.map(projectId =>
-      prisma.invitationProject.create({ data: { invitationId, projectId } })
+    prisma.invitationInbox.deleteMany({ where: { invitationId } }),
+    ...inboxIds.map(inboxId =>
+      prisma.invitationInbox.create({ data: { invitationId, inboxId } })
     )
   ]);
 
   res.json({ success: true });
 }));
 
-// Get all clients with their project assignments
+// Get all clients with their inbox assignments
 // GET /api/members/clients
 router.get('/clients', authenticate, requireOrganization, requireAdmin, asyncHandler(async (req, res) => {
   const clients = await prisma.member.findMany({
@@ -228,8 +228,8 @@ router.get('/clients', authenticate, requireOrganization, requireAdmin, asyncHan
     },
     include: {
       user: { select: USER_SELECT },
-      projectAssignments: {
-        include: PROJECT_ASSIGNMENT_INCLUDE
+      inboxAssignments: {
+        include: INBOX_ASSIGNMENT_INCLUDE
       }
     },
     orderBy: {
@@ -279,8 +279,8 @@ router.get('/clients/:memberId', authenticate, requireOrganization, requireAdmin
           phone: true
         }
       },
-      projectAssignments: {
-        include: PROJECT_ASSIGNMENT_INCLUDE
+      inboxAssignments: {
+        include: INBOX_ASSIGNMENT_INCLUDE
       }
     }
   });
@@ -295,8 +295,8 @@ router.get('/clients/:memberId', authenticate, requireOrganization, requireAdmin
       organizationId: req.organization.id
     },
     include: {
-      project: {
-        select: PROJECT_SELECT_BRIEF
+      inbox: {
+        select: INBOX_SELECT_BRIEF
       },
       owner: {
         select: MEMBER_WITH_USER
@@ -310,14 +310,14 @@ router.get('/clients/:memberId', authenticate, requireOrganization, requireAdmin
   const softwareAccess = await prisma.softwareAccessRequest.findMany({
     where: {
       requesterId: memberId,
-      projectSoftware: {
-        project: {
+      inboxSoftware: {
+        inbox: {
           organizationId: req.organization.id
         }
       }
     },
     include: {
-      projectSoftware: {
+      inboxSoftware: {
         include: {
           software: {
             select: {
@@ -327,8 +327,8 @@ router.get('/clients/:memberId', authenticate, requireOrganization, requireAdmin
               vendor: true
             }
           },
-          project: {
-            select: PROJECT_SELECT_BRIEF
+          inbox: {
+            select: INBOX_SELECT_BRIEF
           }
         }
       },
@@ -343,9 +343,9 @@ router.get('/clients/:memberId', authenticate, requireOrganization, requireAdmin
 
   const resolvedAccess = await Promise.all(softwareAccess.map(async (sa) => ({
     ...sa,
-    projectSoftware: {
-      ...sa.projectSoftware,
-      software: { ...sa.projectSoftware.software, iconUrl: await resolveFileUrl(sa.projectSoftware.software.iconUrl) }
+    inboxSoftware: {
+      ...sa.inboxSoftware,
+      software: { ...sa.inboxSoftware.software, iconUrl: await resolveFileUrl(sa.inboxSoftware.software.iconUrl) }
     }
   })));
 

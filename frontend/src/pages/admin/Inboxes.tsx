@@ -16,10 +16,10 @@ import {
 } from '@/components/ui/table'
 import { PlusIcon, FolderIcon, EyeIcon, ComputerDesktopIcon } from '@heroicons/react/24/outline'
 
-interface Project {
+interface Inbox {
   id: string
   name: string
-  projectCode: string
+  inboxCode: string
   clientName?: string
   description?: string
   isActive: boolean
@@ -38,25 +38,25 @@ interface Project {
   }
 }
 
-export default function AdminProjects() {
+export default function AdminInboxes() {
   const navigate = useNavigate()
   const { currentOrg } = useOrganization()
-  const [projects, setProjects] = useState<Project[]>([])
+  const [inboxes, setInboxes] = useState<Inbox[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (currentOrg) {
-      loadProjects()
+      loadInboxes()
     }
   }, [currentOrg])
 
-  const loadProjects = async () => {
+  const loadInboxes = async () => {
     setLoading(true)
     try {
-      const data = await api.getProjects(true) // Include inactive
-      setProjects(data)
+      const data = await api.getInboxes(true) // Include inactive
+      setInboxes(data)
     } catch (error) {
-      console.error('Failed to load projects:', error)
+      console.error('Failed to load inboxes:', error)
     } finally {
       setLoading(false)
     }
@@ -81,23 +81,23 @@ export default function AdminProjects() {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <Heading>Manage Projects</Heading>
-        <Button color="blue" onClick={() => navigate('/admin/projects/new')}>
+        <Heading>Manage Inboxes</Heading>
+        <Button color="blue" onClick={() => navigate('/admin/inboxes/new')}>
           <PlusIcon className="h-4 w-4" />
-          New Project
+          New Inbox
         </Button>
       </div>
 
-      {projects.length === 0 ? (
+      {inboxes.length === 0 ? (
         <div className="rounded-xl bg-white p-12 text-center shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
           <FolderIcon className="mx-auto h-12 w-12 text-zinc-400" />
-          <Subheading className="mt-4">No projects yet</Subheading>
+          <Subheading className="mt-4">No inboxes yet</Subheading>
           <Text className="mt-2">
-            Create your first project to start tracking time.
+            Create your first inbox to start tracking time.
           </Text>
-          <Button color="blue" onClick={() => navigate('/admin/projects/new')} className="mt-4">
+          <Button color="blue" onClick={() => navigate('/admin/inboxes/new')} className="mt-4">
             <PlusIcon className="h-4 w-4" />
-            Create Project
+            Create Inbox
           </Button>
         </div>
       ) : (
@@ -114,27 +114,27 @@ export default function AdminProjects() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {projects.map((project) => (
-                <TableRow key={project.id}>
+              {inboxes.map((inbox) => (
+                <TableRow key={inbox.id}>
                   <TableCell>
                     <button
-                      onClick={() => navigate(`/admin/projects/${project.id}/edit`)}
+                      onClick={() => navigate(`/admin/inboxes/${inbox.id}/edit`)}
                       className="font-medium text-zinc-950 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline text-left"
                     >
-                      {project.name}
+                      {inbox.name}
                     </button>
                   </TableCell>
                   <TableCell className="text-zinc-500">
-                    {project.clientName || '-'}
+                    {inbox.clientName || '-'}
                   </TableCell>
                   <TableCell className="text-zinc-500">
-                    {project.defaultAssignee?.user.name || '-'}
+                    {inbox.defaultAssignee?.user.name || '-'}
                   </TableCell>
                   <TableCell className="text-zinc-500">
-                    {project._count?.timeEntries || 0}
+                    {inbox._count?.timeEntries || 0}
                   </TableCell>
                   <TableCell>
-                    {project.isActive ? (
+                    {inbox.isActive ? (
                       <Badge color="green">Active</Badge>
                     ) : (
                       <Badge color="zinc">Archived</Badge>
@@ -142,10 +142,10 @@ export default function AdminProjects() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button plain onClick={() => navigate(`/admin/projects/${project.id}`)}>
+                      <Button plain onClick={() => navigate(`/admin/inboxes/${inbox.id}`)}>
                         <EyeIcon className="h-4 w-4 text-zinc-400 hover:text-blue-500" />
                       </Button>
-                      <Button plain onClick={() => navigate(`/admin/projects/${project.id}/software`)}>
+                      <Button plain onClick={() => navigate(`/admin/inboxes/${inbox.id}/software`)}>
                         <ComputerDesktopIcon className="h-4 w-4 text-zinc-400 hover:text-blue-500" />
                       </Button>
                     </div>

@@ -177,37 +177,37 @@ router.put('/:id/members/:memberId', asyncHandler(async (req, res) => {
 }));
 
 // ==========================================
-// Get projects for an organization
+// Get inboxes for an organization
 // ==========================================
-router.get('/:id/projects', asyncHandler(async (req, res) => {
+router.get('/:id/inboxes', asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   const org = await prisma.organization.findUnique({ where: { id } });
   if (!org) throw new NotFoundError('Account not found');
 
-  const projects = await prisma.project.findMany({
+  const inboxes = await prisma.inbox.findMany({
     where: { organizationId: id },
     select: {
       id: true,
       name: true,
-      projectCode: true,
+      inboxCode: true,
       isActive: true,
     },
     orderBy: { name: 'asc' },
   });
 
-  res.json(projects);
+  res.json(inboxes);
 }));
 
 // ==========================================
-// Update project assignments for a member
+// Update inbox assignments for a member
 // ==========================================
-router.put('/:id/members/:memberId/projects', asyncHandler(async (req, res) => {
+router.put('/:id/members/:memberId/inboxes', asyncHandler(async (req, res) => {
   const { id, memberId } = req.params;
-  const { projectIds } = req.body;
+  const { inboxIds } = req.body;
 
-  if (!Array.isArray(projectIds)) {
-    throw new ValidationError('projectIds must be an array');
+  if (!Array.isArray(inboxIds)) {
+    throw new ValidationError('inboxIds must be an array');
   }
 
   const member = await prisma.member.findFirst({
@@ -215,18 +215,18 @@ router.put('/:id/members/:memberId/projects', asyncHandler(async (req, res) => {
   });
   if (!member) throw new NotFoundError('Member not found in this account');
 
-  // Verify all projects belong to this organization
-  const projects = await prisma.project.findMany({
-    where: { id: { in: projectIds }, organizationId: id },
+  // Verify all inboxes belong to this organization
+  const inboxes = await prisma.inbox.findMany({
+    where: { id: { in: inboxIds }, organizationId: id },
   });
-  if (projects.length !== projectIds.length) {
-    throw new ValidationError('One or more projects not found in this account');
+  if (inboxes.length !== inboxIds.length) {
+    throw new ValidationError('One or more inboxes not found in this account');
   }
 
   await prisma.$transaction([
-    prisma.projectAssignment.deleteMany({ where: { memberId } }),
-    ...projectIds.map(projectId =>
-      prisma.projectAssignment.create({ data: { memberId, projectId } })
+    prisma.inboxAssignment.deleteMany({ where: { memberId } }),
+    ...inboxIds.map(inboxId =>
+      prisma.inboxAssignment.create({ data: { memberId, inboxId } })
     ),
   ]);
 
@@ -240,10 +240,10 @@ router.put('/:id/members/:memberId/projects', asyncHandler(async (req, res) => {
       user: {
         select: { id: true, name: true, email: true, image: true, banned: true }
       },
-      projectAssignments: {
+      inboxAssignments: {
         select: {
-          project: {
-            select: { id: true, name: true, projectCode: true }
+          inbox: {
+            select: { id: true, name: true, inboxCode: true }
           }
         }
       }

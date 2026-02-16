@@ -7,31 +7,31 @@ import { Heading } from '@/components/ui/heading'
 import { Text } from '@/components/ui/text'
 import { ArrowLeftIcon, TicketIcon } from '@heroicons/react/24/outline'
 
-interface Project {
+interface Inbox {
   id: string
   name: string
-  projectCode: string
+  inboxCode: string
 }
 
 export default function PortalNewTicket() {
   const navigate = useNavigate()
   const { currentOrg } = useOrganization()
-  const [projects, setProjects] = useState<Project[]>([])
+  const [inboxes, setInboxes] = useState<Inbox[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (currentOrg) {
-      loadProjects()
+      loadInboxes()
     }
   }, [currentOrg])
 
-  const loadProjects = async () => {
+  const loadInboxes = async () => {
     setLoading(true)
     try {
-      const projectsData = await api.getPortalProjects()
-      setProjects(projectsData)
+      const inboxesData = await api.getPortalInboxes()
+      setInboxes(inboxesData)
     } catch (error) {
-      console.error('Failed to load projects:', error)
+      console.error('Failed to load inboxes:', error)
     } finally {
       setLoading(false)
     }
@@ -63,7 +63,7 @@ export default function PortalNewTicket() {
     )
   }
 
-  if (projects.length === 0) {
+  if (inboxes.length === 0) {
     return (
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="flex items-center gap-4">
@@ -79,10 +79,10 @@ export default function PortalNewTicket() {
         <div className="bg-white dark:bg-zinc-800 rounded-xl p-12 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10 text-center">
           <TicketIcon className="w-12 h-12 text-zinc-300 dark:text-zinc-600 mx-auto mb-3" />
           <p className="text-zinc-500 dark:text-zinc-400 mb-2">
-            You don't have access to any projects yet.
+            You don't have access to any inboxes yet.
           </p>
           <p className="text-sm text-zinc-400 dark:text-zinc-500">
-            Please contact your service provider to be assigned to a project.
+            Please contact your service provider to be assigned to an inbox.
           </p>
         </div>
       </div>
@@ -106,7 +106,7 @@ export default function PortalNewTicket() {
 
       <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10">
         <TicketForm
-          projects={projects}
+          inboxes={inboxes}
           onSubmit={handleSubmit}
           showPriority={true}
           showContactFields={false}

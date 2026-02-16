@@ -2,7 +2,7 @@ import { useState, useEffect, FormEvent } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { signIn } from '../lib/auth-client'
-import { getSignupInfo, submitClientSignup } from '../api/projects'
+import { getSignupInfo, submitClientSignup } from '../api/inboxes'
 import { Heading } from '@/components/ui/heading'
 import { Text } from '@/components/ui/text'
 import { Button } from '@/components/ui/button'
@@ -12,7 +12,7 @@ import { XCircleIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
 
 interface SignupInfo {
   organizationName: string
-  projectName: string
+  inboxName: string
   branding: { appName: string; primaryColor: string; logoUrl: string | null }
 }
 
@@ -151,7 +151,7 @@ export default function ClientSignup() {
             )}
             <Heading>Join {info?.organizationName}</Heading>
             <Text className="mt-1 text-zinc-600 dark:text-zinc-400">
-              Project: {info?.projectName}
+              Inbox: {info?.inboxName}
             </Text>
           </div>
 
@@ -174,7 +174,7 @@ export default function ClientSignup() {
             onClick={handleAuthenticatedJoin}
             disabled={submitting}
           >
-            {submitting ? 'Joining...' : 'Join Project'}
+            {submitting ? 'Joining...' : 'Join'}
           </Button>
         </div>
       </div>
@@ -192,7 +192,7 @@ export default function ClientSignup() {
             )}
             <Heading>Join {info?.organizationName}</Heading>
             <Text className="mt-1">
-              Create an account to access <span className="font-semibold">{info?.projectName}</span>
+              Create an account to access <span className="font-semibold">{info?.inboxName}</span>
             </Text>
           </div>
 

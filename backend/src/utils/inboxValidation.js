@@ -3,13 +3,13 @@ import { ValidationError } from './errors.js';
 
 const STAFF_ROLES = ['owner', 'manager', 'member'];
 
-export async function validateProjectCodeUnique(organizationId, projectCode, excludeId = null) {
-  const where = { organizationId, projectCode };
+export async function validateInboxCodeUnique(organizationId, inboxCode, excludeId = null) {
+  const where = { organizationId, inboxCode };
   if (excludeId) where.NOT = { id: excludeId };
 
-  const existing = await prisma.project.findFirst({ where });
+  const existing = await prisma.inbox.findFirst({ where });
   if (existing) {
-    throw new ValidationError('Project code already exists');
+    throw new ValidationError('Inbox code already exists');
   }
 }
 

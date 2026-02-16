@@ -6,12 +6,12 @@ import { Select } from '@/components/ui/select'
 import { Field, FieldGroup, Label, Description } from '@/components/ui/fieldset'
 import { Dialog, DialogTitle, DialogDescription, DialogBody, DialogActions } from '@/components/ui/dialog'
 import { EnvelopeIcon, UserPlusIcon } from '@heroicons/react/24/outline'
-import ProjectCheckboxList from './ProjectCheckboxList'
+import InboxCheckboxList from './InboxCheckboxList'
 
-interface Project {
+interface Inbox {
   id: string
   name: string
-  projectCode: string
+  inboxCode: string
   isActive: boolean
 }
 
@@ -30,16 +30,16 @@ export default function AddUserModal({ open, onClose, onSuccess, isSuperAdmin, i
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<'manager' | 'member' | 'client'>('member')
-  const [projectIds, setProjectIds] = useState<string[]>([])
-  const [projects, setProjects] = useState<Project[]>([])
+  const [inboxIds, setInboxIds] = useState<string[]>([])
+  const [inboxes, setInboxes] = useState<Inbox[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (open) {
-      api.getProjects()
-        .then(data => setProjects(data.filter((p: Project) => p.isActive)))
-        .catch(err => console.error('Failed to load projects:', err))
+      api.getInboxes()
+        .then(data => setInboxes(data.filter((p: Inbox) => p.isActive)))
+        .catch(err => console.error('Failed to load inboxes:', err))
     }
   }, [open])
 
@@ -50,7 +50,7 @@ export default function AddUserModal({ open, onClose, onSuccess, isSuperAdmin, i
     setPhone('')
     setPassword('')
     setRole('member')
-    setProjectIds([])
+    setInboxIds([])
     setError('')
   }
 
@@ -59,9 +59,9 @@ export default function AddUserModal({ open, onClose, onSuccess, isSuperAdmin, i
     onClose()
   }
 
-  const handleProjectToggle = (projectId: string, checked: boolean) => {
-    setProjectIds(prev =>
-      checked ? [...prev, projectId] : prev.filter(id => id !== projectId)
+  const handleInboxToggle = (inboxId: string, checked: boolean) => {
+    setInboxIds(prev =>
+      checked ? [...prev, inboxId] : prev.filter(id => id !== inboxId)
     )
   }
 
@@ -78,16 +78,16 @@ export default function AddUserModal({ open, onClose, onSuccess, isSuperAdmin, i
     setLoading(true)
 
     try {
-      if (role === 'client' && projectIds.length === 0) {
-        throw new Error('Please select at least one project for the client')
+      if (role === 'client' && inboxIds.length === 0) {
+        throw new Error('Please select at least one inbox for the client')
       }
 
       if (addMode === 'invite') {
         const invitationId = await inviteMember(email, role)
 
-        // Save project assignments for the invitation if any were selected
-        if (projectIds.length > 0) {
-          await api.saveInvitationProjects(invitationId, projectIds)
+        // Save inbox assignments for the invitation if any were selected
+        if (inboxIds.length > 0) {
+          await api.saveInvitationInboxes(invitationId, inboxIds)
         }
       } else {
         if (!name.trim()) throw new Error('Name is required')
@@ -100,7 +100,7 @@ export default function AddUserModal({ open, onClose, onSuccess, isSuperAdmin, i
           phone,
           password,
           role,
-          projectIds: (role === 'client' || role === 'member') ? projectIds : undefined,
+          inboxIds: (role === 'client' || role === 'member') ? inboxIds : undefined,
         })
       }
 
@@ -113,8 +113,8 @@ export default function AddUserModal({ open, onClose, onSuccess, isSuperAdmin, i
     }
   }
 
-  const showProjectSelection = addMode === 'invite' || (addMode === 'create' && (role === 'client' || role === 'member'))
-  const projectsRequired = role === 'client'
+  const showInboxSelection = addMode === 'invite' || (addMode === 'create' && (role === 'client' || role === 'member'))
+  const inboxesRequired = role === 'client'
 
   return (
     <Dialog open={open} onClose={handleClose} size="md">
@@ -219,25 +219,25 @@ export default function AddUserModal({ open, onClose, onSuccess, isSuperAdmin, i
                 <option value="client">Client</option>
               </Select>
               <Description className="mt-2 text-sm text-zinc-500">
-                {role === 'manager' && 'Can manage members, projects, and tickets'}
+                {role === 'manager' && 'Can manage members, inboxes, and tickets'}
                 {role === 'member' && 'Can track time and work on tickets'}
                 {role === 'client' && 'Can submit and view support tickets'}
               </Description>
             </Field>
 
-            {showProjectSelection && (
+            {showInboxSelection && (
               <Field>
-                <Label>Project Access{projectsRequired ? ' *' : ''}</Label>
+                <Label>Inbox Access{inboxesRequired ? ' *' : ''}</Label>
                 <Description className="mb-2">
-                  {projectsRequired
-                    ? 'Select at least one project the client can access.'
-                    : 'Optionally assign projects the user will have access to.'}
+                  {inboxesRequired
+                    ? 'Select at least one inbox the client can access.'
+                    : 'Optionally assign inboxes the user will have access to.'}
                 </Description>
-                <ProjectCheckboxList
-                  projects={projects}
-                  selectedIds={projectIds}
-                  onToggle={handleProjectToggle}
-                  emptyMessage="No active projects available. Create a project first."
+                <InboxCheckboxList
+                  inboxes={inboxes}
+                  selectedIds={inboxIds}
+                  onToggle={handleInboxToggle}
+                  emptyMessage="No active inboxes available. Create an inbox first."
                 />
               </Field>
             )}

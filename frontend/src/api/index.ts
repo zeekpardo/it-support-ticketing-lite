@@ -10,7 +10,7 @@
  *
  * Usage (new - preferred for new code):
  *   import { api } from '../api'
- *   import { getProjects, createProject } from '../api/projects'
+ *   import { getInboxes, createInbox } from '../api/inboxes'
  *   import type { TicketStage } from '../api/types'
  */
 
@@ -25,11 +25,11 @@ export type { RequestOptions } from './base'
 export type {
   SoftwareCategory,
   GlobalSoftware,
-  ProjectSoftware,
+  InboxSoftware,
   SoftwareBudgetSummary,
-  ProjectSoftwareAdmin,
+  InboxSoftwareAdmin,
   SoftwareAccessRequest,
-  ProjectSoftwareDetail,
+  InboxSoftwareDetail,
   PortalSoftware,
   PortalAccessRequest,
   TicketStage,
@@ -45,7 +45,7 @@ export type {
 } from './types'
 
 // Domain modules (namespace imports for grouped access)
-export * as projectsApi from './projects'
+export * as inboxesApi from './inboxes'
 export * as ticketsApi from './tickets'
 export * as membersApi from './members'
 export * as softwareApi from './software'

@@ -7,13 +7,13 @@ import { request, upload } from './base'
 export async function getTimeEntries(filters: {
   startDate?: string
   endDate?: string
-  projectId?: string
+  inboxId?: string
   userId?: string
 } = {}) {
   const params = new URLSearchParams()
   if (filters.startDate) params.append('startDate', filters.startDate)
   if (filters.endDate) params.append('endDate', filters.endDate)
-  if (filters.projectId) params.append('projectId', filters.projectId)
+  if (filters.inboxId) params.append('inboxId', filters.inboxId)
   if (filters.userId) params.append('userId', filters.userId)
 
   const query = params.toString()
@@ -25,7 +25,7 @@ export async function getTimeEntry(id: string) {
 }
 
 export async function createTimeEntry(data: {
-  projectId: string
+  inboxId: string
   taskName: string
   startTime?: string
   endTime?: string
@@ -39,7 +39,7 @@ export async function createTimeEntry(data: {
 }
 
 export async function updateTimeEntry(id: string, data: {
-  projectId?: string
+  inboxId?: string
   taskName?: string
   startTime?: string
   endTime?: string
@@ -68,7 +68,7 @@ export async function stopTimer(id: string) {
 // ==========================================
 
 export async function getTickets(filters: {
-  projectId?: string
+  inboxId?: string
   status?: string
   ownerId?: string
   clientId?: string
@@ -87,7 +87,7 @@ export async function getTicket(id: string) {
 }
 
 export async function createTicket(data: {
-  projectId: string
+  inboxId: string
   clientId: string
   firstName: string
   lastName: string

@@ -1,27 +1,27 @@
 import { useState } from 'react'
 
 export function useDashboardFilters() {
-  const [filterProject, setFilterProject] = useState('')
+  const [filterInbox, setFilterInbox] = useState('')
   const [filterAssignee, setFilterAssignee] = useState('')
   const [filterPriority, setFilterPriority] = useState('')
 
-  const hasActiveFilters = !!(filterProject || filterAssignee || filterPriority)
+  const hasActiveFilters = !!(filterInbox || filterAssignee || filterPriority)
 
   const clearFilters = () => {
-    setFilterProject('')
+    setFilterInbox('')
     setFilterAssignee('')
     setFilterPriority('')
   }
 
   const filterParams = {
-    projectId: filterProject || undefined,
+    inboxId: filterInbox || undefined,
     ownerId: filterAssignee || undefined,
     priorityLevel: filterPriority || undefined,
   }
 
   return {
-    filterProject,
-    setFilterProject,
+    filterInbox,
+    setFilterInbox,
     filterAssignee,
     setFilterAssignee,
     filterPriority,

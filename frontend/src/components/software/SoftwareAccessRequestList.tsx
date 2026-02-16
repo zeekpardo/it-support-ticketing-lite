@@ -69,9 +69,9 @@ export function SoftwareAccessRequestList({
                 {showSoftwareName && request.software && (
                   <p className="text-sm font-medium text-zinc-900 dark:text-white mb-1">
                     {request.software.name}
-                    {request.software.project && (
+                    {request.software.inbox && (
                       <span className="text-zinc-500 dark:text-zinc-400 font-normal">
-                        {' '}in {request.software.project.name}
+                        {' '}in {request.software.inbox.name}
                       </span>
                     )}
                   </p>

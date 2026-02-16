@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { api, ProjectSoftwareDetail as ProjectSoftwareDetailType, SoftwareAccessRequest } from '../../api/client'
+import { api, InboxSoftwareDetail as InboxSoftwareDetailType, SoftwareAccessRequest } from '../../api/client'
 import { useModalForm } from '../../hooks/useModalForm'
 import { useCrudForm } from '../../hooks/useCrudForm'
 import { Text } from '@/components/ui/text'
@@ -16,11 +16,11 @@ import {
 } from './project-software-detail'
 import type { EditFormState, StaffMember } from './project-software-detail'
 
-export default function ProjectSoftwareDetail() {
-  const { projectId, id } = useParams<{ projectId: string; id: string }>()
+export default function InboxSoftwareDetail() {
+  const { inboxId, id } = useParams<{ inboxId: string; id: string }>()
   const navigate = useNavigate()
 
-  const [software, setSoftware] = useState<ProjectSoftwareDetailType | null>(null)
+  const [software, setSoftware] = useState<InboxSoftwareDetailType | null>(null)
   const [loading, setLoading] = useState(true)
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
 
@@ -71,17 +71,17 @@ export default function ProjectSoftwareDetail() {
   const [isEditingDetails, setIsEditingDetails] = useState(false)
 
   useEffect(() => {
-    if (projectId && id) {
+    if (inboxId && id) {
       loadSoftware()
       loadStaffMembers()
     }
-  }, [projectId, id])
+  }, [inboxId, id])
 
   const loadSoftware = async () => {
-    if (!projectId || !id) return
+    if (!inboxId || !id) return
     setLoading(true)
     try {
-      const data = await api.getProjectSoftwareById(projectId, id)
+      const data = await api.getInboxSoftwareById(inboxId, id)
       setSoftware(data)
     } catch (error) {
       console.error('Failed to load software:', error)
@@ -123,10 +123,10 @@ export default function ProjectSoftwareDetail() {
   }
 
   const handleSaveDetails = async () => {
-    if (!projectId || !id) return
+    if (!inboxId || !id) return
     try {
       await detailsForm.handleSubmit(async () => {
-        await api.updateProjectSoftware(projectId!, id!, {
+        await api.updateInboxSoftware(inboxId!, id!, {
           renewalDate: detailsForm.data.renewalDate || null,
           billingCycle: detailsForm.data.billingCycle || null,
           cost: detailsForm.data.cost || null,
@@ -148,10 +148,10 @@ export default function ProjectSoftwareDetail() {
   }
 
   const handleSaveNotes = async () => {
-    if (!projectId || !id) return
+    if (!inboxId || !id) return
     try {
       await editNotesModal.handleSubmit(async () => {
-        await api.updateProjectSoftware(projectId!, id!, { notes: editNotesModal.formData.notes })
+        await api.updateInboxSoftware(inboxId!, id!, { notes: editNotesModal.formData.notes })
         editNotesModal.close()
         loadSoftware()
       })
@@ -161,11 +161,11 @@ export default function ProjectSoftwareDetail() {
   }
 
   const handleDelete = async () => {
-    if (!projectId || !id) return
+    if (!inboxId || !id) return
     setDeleting(true)
     try {
-      await api.removeProjectSoftware(projectId, id)
-      navigate(`/admin/projects/${projectId}/software`)
+      await api.removeInboxSoftware(inboxId, id)
+      navigate(`/admin/inboxes/${inboxId}/software`)
     } catch (error) {
       console.error('Failed to delete software:', error)
     } finally {
@@ -178,10 +178,10 @@ export default function ProjectSoftwareDetail() {
   }
 
   const handleAddAdmin = async () => {
-    if (!projectId || !id || !addAdminModal.formData.memberId) return
+    if (!inboxId || !id || !addAdminModal.formData.memberId) return
     try {
       await addAdminModal.handleSubmit(async () => {
-        await api.addProjectSoftwareAdmin(projectId!, id!, {
+        await api.addInboxSoftwareAdmin(inboxId!, id!, {
           memberId: addAdminModal.formData.memberId,
           role: addAdminModal.formData.role
         })
@@ -194,9 +194,9 @@ export default function ProjectSoftwareDetail() {
   }
 
   const handleRemoveAdmin = async (adminId: string) => {
-    if (!projectId || !id) return
+    if (!inboxId || !id) return
     try {
-      await api.removeProjectSoftwareAdmin(projectId, id, adminId)
+      await api.removeInboxSoftwareAdmin(inboxId, id, adminId)
       loadSoftware()
     } catch (error) {
       console.error('Failed to remove admin:', error)
@@ -204,9 +204,9 @@ export default function ProjectSoftwareDetail() {
   }
 
   const handleUpdateAdminRole = async (adminId: string, role: 'OWNER' | 'ADMIN') => {
-    if (!projectId || !id) return
+    if (!inboxId || !id) return
     try {
-      await api.updateProjectSoftwareAdmin(projectId, id, adminId, { role })
+      await api.updateInboxSoftwareAdmin(inboxId, id, adminId, { role })
       loadSoftware()
     } catch (error) {
       console.error('Failed to update admin role:', error)
@@ -219,10 +219,10 @@ export default function ProjectSoftwareDetail() {
   }
 
   const handleReviewRequest = async () => {
-    if (!projectId || !id || !reviewModal.editingItem) return
+    if (!inboxId || !id || !reviewModal.editingItem) return
     try {
       await reviewModal.handleSubmit(async () => {
-        await api.reviewAccessRequest(projectId!, id!, reviewModal.editingItem!.id, {
+        await api.reviewAccessRequest(inboxId!, id!, reviewModal.editingItem!.id, {
           status: reviewModal.formData.status,
           reviewNotes: reviewModal.formData.notes || undefined
         })
@@ -240,10 +240,10 @@ export default function ProjectSoftwareDetail() {
   }
 
   const handleDeleteRequest = async () => {
-    if (!projectId || !id || !deletingRequest) return
+    if (!inboxId || !id || !deletingRequest) return
     setDeletingRequestLoading(true)
     try {
-      await api.deleteAccessRequest(projectId, id, deletingRequest.id)
+      await api.deleteAccessRequest(inboxId, id, deletingRequest.id)
       setShowDeleteRequestModal(false)
       setDeletingRequest(null)
       loadSoftware()
@@ -285,7 +285,7 @@ export default function ProjectSoftwareDetail() {
         isEditingDetails={isEditingDetails}
         savingDetails={detailsForm.saving}
         editForm={detailsForm.data}
-        onNavigateBack={() => navigate(`/admin/projects/${projectId}/software`)}
+        onNavigateBack={() => navigate(`/admin/inboxes/${inboxId}/software`)}
         onOpenWebsite={() => window.open(software.software.websiteUrl, '_blank')}
         onShowDeleteModal={() => setShowDeleteModal(true)}
         onOpenEditNotesModal={openEditModal}

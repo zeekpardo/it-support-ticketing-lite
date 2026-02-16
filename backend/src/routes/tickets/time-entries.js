@@ -3,7 +3,7 @@ import { prisma } from '../../lib/auth.js';
 import { requireStaff } from '../../middleware/auth.js';
 import { asyncHandler } from '../../middleware/asyncHandler.js';
 import { findTicketWithAccess } from '../../utils/entityHelpers.js';
-import { USER_SELECT, USER_SELECT_BRIEF, PROJECT_SELECT_BRIEF } from '../../utils/prismaFragments.js';
+import { USER_SELECT, USER_SELECT_BRIEF, INBOX_SELECT_BRIEF } from '../../utils/prismaFragments.js';
 
 const router = express.Router();
 
@@ -16,7 +16,7 @@ router.get('/:id/time-entries', requireStaff, asyncHandler(async (req, res) => {
     orderBy: { startTime: 'desc' },
     include: {
       user: { select: USER_SELECT },
-      project: { select: PROJECT_SELECT_BRIEF },
+      inbox: { select: INBOX_SELECT_BRIEF },
     },
   });
 
@@ -27,7 +27,7 @@ router.get('/:id/time-entries', requireStaff, asyncHandler(async (req, res) => {
 router.post('/:id/time-entries', requireStaff, asyncHandler(async (req, res) => {
   const ticket = await findTicketWithAccess(req.params.id, req.organization.id, req.membership, {
     include: {
-      project: true,
+      inbox: true,
     },
   });
 
@@ -54,7 +54,7 @@ router.post('/:id/time-entries', requireStaff, asyncHandler(async (req, res) => 
     data: {
       organizationId: req.organization.id,
       userId: req.user.id,
-      projectId: ticket.projectId,
+      inboxId: ticket.inboxId,
       ticketId: ticket.id,
       taskName: `Ticket: ${ticket.subject}`,
       startTime: new Date(),
@@ -62,7 +62,7 @@ router.post('/:id/time-entries', requireStaff, asyncHandler(async (req, res) => 
     },
     include: {
       user: { select: USER_SELECT_BRIEF },
-      project: { select: PROJECT_SELECT_BRIEF },
+      inbox: { select: INBOX_SELECT_BRIEF },
       ticket: { select: { id: true, subject: true } },
     },
   });

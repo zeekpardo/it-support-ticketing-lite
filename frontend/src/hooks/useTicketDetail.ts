@@ -19,10 +19,10 @@ export interface Ticket {
   dueDate?: string | null
   createdAt: string
   updatedAt: string
-  project: {
+  inbox: {
     id: string
     name: string
-    projectCode: string
+    inboxCode: string
   }
   client: {
     id: string
@@ -57,7 +57,7 @@ export interface MentionableMember {
   user: { id: string; name: string; email: string }
 }
 
-export function useTicketDetail(ticketId: string | undefined, projectId: string | undefined) {
+export function useTicketDetail(ticketId: string | undefined, inboxId: string | undefined) {
   const navigate = useNavigate()
   const { currentOrg, isAdmin, isStaff } = useOrganization()
 
@@ -214,7 +214,7 @@ export function useTicketDetail(ticketId: string | undefined, projectId: string 
     if (!ticket || !confirm('Are you sure you want to delete this ticket?')) return
     try {
       await api.deleteTicket(ticket.id)
-      navigate(`/projects/${projectId}/tickets`)
+      navigate(`/inboxes/${inboxId}/tickets`)
     } catch (error) {
       console.error('Failed to delete ticket:', error)
     }

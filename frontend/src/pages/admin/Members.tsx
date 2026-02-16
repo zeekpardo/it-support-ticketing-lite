@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/table'
 import { PlusIcon, TrashIcon, UserGroupIcon, FolderIcon } from '@heroicons/react/24/outline'
 import AddUserModal from './members/AddUserModal'
-import ProjectAssignmentModal from './members/ProjectAssignmentModal'
+import InboxAssignmentModal from './members/InboxAssignmentModal'
 
 interface Member {
   id: string
@@ -54,8 +54,8 @@ export default function AdminMembers() {
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [projectsMember, setProjectsMember] = useState<Member | null>(null)
-  const [invitationProjects, setInvitationProjects] = useState<Record<string, Array<{ id: string; name: string; projectCode: string }>>>({})
+  const [inboxesMember, setInboxesMember] = useState<Member | null>(null)
+  const [invitationInboxes, setInvitationProjects] = useState<Record<string, Array<{ id: string; name: string; inboxCode: string }>>>({})
 
   useEffect(() => {
     if (currentOrg) loadMembers()
@@ -81,7 +81,7 @@ export default function AdminMembers() {
         if (pending.length > 0) {
           api.getInvitationProjects()
             .then(setInvitationProjects)
-            .catch(err => console.error('Failed to load invitation projects:', err))
+            .catch(err => console.error('Failed to load invitation inboxes:', err))
         } else {
           setInvitationProjects({})
         }
@@ -201,8 +201,8 @@ export default function AdminMembers() {
                       {(member.role === 'client' || member.role === 'member') && isOwner && (
                         <Button
                           plain
-                          onClick={() => setProjectsMember(member)}
-                          title="Manage project access"
+                          onClick={() => setInboxesMember(member)}
+                          title="Manage inbox access"
                         >
                           <FolderIcon className="h-4 w-4 text-zinc-400 hover:text-blue-500" />
                         </Button>
@@ -234,14 +234,14 @@ export default function AdminMembers() {
                 <TableRow>
                   <TableHeader>Email</TableHeader>
                   <TableHeader>Role</TableHeader>
-                  <TableHeader>Projects</TableHeader>
+                  <TableHeader>Inboxes</TableHeader>
                   <TableHeader>Expires</TableHeader>
                   <TableHeader className="w-[100px]">Actions</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {invitations.map((invitation) => {
-                  const projects = invitationProjects[invitation.id] || []
+                  const inboxes = invitationInboxes[invitation.id] || []
                   return (
                     <TableRow key={invitation.id}>
                       <TableCell className="font-medium">{invitation.email}</TableCell>
@@ -251,8 +251,8 @@ export default function AdminMembers() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-zinc-500">
-                        {projects.length > 0
-                          ? projects.map(p => p.name).join(', ')
+                        {inboxes.length > 0
+                          ? inboxes.map(p => p.name).join(', ')
                           : <span className="text-zinc-400">None</span>}
                       </TableCell>
                       <TableCell className="text-zinc-500">
@@ -283,9 +283,9 @@ export default function AdminMembers() {
         inviteMember={inviteMember}
       />
 
-      <ProjectAssignmentModal
-        member={projectsMember}
-        onClose={() => setProjectsMember(null)}
+      <InboxAssignmentModal
+        member={inboxesMember}
+        onClose={() => setInboxesMember(null)}
       />
     </div>
   )

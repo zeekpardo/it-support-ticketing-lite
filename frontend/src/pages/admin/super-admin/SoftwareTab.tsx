@@ -307,7 +307,7 @@ export function SoftwareTab() {
                 </TableCell>
                 <TableCell>{getStatusBadge(item.status)}</TableCell>
                 <TableCell className="text-zinc-500">
-                  {item._count?.projectSoftware || 0}
+                  {item._count?.inboxSoftware || 0}
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1">

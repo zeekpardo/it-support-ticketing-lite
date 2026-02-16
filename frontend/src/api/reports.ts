@@ -7,14 +7,14 @@ import { request } from './base'
 export async function getReportSummary(filters: {
   startDate?: string
   endDate?: string
-  projectId?: string
+  inboxId?: string
   userId?: string
-  groupBy?: 'project' | 'user' | 'date'
+  groupBy?: 'inbox' | 'user' | 'date'
 } = {}) {
   const params = new URLSearchParams()
   if (filters.startDate) params.append('startDate', filters.startDate)
   if (filters.endDate) params.append('endDate', filters.endDate)
-  if (filters.projectId) params.append('projectId', filters.projectId)
+  if (filters.inboxId) params.append('inboxId', filters.inboxId)
   if (filters.userId) params.append('userId', filters.userId)
   if (filters.groupBy) params.append('groupBy', filters.groupBy)
 
@@ -25,13 +25,13 @@ export async function getReportSummary(filters: {
 export async function exportTimeEntries(filters: {
   startDate?: string
   endDate?: string
-  projectId?: string
+  inboxId?: string
   userId?: string
 } = {}) {
   const params = new URLSearchParams()
   if (filters.startDate) params.append('startDate', filters.startDate)
   if (filters.endDate) params.append('endDate', filters.endDate)
-  if (filters.projectId) params.append('projectId', filters.projectId)
+  if (filters.inboxId) params.append('inboxId', filters.inboxId)
   if (filters.userId) params.append('userId', filters.userId)
 
   const query = params.toString()

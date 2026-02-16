@@ -160,7 +160,7 @@ export async function sendMentionEmail({ to, recipientName, authorName, ticketSu
   });
 }
 
-export async function sendTicketSubmittedEmail({ to, recipientName, projectName, ticketSubject, requestType, priorityLevel, description, ticketId, branding = {} }) {
+export async function sendTicketSubmittedEmail({ to, recipientName, inboxName, ticketSubject, requestType, priorityLevel, description, ticketId, branding = {} }) {
   const ticketUrl = `${FRONTEND_URL}/portal/tickets/${ticketId}`;
   const displayDescription = truncateDescription(description);
   const formattedRequestType = formatRequestType(requestType);
@@ -178,7 +178,7 @@ export async function sendTicketSubmittedEmail({ to, recipientName, projectName,
     html: buildHtmlEmail({
       greeting: recipientName,
       paragraphs: [
-        `Thank you for contacting Support for <strong>${escapeHtml(projectName)}</strong>. Your request for <strong>${escapeHtml(ticketSubject)}</strong> has been received and is under review. Requests are prioritized and addressed based on urgency.`,
+        `Thank you for contacting Support for <strong>${escapeHtml(inboxName)}</strong>. Your request for <strong>${escapeHtml(ticketSubject)}</strong> has been received and is under review. Requests are prioritized and addressed based on urgency.`,
         { html: ticketDetailsTable({ requestType, priority: priorityLevel }) },
         '<strong>Description</strong>'
       ],
@@ -189,7 +189,7 @@ export async function sendTicketSubmittedEmail({ to, recipientName, projectName,
     text: buildTextEmail({
       greeting: recipientName,
       paragraphs: [
-        `Thank you for contacting Support for ${projectName}. Your request for "${ticketSubject}" has been received and is under review. Requests are prioritized and addressed based on urgency.`,
+        `Thank you for contacting Support for ${inboxName}. Your request for "${ticketSubject}" has been received and is under review. Requests are prioritized and addressed based on urgency.`,
         `Request Type: ${formattedRequestType}`,
         `Priority Level: ${formattedPriority}`,
         'Description:'
@@ -211,7 +211,7 @@ export async function sendTicketSubmittedEmail({ to, recipientName, projectName,
   return result;
 }
 
-export async function sendNewTicketAssignedEmail({ to, recipientName, clientName, projectName, ticketSubject, requestType, priorityLevel, description, ticketId, branding = {} }) {
+export async function sendNewTicketAssignedEmail({ to, recipientName, clientName, inboxName, ticketSubject, requestType, priorityLevel, description, ticketId, branding = {} }) {
   const ticketUrl = `${FRONTEND_URL}/admin/tickets/${ticketId}`;
   const displayDescription = truncateDescription(description);
   const formattedRequestType = formatRequestType(requestType);
@@ -224,7 +224,7 @@ export async function sendNewTicketAssignedEmail({ to, recipientName, clientName
     html: buildHtmlEmail({
       greeting: recipientName,
       paragraphs: [
-        `A new support request has been submitted by <strong>${escapeHtml(clientName)}</strong> for <strong>${escapeHtml(projectName)}</strong>.`,
+        `A new support request has been submitted by <strong>${escapeHtml(clientName)}</strong> for <strong>${escapeHtml(inboxName)}</strong>.`,
         { html: ticketDetailsTable({ subject: ticketSubject, requestType, priority: priorityLevel }) },
         '<strong>Description</strong>'
       ],
@@ -235,7 +235,7 @@ export async function sendNewTicketAssignedEmail({ to, recipientName, clientName
     text: buildTextEmail({
       greeting: recipientName,
       paragraphs: [
-        `A new support request has been submitted by ${clientName} for ${projectName}.`,
+        `A new support request has been submitted by ${clientName} for ${inboxName}.`,
         `Subject: ${ticketSubject}`,
         `Request Type: ${formattedRequestType}`,
         `Priority Level: ${formattedPriority}`,

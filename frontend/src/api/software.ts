@@ -2,10 +2,10 @@ import { request, upload } from './base'
 import type {
   GlobalSoftware,
   SoftwareCategory,
-  ProjectSoftware,
-  ProjectSoftwareDetail,
+  InboxSoftware,
+  InboxSoftwareDetail,
   SoftwareBudgetSummary,
-  ProjectSoftwareAdmin,
+  InboxSoftwareAdmin,
   SoftwareAccessRequest
 } from './types'
 
@@ -41,25 +41,25 @@ export async function submitNewSoftware(data: {
 }
 
 // ==========================================
-// Project Software Management
+// Inbox Software Management
 // ==========================================
 
-export async function getProjectSoftware(projectId: string) {
-  return request<ProjectSoftware[]>(`/software/projects/${projectId}/software`)
+export async function getInboxSoftware(inboxId: string) {
+  return request<InboxSoftware[]>(`/software/inboxes/${inboxId}/software`)
 }
 
-export async function getProjectSoftwareById(projectId: string, id: string) {
-  return request<ProjectSoftwareDetail>(`/software/projects/${projectId}/software/${id}`)
+export async function getInboxSoftwareById(inboxId: string, id: string) {
+  return request<InboxSoftwareDetail>(`/software/inboxes/${inboxId}/software/${id}`)
 }
 
-export async function addSoftwareToProject(projectId: string, softwareId: string, notes?: string) {
-  return request<ProjectSoftware>(`/software/projects/${projectId}/software/${softwareId}`, {
+export async function addSoftwareToInbox(inboxId: string, softwareId: string, notes?: string) {
+  return request<InboxSoftware>(`/software/inboxes/${inboxId}/software/${softwareId}`, {
     method: 'POST',
     body: JSON.stringify({ notes })
   })
 }
 
-export async function updateProjectSoftware(projectId: string, id: string, data: {
+export async function updateInboxSoftware(inboxId: string, id: string, data: {
   notes?: string
   renewalDate?: string | null
   billingCycle?: 'MONTHLY' | 'YEARLY' | null
@@ -73,38 +73,38 @@ export async function updateProjectSoftware(projectId: string, id: string, data:
   contractUrl?: string | null
   loginUrl?: string | null
 }) {
-  return request<ProjectSoftware>(`/software/projects/${projectId}/software/${id}`, {
+  return request<InboxSoftware>(`/software/inboxes/${inboxId}/software/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data)
   })
 }
 
-export async function getProjectSoftwareBudget(projectId: string) {
-  return request<SoftwareBudgetSummary>(`/software/projects/${projectId}/software-budget`)
+export async function getInboxSoftwareBudget(inboxId: string) {
+  return request<SoftwareBudgetSummary>(`/software/inboxes/${inboxId}/software-budget`)
 }
 
-export async function removeProjectSoftware(projectId: string, id: string) {
-  return request<{ message: string }>(`/software/projects/${projectId}/software/${id}`, {
+export async function removeInboxSoftware(inboxId: string, id: string) {
+  return request<{ message: string }>(`/software/inboxes/${inboxId}/software/${id}`, {
     method: 'DELETE'
   })
 }
 
 // ==========================================
-// Project Software Admins
+// Inbox Software Admins
 // ==========================================
 
-export async function getProjectSoftwareAdmins(projectId: string, softwareId: string) {
-  return request<ProjectSoftwareAdmin[]>(
-    `/software/projects/${projectId}/software/${softwareId}/admins`
+export async function getInboxSoftwareAdmins(inboxId: string, softwareId: string) {
+  return request<InboxSoftwareAdmin[]>(
+    `/software/inboxes/${inboxId}/software/${softwareId}/admins`
   )
 }
 
-export async function addProjectSoftwareAdmin(projectId: string, softwareId: string, data: {
+export async function addInboxSoftwareAdmin(inboxId: string, softwareId: string, data: {
   memberId: string
   role?: 'OWNER' | 'ADMIN'
 }) {
-  return request<ProjectSoftwareAdmin>(
-    `/software/projects/${projectId}/software/${softwareId}/admins`,
+  return request<InboxSoftwareAdmin>(
+    `/software/inboxes/${inboxId}/software/${softwareId}/admins`,
     {
       method: 'POST',
       body: JSON.stringify(data)
@@ -112,11 +112,11 @@ export async function addProjectSoftwareAdmin(projectId: string, softwareId: str
   )
 }
 
-export async function updateProjectSoftwareAdmin(projectId: string, softwareId: string, adminId: string, data: {
+export async function updateInboxSoftwareAdmin(inboxId: string, softwareId: string, adminId: string, data: {
   role: 'OWNER' | 'ADMIN'
 }) {
-  return request<ProjectSoftwareAdmin>(
-    `/software/projects/${projectId}/software/${softwareId}/admins/${adminId}`,
+  return request<InboxSoftwareAdmin>(
+    `/software/inboxes/${inboxId}/software/${softwareId}/admins/${adminId}`,
     {
       method: 'PUT',
       body: JSON.stringify(data)
@@ -124,39 +124,39 @@ export async function updateProjectSoftwareAdmin(projectId: string, softwareId: 
   )
 }
 
-export async function removeProjectSoftwareAdmin(projectId: string, softwareId: string, adminId: string) {
+export async function removeInboxSoftwareAdmin(inboxId: string, softwareId: string, adminId: string) {
   return request<{ message: string }>(
-    `/software/projects/${projectId}/software/${softwareId}/admins/${adminId}`,
+    `/software/inboxes/${inboxId}/software/${softwareId}/admins/${adminId}`,
     { method: 'DELETE' }
   )
 }
 
 // ==========================================
-// Project Software Access Requests
+// Inbox Software Access Requests
 // ==========================================
 
-export async function getProjectSoftwareRequests(projectId: string, softwareId: string, status?: string) {
+export async function getInboxSoftwareRequests(inboxId: string, softwareId: string, status?: string) {
   const queryParams = new URLSearchParams()
   if (status) queryParams.append('status', status)
   const query = queryParams.toString()
 
   return request<SoftwareAccessRequest[]>(
-    `/software/projects/${projectId}/software/${softwareId}/requests${query ? `?${query}` : ''}`
+    `/software/inboxes/${inboxId}/software/${softwareId}/requests${query ? `?${query}` : ''}`
   )
 }
 
-export async function getAllProjectRequests(projectId: string) {
-  return request<SoftwareAccessRequest[]>(`/software/projects/${projectId}/requests`)
+export async function getAllInboxRequests(inboxId: string) {
+  return request<SoftwareAccessRequest[]>(`/software/inboxes/${inboxId}/requests`)
 }
 
-export async function getAllPendingAccessRequests(projectId?: string) {
+export async function getAllPendingAccessRequests(inboxId?: string) {
   const queryParams = new URLSearchParams()
-  if (projectId) queryParams.append('projectId', projectId)
+  if (inboxId) queryParams.append('inboxId', inboxId)
   const query = queryParams.toString()
   return request<Array<SoftwareAccessRequest & {
-    projectSoftware: {
+    inboxSoftware: {
       software: { id: string; name: string; iconUrl?: string }
-      project: { id: string; name: string; projectCode: string; defaultAssigneeId?: string }
+      inbox: { id: string; name: string; inboxCode: string; defaultAssigneeId?: string }
     }
   }>>(`/software/requests/pending${query ? `?${query}` : ''}`)
 }
@@ -168,12 +168,12 @@ export async function assignAccessRequest(requestId: string, assigneeId: string 
   })
 }
 
-export async function reviewAccessRequest(projectId: string, softwareId: string, requestId: string, data: {
+export async function reviewAccessRequest(inboxId: string, softwareId: string, requestId: string, data: {
   status: 'APPROVED' | 'DECLINED' | 'REVOKED' | 'PENDING'
   reviewNotes?: string
 }) {
   return request<SoftwareAccessRequest>(
-    `/software/projects/${projectId}/software/${softwareId}/requests/${requestId}`,
+    `/software/inboxes/${inboxId}/software/${softwareId}/requests/${requestId}`,
     {
       method: 'PUT',
       body: JSON.stringify(data)
@@ -181,9 +181,9 @@ export async function reviewAccessRequest(projectId: string, softwareId: string,
   )
 }
 
-export async function deleteAccessRequest(projectId: string, softwareId: string, requestId: string) {
+export async function deleteAccessRequest(inboxId: string, softwareId: string, requestId: string) {
   return request<{ message: string }>(
-    `/software/projects/${projectId}/software/${softwareId}/requests/${requestId}`,
+    `/software/inboxes/${inboxId}/software/${softwareId}/requests/${requestId}`,
     {
       method: 'DELETE'
     }

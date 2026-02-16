@@ -21,17 +21,17 @@ import {
 } from '@heroicons/react/24/outline'
 import { ClientImportWizard } from '@/components/import/ClientImportWizard'
 
-interface ProjectClient {
+interface InboxClient {
   id: string
   userId: string
   name: string
   email: string
 }
 
-interface Project {
+interface Inbox {
   id: string
   name: string
-  projectCode: string
+  inboxCode: string
   clientName?: string
   description?: string
   isActive: boolean
@@ -51,15 +51,15 @@ interface Project {
     timeEntries: number
     tickets: number
   }
-  clients?: ProjectClient[]
+  clients?: InboxClient[]
   createdAt?: string
 }
 
-export default function ProjectDetail() {
+export default function InboxDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { currentOrg } = useOrganization()
-  const [project, setProject] = useState<Project | null>(null)
+  const [inbox, setInbox] = useState<Inbox | null>(null)
   const [loading, setLoading] = useState(true)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -69,26 +69,26 @@ export default function ProjectDetail() {
 
   useEffect(() => {
     if (currentOrg && id) {
-      loadProject()
+      loadInbox()
     }
   }, [currentOrg, id])
 
-  const loadProject = async () => {
+  const loadInbox = async () => {
     if (!id) return
 
     setLoading(true)
     try {
-      const data = await api.getProject(id)
-      setProject(data)
+      const data = await api.getInbox(id)
+      setInbox(data)
     } catch (error) {
-      console.error('Failed to load project:', error)
+      console.error('Failed to load inbox:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const signupUrl = project?.clientSignupToken
-    ? `${window.location.origin}/join/${project.clientSignupToken}`
+  const signupUrl = inbox?.clientSignupToken
+    ? `${window.location.origin}/join/${inbox.clientSignupToken}`
     : null
 
   const handleCopyLink = () => {
@@ -104,7 +104,7 @@ export default function ProjectDetail() {
     setSignupLinkLoading(true)
     try {
       const result = await api.generateSignupLink(id)
-      setProject((prev) => prev ? { ...prev, clientSignupToken: result.token, clientSignupEnabled: result.enabled } : prev)
+      setInbox((prev) => prev ? { ...prev, clientSignupToken: result.token, clientSignupEnabled: result.enabled } : prev)
     } catch (error) {
       console.error('Failed to generate signup link:', error)
     } finally {
@@ -117,7 +117,7 @@ export default function ProjectDetail() {
     setSignupLinkLoading(true)
     try {
       const result = await api.toggleSignupLink(id, enabled)
-      setProject((prev) => prev ? { ...prev, clientSignupToken: result.token, clientSignupEnabled: result.enabled } : prev)
+      setInbox((prev) => prev ? { ...prev, clientSignupToken: result.token, clientSignupEnabled: result.enabled } : prev)
     } catch (error) {
       console.error('Failed to toggle signup link:', error)
     } finally {
@@ -130,7 +130,7 @@ export default function ProjectDetail() {
     setSignupLinkLoading(true)
     try {
       await api.deleteSignupLink(id)
-      setProject((prev) => prev ? { ...prev, clientSignupToken: null, clientSignupEnabled: false } : prev)
+      setInbox((prev) => prev ? { ...prev, clientSignupToken: null, clientSignupEnabled: false } : prev)
     } catch (error) {
       console.error('Failed to delete signup link:', error)
     } finally {
@@ -143,11 +143,11 @@ export default function ProjectDetail() {
 
     setDeleting(true)
     try {
-      await api.deleteProject(id)
-      navigate('/admin/projects')
+      await api.deleteInbox(id)
+      navigate('/admin/inboxes')
     } catch (error) {
-      console.error('Failed to delete project:', error)
-      alert('Failed to delete project')
+      console.error('Failed to delete inbox:', error)
+      alert('Failed to delete inbox')
     } finally {
       setDeleting(false)
     }
@@ -169,23 +169,23 @@ export default function ProjectDetail() {
     )
   }
 
-  if (!project) {
+  if (!inbox) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Text>Project not found</Text>
+        <Text>Inbox not found</Text>
       </div>
     )
   }
 
-  const hasDueDates = project.dueDateLowDays || project.dueDateMediumDays ||
-                       project.dueDateHighDays || project.dueDateUrgentDays
+  const hasDueDates = inbox.dueDateLowDays || inbox.dueDateMediumDays ||
+                       inbox.dueDateHighDays || inbox.dueDateUrgentDays
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4">
-          <Button plain onClick={() => navigate('/admin/projects')}>
+          <Button plain onClick={() => navigate('/admin/inboxes')}>
             <ArrowLeftIcon className="h-5 w-5" />
           </Button>
 
@@ -195,24 +195,24 @@ export default function ProjectDetail() {
 
           <div>
             <div className="flex items-center gap-3">
-              <Heading>{project.name}</Heading>
-              {project.isActive ? (
+              <Heading>{inbox.name}</Heading>
+              {inbox.isActive ? (
                 <Badge color="green">Active</Badge>
               ) : (
                 <Badge color="zinc">Archived</Badge>
               )}
             </div>
             <div className="flex items-center gap-2 mt-1">
-              <Badge color="blue">{project.projectCode}</Badge>
-              {project.clientName && (
-                <Text className="text-zinc-500">{project.clientName}</Text>
+              <Badge color="blue">{inbox.inboxCode}</Badge>
+              {inbox.clientName && (
+                <Text className="text-zinc-500">{inbox.clientName}</Text>
               )}
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button outline onClick={() => navigate(`/admin/projects/${id}/edit`)}>
+          <Button outline onClick={() => navigate(`/admin/inboxes/${id}/edit`)}>
             <PencilIcon className="h-4 w-4" />
             Edit
           </Button>
@@ -228,10 +228,10 @@ export default function ProjectDetail() {
         {/* Main Info */}
         <div className="lg:col-span-2 space-y-6">
           {/* Description */}
-          {project.description && (
+          {inbox.description && (
             <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
               <Subheading>Description</Subheading>
-              <Text className="mt-2 whitespace-pre-wrap">{project.description}</Text>
+              <Text className="mt-2 whitespace-pre-wrap">{inbox.description}</Text>
             </div>
           )}
 
@@ -246,25 +246,25 @@ export default function ProjectDetail() {
                 <div className="text-center p-3 rounded-lg bg-zinc-50 dark:bg-zinc-900">
                   <Text className="text-xs text-zinc-500 uppercase tracking-wide">Low</Text>
                   <Text className="text-lg font-semibold mt-1">
-                    {project.dueDateLowDays ? `${project.dueDateLowDays} days` : '-'}
+                    {inbox.dueDateLowDays ? `${inbox.dueDateLowDays} days` : '-'}
                   </Text>
                 </div>
                 <div className="text-center p-3 rounded-lg bg-zinc-50 dark:bg-zinc-900">
                   <Text className="text-xs text-zinc-500 uppercase tracking-wide">Medium</Text>
                   <Text className="text-lg font-semibold mt-1">
-                    {project.dueDateMediumDays ? `${project.dueDateMediumDays} days` : '-'}
+                    {inbox.dueDateMediumDays ? `${inbox.dueDateMediumDays} days` : '-'}
                   </Text>
                 </div>
                 <div className="text-center p-3 rounded-lg bg-zinc-50 dark:bg-zinc-900">
                   <Text className="text-xs text-zinc-500 uppercase tracking-wide">High</Text>
                   <Text className="text-lg font-semibold mt-1">
-                    {project.dueDateHighDays ? `${project.dueDateHighDays} days` : '-'}
+                    {inbox.dueDateHighDays ? `${inbox.dueDateHighDays} days` : '-'}
                   </Text>
                 </div>
                 <div className="text-center p-3 rounded-lg bg-zinc-50 dark:bg-zinc-900">
                   <Text className="text-xs text-zinc-500 uppercase tracking-wide">Urgent</Text>
                   <Text className="text-lg font-semibold mt-1">
-                    {project.dueDateUrgentDays ? `${project.dueDateUrgentDays} days` : '-'}
+                    {inbox.dueDateUrgentDays ? `${inbox.dueDateUrgentDays} days` : '-'}
                   </Text>
                 </div>
               </div>
@@ -280,7 +280,7 @@ export default function ProjectDetail() {
                 Import Clients
               </Button>
             </div>
-            {project.clients && project.clients.length > 0 ? (
+            {inbox.clients && inbox.clients.length > 0 ? (
               <div className="mt-4">
                 <Table>
                   <TableHead>
@@ -290,7 +290,7 @@ export default function ProjectDetail() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {project.clients.map((client) => (
+                    {inbox.clients.map((client) => (
                       <TableRow key={client.id} href={`/admin/clients/${client.id}`}>
                         <TableCell>
                           <div className="flex items-center gap-3">
@@ -307,7 +307,7 @@ export default function ProjectDetail() {
                 </Table>
               </div>
             ) : (
-              <Text className="mt-2 text-zinc-500">No clients assigned to this project</Text>
+              <Text className="mt-2 text-zinc-500">No clients assigned to this inbox</Text>
             )}
           </div>
         </div>
@@ -321,21 +321,21 @@ export default function ProjectDetail() {
               <div>
                 <dt className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Default Assignee</dt>
                 <dd className="text-sm text-zinc-900 dark:text-white">
-                  {project.defaultAssignee?.user.name || 'None'}
+                  {inbox.defaultAssignee?.user.name || 'None'}
                 </dd>
               </div>
-              {project._count && (
+              {inbox._count && (
                 <>
                   <div>
                     <dt className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Time Entries</dt>
                     <dd className="text-sm text-zinc-900 dark:text-white">
-                      {project._count.timeEntries}
+                      {inbox._count.timeEntries}
                     </dd>
                   </div>
                   <div>
                     <dt className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Tickets</dt>
                     <dd className="text-sm text-zinc-900 dark:text-white">
-                      {project._count.tickets || 0}
+                      {inbox._count.tickets || 0}
                     </dd>
                   </div>
                 </>
@@ -343,7 +343,7 @@ export default function ProjectDetail() {
               <div>
                 <dt className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Status</dt>
                 <dd className="text-sm">
-                  {project.isActive ? (
+                  {inbox.isActive ? (
                     <Badge color="green">Active</Badge>
                   ) : (
                     <Badge color="zinc">Archived</Badge>
@@ -358,16 +358,16 @@ export default function ProjectDetail() {
             <Subheading>Quick Actions</Subheading>
             <div className="mt-4 space-y-2">
               <Link
-                to={`/projects/${project.id}/tickets`}
+                to={`/inboxes/${inbox.id}/tickets`}
                 className="block w-full text-center px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
               >
                 View Tickets
               </Link>
               <Link
-                to={`/admin/projects/${project.id}/edit`}
+                to={`/admin/inboxes/${inbox.id}/edit`}
                 className="block w-full text-center px-4 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-700 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:text-zinc-300 dark:hover:bg-zinc-700 rounded-lg transition-colors"
               >
-                Edit Project
+                Edit Inbox
               </Link>
             </div>
           </div>
@@ -379,10 +379,10 @@ export default function ProjectDetail() {
               <Subheading>Client Signup Link</Subheading>
             </div>
             <Text className="mt-1 text-sm text-zinc-500">
-              Share this link so clients can sign up and access this project.
+              Share this link so clients can sign up and access this inbox.
             </Text>
 
-            {!project.clientSignupToken ? (
+            {!inbox.clientSignupToken ? (
               <Button
                 outline
                 className="mt-4 w-full"
@@ -394,14 +394,14 @@ export default function ProjectDetail() {
             ) : (
               <div className="mt-4 space-y-3">
                 <div className="flex items-center gap-2">
-                  <Badge color={project.clientSignupEnabled ? 'green' : 'zinc'}>
-                    {project.clientSignupEnabled ? 'Enabled' : 'Disabled'}
+                  <Badge color={inbox.clientSignupEnabled ? 'green' : 'zinc'}>
+                    {inbox.clientSignupEnabled ? 'Enabled' : 'Disabled'}
                   </Badge>
                 </div>
 
                 <div
                   className={`flex items-center gap-2 rounded-lg border p-2 text-xs ${
-                    project.clientSignupEnabled
+                    inbox.clientSignupEnabled
                       ? 'border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900'
                       : 'border-zinc-200 bg-zinc-100 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-500'
                   }`}
@@ -424,10 +424,10 @@ export default function ProjectDetail() {
                   <Button
                     outline
                     className="flex-1"
-                    onClick={() => handleToggleLink(!project.clientSignupEnabled)}
+                    onClick={() => handleToggleLink(!inbox.clientSignupEnabled)}
                     disabled={signupLinkLoading}
                   >
-                    {project.clientSignupEnabled ? 'Disable' : 'Enable'}
+                    {inbox.clientSignupEnabled ? 'Disable' : 'Enable'}
                   </Button>
                   <Button
                     outline
@@ -458,17 +458,17 @@ export default function ProjectDetail() {
 
       {/* Delete Confirmation Modal */}
       <Dialog open={showDeleteModal} onClose={() => setShowDeleteModal(false)}>
-        <DialogTitle>Delete Project</DialogTitle>
+        <DialogTitle>Delete Inbox</DialogTitle>
         <DialogBody>
           <Text>
-            {project._count?.timeEntries ? (
+            {inbox._count?.timeEntries ? (
               <>
-                This project has <strong>{project._count.timeEntries}</strong> time entries.
+                This inbox has <strong>{inbox._count.timeEntries}</strong> time entries.
                 It will be archived instead of deleted to preserve the data. Continue?
               </>
             ) : (
               <>
-                Are you sure you want to delete <strong>{project.name}</strong>?
+                Are you sure you want to delete <strong>{inbox.name}</strong>?
                 This action cannot be undone.
               </>
             )}
@@ -479,18 +479,18 @@ export default function ProjectDetail() {
             Cancel
           </Button>
           <Button color="red" onClick={handleDelete} disabled={deleting}>
-            {deleting ? 'Deleting...' : project._count?.timeEntries ? 'Archive' : 'Delete'}
+            {deleting ? 'Deleting...' : inbox._count?.timeEntries ? 'Archive' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Client Import Wizard */}
       <ClientImportWizard
-        projectId={project.id}
-        projectName={project.name}
+        inboxId={inbox.id}
+        inboxName={inbox.name}
         isOpen={showImportWizard}
         onClose={() => setShowImportWizard(false)}
-        onComplete={loadProject}
+        onComplete={loadInbox}
       />
     </div>
   )

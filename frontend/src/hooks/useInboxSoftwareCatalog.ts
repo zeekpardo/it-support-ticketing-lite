@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { api, type GlobalSoftware, type ProjectSoftware, type SoftwareCategory, type SoftwareBudgetSummary } from '../api/client'
+import { api, type GlobalSoftware, type InboxSoftware, type SoftwareCategory, type SoftwareBudgetSummary } from '../api/client'
 
 export function getDaysUntilRenewal(renewalDate: string): number {
   const now = new Date()
@@ -9,14 +9,14 @@ export function getDaysUntilRenewal(renewalDate: string): number {
   return Math.ceil((renewal.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 }
 
-export function useProjectSoftwareCatalog(projectId: string | undefined) {
-  const [project, setProject] = useState<{ id: string; name: string; projectCode: string } | null>(null)
+export function useInboxSoftwareCatalog(inboxId: string | undefined) {
+  const [inbox, setInbox] = useState<{ id: string; name: string; inboxCode: string } | null>(null)
   const [categories, setCategories] = useState<SoftwareCategory[]>([])
 
-  // Project software
-  const [projectSoftware, setProjectSoftware] = useState<ProjectSoftware[]>([])
-  const [loadingProject, setLoadingProject] = useState(true)
-  const [projectSoftwareIds, setProjectSoftwareIds] = useState<Set<string>>(new Set())
+  // Inbox software
+  const [inboxSoftware, setInboxSoftware] = useState<InboxSoftware[]>([])
+  const [loadingInbox, setLoadingInbox] = useState(true)
+  const [inboxSoftwareIds, setInboxSoftwareIds] = useState<Set<string>>(new Set())
 
   // Global catalog
   const [globalSoftware, setGlobalSoftware] = useState<GlobalSoftware[]>([])
@@ -28,15 +28,15 @@ export function useProjectSoftwareCatalog(projectId: string | undefined) {
   const [budgetData, setBudgetData] = useState<SoftwareBudgetSummary | null>(null)
   const [loadingBudget, setLoadingBudget] = useState(false)
 
-  const loadProject = useCallback(async () => {
-    if (!projectId) return
+  const loadInbox = useCallback(async () => {
+    if (!inboxId) return
     try {
-      const data = await api.getProject(projectId)
-      setProject(data)
+      const data = await api.getInbox(inboxId)
+      setInbox(data)
     } catch (error) {
-      console.error('Failed to load project:', error)
+      console.error('Failed to load inbox:', error)
     }
-  }, [projectId])
+  }, [inboxId])
 
   const loadCategories = useCallback(async () => {
     try {
@@ -47,19 +47,19 @@ export function useProjectSoftwareCatalog(projectId: string | undefined) {
     }
   }, [])
 
-  const loadProjectSoftware = useCallback(async () => {
-    if (!projectId) return
-    setLoadingProject(true)
+  const loadInboxSoftware = useCallback(async () => {
+    if (!inboxId) return
+    setLoadingInbox(true)
     try {
-      const data = await api.getProjectSoftware(projectId)
-      setProjectSoftware(data)
-      setProjectSoftwareIds(new Set(data.map(ps => ps.softwareId)))
+      const data = await api.getInboxSoftware(inboxId)
+      setInboxSoftware(data)
+      setInboxSoftwareIds(new Set(data.map(ps => ps.softwareId)))
     } catch (error) {
-      console.error('Failed to load project software:', error)
+      console.error('Failed to load inbox software:', error)
     } finally {
-      setLoadingProject(false)
+      setLoadingInbox(false)
     }
-  }, [projectId])
+  }, [inboxId])
 
   const loadGlobalCatalog = useCallback(async () => {
     setLoadingCatalog(true)
@@ -77,39 +77,39 @@ export function useProjectSoftwareCatalog(projectId: string | undefined) {
   }, [categoryFilter, searchQuery])
 
   const loadBudget = useCallback(async () => {
-    if (!projectId) return
+    if (!inboxId) return
     setLoadingBudget(true)
     try {
-      const data = await api.getProjectSoftwareBudget(projectId)
+      const data = await api.getInboxSoftwareBudget(inboxId)
       setBudgetData(data)
     } catch (error) {
       console.error('Failed to load budget:', error)
     } finally {
       setLoadingBudget(false)
     }
-  }, [projectId])
+  }, [inboxId])
 
-  const addToProject = useCallback(async (softwareId: string, notes?: string) => {
-    if (!projectId) return
-    await api.addSoftwareToProject(projectId, softwareId, notes)
-    setProjectSoftwareIds(prev => new Set([...prev, softwareId]))
-    loadProjectSoftware()
-  }, [projectId, loadProjectSoftware])
+  const addToInbox = useCallback(async (softwareId: string, notes?: string) => {
+    if (!inboxId) return
+    await api.addSoftwareToInbox(inboxId, softwareId, notes)
+    setInboxSoftwareIds(prev => new Set([...prev, softwareId]))
+    loadInboxSoftware()
+  }, [inboxId, loadInboxSoftware])
 
   useEffect(() => {
-    if (projectId) {
-      loadProject()
-      loadProjectSoftware()
+    if (inboxId) {
+      loadInbox()
+      loadInboxSoftware()
       loadCategories()
     }
-  }, [projectId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [inboxId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
-    project,
+    inbox,
     categories,
-    projectSoftware,
-    loadingProject,
-    projectSoftwareIds,
+    inboxSoftware,
+    loadingInbox,
+    inboxSoftwareIds,
     globalSoftware,
     loadingCatalog,
     searchQuery,
@@ -120,6 +120,6 @@ export function useProjectSoftwareCatalog(projectId: string | undefined) {
     budgetData,
     loadingBudget,
     loadBudget,
-    addToProject,
+    addToInbox,
   }
 }

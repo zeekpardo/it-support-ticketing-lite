@@ -12,9 +12,9 @@ const generateId = () => crypto.randomBytes(16).toString('hex');
 const DEFAULT_APP_NAME = process.env.APP_NAME || 'Groovi Support';
 const DEFAULT_PRIMARY_COLOR = '#2563eb';
 
-// Find project by signup token (must be enabled and active)
-async function findProjectByToken(token) {
-  const project = await prisma.project.findUnique({
+// Find inbox by signup token (must be enabled and active)
+async function findInboxByToken(token) {
+  const inbox = await prisma.inbox.findUnique({
     where: { clientSignupToken: token },
     include: {
       organization: {
@@ -23,21 +23,21 @@ async function findProjectByToken(token) {
     },
   });
 
-  if (!project || !project.clientSignupEnabled || !project.isActive) {
+  if (!inbox || !inbox.clientSignupEnabled || !inbox.isActive) {
     throw new NotFoundError('This signup link is no longer valid');
   }
 
-  return project;
+  return inbox;
 }
 
-// GET /:token — Validate token and return org/project info
+// GET /:token — Validate token and return org/inbox info
 router.get('/:token', asyncHandler(async (req, res) => {
-  const project = await findProjectByToken(req.params.token);
-  const org = project.organization;
+  const inbox = await findInboxByToken(req.params.token);
+  const org = inbox.organization;
 
   res.json({
     organizationName: org.name,
-    projectName: project.name,
+    inboxName: inbox.name,
     branding: {
       appName: org.appName || DEFAULT_APP_NAME,
       primaryColor: org.primaryColor || DEFAULT_PRIMARY_COLOR,
@@ -54,8 +54,8 @@ router.post('/:token', asyncHandler(async (req, res) => {
     throw new ValidationError('Email is required');
   }
 
-  const project = await findProjectByToken(req.params.token);
-  const orgId = project.organizationId;
+  const inbox = await findInboxByToken(req.params.token);
+  const orgId = inbox.organizationId;
 
   const existingUser = await prisma.user.findUnique({ where: { email } });
 
@@ -70,20 +70,20 @@ router.post('/:token', asyncHandler(async (req, res) => {
         throw new ValidationError('You are already a member of this organization with a staff role');
       }
 
-      // Already a client — just add project assignment if missing
-      const existing = await prisma.projectAssignment.findUnique({
-        where: { memberId_projectId: { memberId: existingMember.id, projectId: project.id } },
+      // Already a client — just add inbox assignment if missing
+      const existing = await prisma.inboxAssignment.findUnique({
+        where: { memberId_inboxId: { memberId: existingMember.id, inboxId: inbox.id } },
       });
 
       if (existing) {
-        return res.json({ success: true, message: 'You already have access to this project' });
+        return res.json({ success: true, message: 'You already have access to this inbox' });
       }
 
-      await prisma.projectAssignment.create({
-        data: { id: generateId(), memberId: existingMember.id, projectId: project.id },
+      await prisma.inboxAssignment.create({
+        data: { id: generateId(), memberId: existingMember.id, inboxId: inbox.id },
       });
 
-      return res.json({ success: true, message: 'Project access granted' });
+      return res.json({ success: true, message: 'Inbox access granted' });
     }
 
     // Existing user, not in org — add as client member
@@ -91,8 +91,8 @@ router.post('/:token', asyncHandler(async (req, res) => {
       data: { id: generateId(), organizationId: orgId, userId: existingUser.id, role: 'client' },
     });
 
-    await prisma.projectAssignment.create({
-      data: { id: generateId(), memberId: member.id, projectId: project.id },
+    await prisma.inboxAssignment.create({
+      data: { id: generateId(), memberId: member.id, inboxId: inbox.id },
     });
 
     return res.json({ success: true });
@@ -129,8 +129,8 @@ router.post('/:token', asyncHandler(async (req, res) => {
       data: { id: generateId(), organizationId: orgId, userId, role: 'client' },
     });
 
-    await tx.projectAssignment.create({
-      data: { id: generateId(), memberId: member.id, projectId: project.id },
+    await tx.inboxAssignment.create({
+      data: { id: generateId(), memberId: member.id, inboxId: inbox.id },
     });
   });
 

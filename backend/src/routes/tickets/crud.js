@@ -3,13 +3,13 @@ import { prisma } from '../../lib/auth.js';
 import { requireStaff, requireAdmin } from '../../middleware/auth.js';
 import { asyncHandler } from '../../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError } from '../../utils/errors.js';
-import { findTicketOrFail, findTicketWithAccess, getAssignedProjectIds } from '../../utils/entityHelpers.js';
+import { findTicketOrFail, findTicketWithAccess, getAssignedInboxIds } from '../../utils/entityHelpers.js';
 import { createNotification } from '../../services/notificationService.js';
 import { sanitizeUrl } from '../../utils/sanitize.js';
 import { resolveS3ImageUrls, resolveAttachmentUrl } from '../../utils/resolveS3Urls.js';
 import {
   USER_SELECT, USER_SELECT_BRIEF, MEMBER_WITH_USER, MEMBER_WITH_USER_BRIEF,
-  MEMBER_WITH_ROLE_AND_USER, PROJECT_SELECT_BRIEF, STAGE_SELECT,
+  MEMBER_WITH_ROLE_AND_USER, INBOX_SELECT_BRIEF, STAGE_SELECT,
 } from '../../utils/prismaFragments.js';
 
 const router = express.Router();
@@ -29,21 +29,21 @@ router.get('/staff/list', requireStaff, asyncHandler(async (req, res) => {
   res.json(staffMembers);
 }));
 
-// Get all tickets for organization (staff only, scoped by project access)
+// Get all tickets for organization (staff only, scoped by inbox access)
 router.get('/', requireStaff, asyncHandler(async (req, res) => {
-  const { projectId, status, stageId, ownerId, clientId } = req.query;
+  const { inboxId, status, stageId, ownerId, clientId } = req.query;
 
   const where = {
     organizationId: req.organization.id,
   };
 
-  // Members only see tickets from their assigned projects
+  // Members only see tickets from their assigned inboxes
   const role = req.membership.role;
   if (role !== 'owner' && role !== 'manager') {
-    const assignedIds = await getAssignedProjectIds(req.membership.id);
-    where.projectId = projectId ? { in: assignedIds.includes(projectId) ? [projectId] : [] } : { in: assignedIds };
-  } else if (projectId) {
-    where.projectId = projectId;
+    const assignedIds = await getAssignedInboxIds(req.membership.id);
+    where.inboxId = inboxId ? { in: assignedIds.includes(inboxId) ? [inboxId] : [] } : { in: assignedIds };
+  } else if (inboxId) {
+    where.inboxId = inboxId;
   }
 
   if (status) where.status = status;
@@ -55,7 +55,7 @@ router.get('/', requireStaff, asyncHandler(async (req, res) => {
     where,
     orderBy: { createdAt: 'desc' },
     include: {
-      project: { select: PROJECT_SELECT_BRIEF },
+      inbox: { select: INBOX_SELECT_BRIEF },
       stage: { select: STAGE_SELECT },
       client: { select: MEMBER_WITH_USER },
       owner: { select: MEMBER_WITH_USER },
@@ -68,11 +68,11 @@ router.get('/', requireStaff, asyncHandler(async (req, res) => {
   res.json(tickets);
 }));
 
-// Get single ticket with details (staff only, scoped by project access)
+// Get single ticket with details (staff only, scoped by inbox access)
 router.get('/:id', requireStaff, asyncHandler(async (req, res) => {
   const ticket = await findTicketWithAccess(req.params.id, req.organization.id, req.membership, {
     include: {
-      project: { select: PROJECT_SELECT_BRIEF },
+      inbox: { select: INBOX_SELECT_BRIEF },
       stage: { select: STAGE_SELECT },
       client: { select: MEMBER_WITH_USER },
       owner: { select: MEMBER_WITH_USER },
@@ -126,18 +126,18 @@ router.get('/:id', requireStaff, asyncHandler(async (req, res) => {
 // Create ticket (staff can create on behalf of clients)
 router.post('/', requireStaff, asyncHandler(async (req, res) => {
   const {
-    projectId, clientId, firstName, lastName, email, phone,
+    inboxId, clientId, firstName, lastName, email, phone,
     subject, requestType, priorityLevel, description,
     screenRecordingLink, dueDate, stageId,
   } = req.body;
 
-  if (!projectId || !clientId || !firstName || !lastName || !email || !subject || !description) {
-    throw new ValidationError('Project, client, contact info, subject, and description are required');
+  if (!inboxId || !clientId || !firstName || !lastName || !email || !subject || !description) {
+    throw new ValidationError('Inbox, client, contact info, subject, and description are required');
   }
 
-  // Verify project belongs to org and get default assignee + due date settings
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, organizationId: req.organization.id },
+  // Verify inbox belongs to org and get default assignee + due date settings
+  const inbox = await prisma.inbox.findFirst({
+    where: { id: inboxId, organizationId: req.organization.id },
     select: {
       id: true,
       name: true,
@@ -149,23 +149,23 @@ router.post('/', requireStaff, asyncHandler(async (req, res) => {
     },
   });
 
-  if (!project) {
-    throw new NotFoundError('Project not found');
+  if (!inbox) {
+    throw new NotFoundError('Inbox not found');
   }
 
-  // Get default stage for the project (or use provided stageId)
+  // Get default stage for the inbox (or use provided stageId)
   let ticketStageId = stageId;
   if (!ticketStageId) {
     const defaultStage = await prisma.ticketStage.findFirst({
-      where: { projectId, isDefault: true },
+      where: { inboxId, isDefault: true },
     });
     ticketStageId = defaultStage?.id || null;
   } else {
     const stage = await prisma.ticketStage.findFirst({
-      where: { id: stageId, projectId },
+      where: { id: stageId, inboxId },
     });
     if (!stage) {
-      throw new ValidationError('Invalid stage for this project');
+      throw new ValidationError('Invalid stage for this inbox');
     }
   }
 
@@ -183,10 +183,10 @@ router.post('/', requireStaff, asyncHandler(async (req, res) => {
   if (!calculatedDueDate) {
     const effectivePriority = priorityLevel || 'MEDIUM';
     const priorityDueDaysMap = {
-      LOW: project.dueDateLowDays,
-      MEDIUM: project.dueDateMediumDays,
-      HIGH: project.dueDateHighDays,
-      URGENT: project.dueDateUrgentDays,
+      LOW: inbox.dueDateLowDays,
+      MEDIUM: inbox.dueDateMediumDays,
+      HIGH: inbox.dueDateHighDays,
+      URGENT: inbox.dueDateUrgentDays,
     };
     const dueDays = priorityDueDaysMap[effectivePriority];
     if (dueDays != null) {
@@ -197,10 +197,10 @@ router.post('/', requireStaff, asyncHandler(async (req, res) => {
   const ticket = await prisma.supportTicket.create({
     data: {
       organizationId: req.organization.id,
-      projectId,
+      inboxId,
       clientId,
       stageId: ticketStageId,
-      ownerId: project.defaultAssigneeId,
+      ownerId: inbox.defaultAssigneeId,
       firstName,
       lastName,
       email,
@@ -213,23 +213,23 @@ router.post('/', requireStaff, asyncHandler(async (req, res) => {
       dueDate: calculatedDueDate,
     },
     include: {
-      project: { select: PROJECT_SELECT_BRIEF },
+      inbox: { select: INBOX_SELECT_BRIEF },
       stage: { select: STAGE_SELECT },
       client: { select: MEMBER_WITH_USER },
     },
   });
 
   // Notify the assigned staff member (non-blocking)
-  if (project.defaultAssigneeId) {
+  if (inbox.defaultAssigneeId) {
     try {
       await createNotification(prisma, {
         type: 'NEW_TICKET_ASSIGNED',
-        recipientId: project.defaultAssigneeId,
+        recipientId: inbox.defaultAssigneeId,
         organizationId: req.organization.id,
         data: {
           ticketId: ticket.id,
           ticketSubject: subject,
-          projectName: project.name,
+          inboxName: inbox.name,
           requestType: requestType || 'GENERAL_INQUIRY',
           priorityLevel: priorityLevel || 'MEDIUM',
           description,
@@ -246,7 +246,7 @@ router.post('/', requireStaff, asyncHandler(async (req, res) => {
   res.status(201).json(ticket);
 }));
 
-// Update ticket (staff only, scoped by project access)
+// Update ticket (staff only, scoped by inbox access)
 router.put('/:id', requireStaff, asyncHandler(async (req, res) => {
   const ticket = await findTicketWithAccess(req.params.id, req.organization.id, req.membership);
 
@@ -272,7 +272,7 @@ router.put('/:id', requireStaff, asyncHandler(async (req, res) => {
       dueDate: dueDate !== undefined ? (dueDate ? new Date(dueDate) : null) : ticket.dueDate,
     },
     include: {
-      project: { select: PROJECT_SELECT_BRIEF },
+      inbox: { select: INBOX_SELECT_BRIEF },
       client: { select: MEMBER_WITH_USER },
       owner: { select: MEMBER_WITH_USER },
     },
@@ -292,11 +292,11 @@ router.put('/:id/stage', requireStaff, asyncHandler(async (req, res) => {
   const ticket = await findTicketWithAccess(req.params.id, req.organization.id, req.membership);
 
   const stage = await prisma.ticketStage.findFirst({
-    where: { id: stageId, projectId: ticket.projectId },
+    where: { id: stageId, inboxId: ticket.inboxId },
   });
 
   if (!stage) {
-    throw new ValidationError('Invalid stage for this project');
+    throw new ValidationError('Invalid stage for this inbox');
   }
 
   const updated = await prisma.supportTicket.update({

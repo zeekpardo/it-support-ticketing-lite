@@ -17,24 +17,24 @@ interface Ticket {
   priorityLevel: string
   createdAt: string
   updatedAt: string
-  project: { id: string; name: string; projectCode: string }
+  inbox: { id: string; name: string; inboxCode: string }
   owner?: { id: string; user: { name: string } } | null
   _count?: { comments: number }
 }
 
-interface Project {
+interface Inbox {
   id: string
   name: string
-  projectCode: string
+  inboxCode: string
 }
 
 export default function PortalTickets() {
   const { currentOrg } = useOrganization()
   const [tickets, setTickets] = useState<Ticket[]>([])
-  const [projects, setProjects] = useState<Project[]>([])
+  const [inboxes, setInboxes] = useState<Inbox[]>([])
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({
-    projectId: '',
+    inboxId: '',
     status: ''
   })
 
@@ -53,12 +53,12 @@ export default function PortalTickets() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [ticketsData, projectsData] = await Promise.all([
+      const [ticketsData, inboxesData] = await Promise.all([
         api.getPortalTickets(filters),
-        api.getPortalProjects()
+        api.getPortalInboxes()
       ])
       setTickets(ticketsData)
-      setProjects(projectsData)
+      setInboxes(inboxesData)
     } catch (error) {
       console.error('Failed to load data:', error)
     } finally {
@@ -98,14 +98,14 @@ export default function PortalTickets() {
       {/* Filters */}
       <div className="flex gap-4">
         <Select
-          value={filters.projectId}
-          onChange={e => setFilters({ ...filters, projectId: e.target.value })}
+          value={filters.inboxId}
+          onChange={e => setFilters({ ...filters, inboxId: e.target.value })}
           className="w-48"
         >
-          <option value="">All Projects</option>
-          {projects.map(project => (
-            <option key={project.id} value={project.id}>
-              {project.name}
+          <option value="">All Inboxes</option>
+          {inboxes.map(inbox => (
+            <option key={inbox.id} value={inbox.id}>
+              {inbox.name}
             </option>
           ))}
         </Select>
@@ -134,7 +134,7 @@ export default function PortalTickets() {
             <TableHead>
               <TableRow>
                 <TableHeader>Subject</TableHeader>
-                <TableHeader>Project</TableHeader>
+                <TableHeader>Inbox</TableHeader>
                 <TableHeader>Status</TableHeader>
                 <TableHeader>Priority</TableHeader>
                 <TableHeader>Updated</TableHeader>
@@ -157,7 +157,7 @@ export default function PortalTickets() {
                     ) : null}
                   </TableCell>
                   <TableCell className="text-zinc-600 dark:text-zinc-400">
-                    {ticket.project.name}
+                    {ticket.inbox.name}
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={ticket.status as any} />
@@ -177,7 +177,7 @@ export default function PortalTickets() {
         <div className="bg-white dark:bg-zinc-800 rounded-xl p-12 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10 text-center">
           <TicketIcon className="w-12 h-12 text-zinc-300 dark:text-zinc-600 mx-auto mb-3" />
           <p className="text-zinc-500 dark:text-zinc-400 mb-4">
-            {filters.projectId || filters.status
+            {filters.inboxId || filters.status
               ? 'No tickets match your filters'
               : 'You haven\'t submitted any tickets yet'}
           </p>

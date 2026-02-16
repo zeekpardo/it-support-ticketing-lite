@@ -13,43 +13,43 @@ const router = express.Router();
 router.use(authenticate);
 router.use(requireOrganization);
 
-// Helper to check if user has access to a project (assigned or is a client in the org)
-const hasProjectAccess = async (projectId, memberId, memberRole) => {
-  // Clients can access projects they're assigned to
+// Helper to check if user has access to an inbox (assigned or is a client in the org)
+const hasInboxAccess = async (inboxId, memberId, memberRole) => {
+  // Clients can access inboxes they're assigned to
   if (memberRole === 'client') {
-    const assignment = await prisma.projectAssignment.findUnique({
+    const assignment = await prisma.inboxAssignment.findUnique({
       where: {
-        memberId_projectId: { memberId, projectId }
+        memberId_inboxId: { memberId, inboxId }
       }
     });
     return !!assignment;
   }
-  // Staff can access all projects in the org
+  // Staff can access all inboxes in the org
   return true;
 };
 
-// Get project's software catalog (for portal users)
-router.get('/projects/:projectId/software', asyncHandler(async (req, res) => {
-  const { projectId } = req.params;
+// Get inbox's software catalog (for portal users)
+router.get('/inboxes/:inboxId/software', asyncHandler(async (req, res) => {
+  const { inboxId } = req.params;
   const { categoryId, filter } = req.query;
 
-  // Verify project belongs to organization
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, organizationId: req.organization.id }
+  // Verify inbox belongs to organization
+  const inbox = await prisma.inbox.findFirst({
+    where: { id: inboxId, organizationId: req.organization.id }
   });
 
-  if (!project) {
-    throw new NotFoundError('Project not found');
+  if (!inbox) {
+    throw new NotFoundError('Inbox not found');
   }
 
   // Check access
-  const hasAccess = await hasProjectAccess(projectId, req.membership.id, req.membership.role);
+  const hasAccess = await hasInboxAccess(inboxId, req.membership.id, req.membership.role);
   if (!hasAccess) {
-    throw new ForbiddenError('Access denied to this project');
+    throw new ForbiddenError('Access denied to this inbox');
   }
 
-  // Build where clause for project software
-  const where = { projectId };
+  // Build where clause for inbox software
+  const where = { inboxId };
 
   // Filter by category if provided
   if (categoryId) {
@@ -68,7 +68,7 @@ router.get('/projects/:projectId/software', asyncHandler(async (req, res) => {
     };
   }
 
-  const projectSoftware = await prisma.projectSoftware.findMany({
+  const inboxSoftware = await prisma.inboxSoftware.findMany({
     where,
     orderBy: { software: { name: 'asc' } },
     include: {
@@ -86,7 +86,7 @@ router.get('/projects/:projectId/software', asyncHandler(async (req, res) => {
   });
 
   // Transform to flatten structure and include user's request status
-  const result = await Promise.all(projectSoftware.map(async (ps) => ({
+  const result = await Promise.all(inboxSoftware.map(async (ps) => ({
     id: ps.id,
     softwareId: ps.software.id,
     name: ps.software.name,
@@ -95,38 +95,38 @@ router.get('/projects/:projectId/software', asyncHandler(async (req, res) => {
     vendor: ps.software.vendor,
     websiteUrl: ps.software.websiteUrl,
     category: ps.software.category,
-    notes: ps.notes, // Project-specific notes
+    notes: ps.notes, // Inbox-specific notes
     myAccessRequest: ps.accessRequests[0] || null
   })));
 
   res.json(result);
 }));
 
-// Get categories (global categories used by project's software)
-router.get('/projects/:projectId/software/categories', asyncHandler(async (req, res) => {
-  const { projectId } = req.params;
+// Get categories (global categories used by inbox's software)
+router.get('/inboxes/:inboxId/software/categories', asyncHandler(async (req, res) => {
+  const { inboxId } = req.params;
 
-  // Verify project belongs to organization
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, organizationId: req.organization.id }
+  // Verify inbox belongs to organization
+  const inbox = await prisma.inbox.findFirst({
+    where: { id: inboxId, organizationId: req.organization.id }
   });
 
-  if (!project) {
-    throw new NotFoundError('Project not found');
+  if (!inbox) {
+    throw new NotFoundError('Inbox not found');
   }
 
-  const hasAccess = await hasProjectAccess(projectId, req.membership.id, req.membership.role);
+  const hasAccess = await hasInboxAccess(inboxId, req.membership.id, req.membership.role);
   if (!hasAccess) {
-    throw new ForbiddenError('Access denied to this project');
+    throw new ForbiddenError('Access denied to this inbox');
   }
 
-  // Get categories that have software added to this project
+  // Get categories that have software added to this inbox
   const categories = await prisma.softwareCategory.findMany({
     where: {
       software: {
         some: {
-          projectSoftware: {
-            some: { projectId }
+          inboxSoftware: {
+            some: { inboxId }
           }
         }
       }
@@ -137,14 +137,14 @@ router.get('/projects/:projectId/software/categories', asyncHandler(async (req, 
   res.json(categories);
 }));
 
-// Get own access request history across all projects
+// Get own access request history across all inboxes
 router.get('/my-requests', asyncHandler(async (req, res) => {
-  const { status, projectId } = req.query;
+  const { status, inboxId } = req.query;
 
   const where = {
     requesterId: req.membership.id,
-    projectSoftware: {
-      project: {
+    inboxSoftware: {
+      inbox: {
         organizationId: req.organization.id
       }
     }
@@ -154,17 +154,17 @@ router.get('/my-requests', asyncHandler(async (req, res) => {
     where.status = status;
   }
 
-  if (projectId) {
-    where.projectSoftware.projectId = projectId;
+  if (inboxId) {
+    where.inboxSoftware.inboxId = inboxId;
   }
 
   const requests = await prisma.softwareAccessRequest.findMany({
     where,
     include: {
-      projectSoftware: {
+      inboxSoftware: {
         include: {
-          project: {
-            select: { id: true, name: true, projectCode: true }
+          inbox: {
+            select: { id: true, name: true, inboxCode: true }
           },
           software: {
             select: {
@@ -194,35 +194,35 @@ router.get('/my-requests', asyncHandler(async (req, res) => {
     reviewNotes: r.reviewNotes,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
-    projectSoftwareId: r.projectSoftwareId,
-    project: r.projectSoftware.project,
-    software: { ...r.projectSoftware.software, iconUrl: await resolveFileUrl(r.projectSoftware.software.iconUrl) },
+    inboxSoftwareId: r.inboxSoftwareId,
+    inbox: r.inboxSoftware.inbox,
+    software: { ...r.inboxSoftware.software, iconUrl: await resolveFileUrl(r.inboxSoftware.software.iconUrl) },
     reviewer: r.reviewer
   })));
 
   res.json(result);
 }));
 
-// Get single project software detail
-router.get('/projects/:projectId/software/:id', asyncHandler(async (req, res) => {
-  const { projectId, id } = req.params;
+// Get single inbox software detail
+router.get('/inboxes/:inboxId/software/:id', asyncHandler(async (req, res) => {
+  const { inboxId, id } = req.params;
 
-  // Verify project belongs to organization
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, organizationId: req.organization.id }
+  // Verify inbox belongs to organization
+  const inbox = await prisma.inbox.findFirst({
+    where: { id: inboxId, organizationId: req.organization.id }
   });
 
-  if (!project) {
-    throw new NotFoundError('Project not found');
+  if (!inbox) {
+    throw new NotFoundError('Inbox not found');
   }
 
-  const hasAccess = await hasProjectAccess(projectId, req.membership.id, req.membership.role);
+  const hasAccess = await hasInboxAccess(inboxId, req.membership.id, req.membership.role);
   if (!hasAccess) {
-    throw new ForbiddenError('Access denied to this project');
+    throw new ForbiddenError('Access denied to this inbox');
   }
 
-  const projectSoftware = await prisma.projectSoftware.findFirst({
-    where: { id, projectId },
+  const inboxSoftware = await prisma.inboxSoftware.findFirst({
+    where: { id, inboxId },
     include: {
       software: {
         include: {
@@ -237,58 +237,58 @@ router.get('/projects/:projectId/software/:id', asyncHandler(async (req, res) =>
     }
   });
 
-  if (!projectSoftware) {
+  if (!inboxSoftware) {
     throw new NotFoundError('Software not found');
   }
 
   // Transform to flatten structure
   const result = {
-    id: projectSoftware.id,
-    softwareId: projectSoftware.software.id,
-    name: projectSoftware.software.name,
-    description: projectSoftware.software.description,
-    iconUrl: await resolveFileUrl(projectSoftware.software.iconUrl),
-    vendor: projectSoftware.software.vendor,
-    websiteUrl: projectSoftware.software.websiteUrl,
-    category: projectSoftware.software.category,
-    notes: projectSoftware.notes,
-    myAccessRequest: projectSoftware.accessRequests[0] || null
+    id: inboxSoftware.id,
+    softwareId: inboxSoftware.software.id,
+    name: inboxSoftware.software.name,
+    description: inboxSoftware.software.description,
+    iconUrl: await resolveFileUrl(inboxSoftware.software.iconUrl),
+    vendor: inboxSoftware.software.vendor,
+    websiteUrl: inboxSoftware.software.websiteUrl,
+    category: inboxSoftware.software.category,
+    notes: inboxSoftware.notes,
+    myAccessRequest: inboxSoftware.accessRequests[0] || null
   };
 
   res.json(result);
 }));
 
 // Submit access request
-router.post('/projects/:projectId/software/:id/request', asyncHandler(async (req, res) => {
-  const { projectId, id } = req.params;
+router.post('/inboxes/:inboxId/software/:id/request', asyncHandler(async (req, res) => {
+  const { inboxId, id } = req.params;
 
-  // Verify project belongs to organization and get default assignee
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, organizationId: req.organization.id },
+  // Verify inbox belongs to organization and get default assignee
+  const inbox = await prisma.inbox.findFirst({
+    where: { id: inboxId, organizationId: req.organization.id },
     select: { id: true, defaultAssigneeId: true }
   });
 
-  if (!project) {
-    throw new NotFoundError('Project not found');
+  if (!inbox) {
+    throw new NotFoundError('Inbox not found');
   }
 
-  const hasAccess = await hasProjectAccess(projectId, req.membership.id, req.membership.role);
+  const hasAccess = await hasInboxAccess(inboxId, req.membership.id, req.membership.role);
   if (!hasAccess) {
-    throw new ForbiddenError('Access denied to this project');
+    throw new ForbiddenError('Access denied to this inbox');
   }
 
-  const projectSoftware = await prisma.projectSoftware.findFirst({
-    where: { id, projectId }
+  const inboxSoftware = await prisma.inboxSoftware.findFirst({
+    where: { id, inboxId }
   });
 
-  if (!projectSoftware) {
+  if (!inboxSoftware) {
     throw new NotFoundError('Software not found');
   }
 
   // Check if already has a request
   const existingRequest = await prisma.softwareAccessRequest.findFirst({
     where: {
-      projectSoftwareId: id,
+      inboxSoftwareId: id,
       requesterId: req.membership.id
     }
   });
@@ -306,12 +306,12 @@ router.post('/projects/:projectId/software/:id/request', asyncHandler(async (req
       data: {
         status: 'PENDING',
         reason: req.body.reason || null,
-        assigneeId: project.defaultAssigneeId,
+        assigneeId: inbox.defaultAssigneeId,
         reviewerId: null,
         reviewNotes: null
       },
       include: {
-        projectSoftware: {
+        inboxSoftware: {
           include: {
             software: {
               select: { id: true, name: true }
@@ -322,17 +322,17 @@ router.post('/projects/:projectId/software/:id/request', asyncHandler(async (req
     });
 
     // Notify assignee about re-submitted request
-    if (project.defaultAssigneeId) {
+    if (inbox.defaultAssigneeId) {
       try {
         await createNotification(prisma, {
           type: 'ACCESS_REQUEST_SUBMITTED',
-          recipientId: project.defaultAssigneeId,
+          recipientId: inbox.defaultAssigneeId,
           organizationId: req.organization.id,
           data: {
             requesterName: req.user.name,
-            softwareName: updated.projectSoftware.software.name,
-            projectId,
-            projectSoftwareId: id,
+            softwareName: updated.inboxSoftware.software.name,
+            inboxId,
+            inboxSoftwareId: id,
           },
           entityType: 'access_request',
           entityId: updated.id,
@@ -347,7 +347,7 @@ router.post('/projects/:projectId/software/:id/request', asyncHandler(async (req
       status: updated.status,
       reason: updated.reason,
       createdAt: updated.createdAt,
-      software: updated.projectSoftware.software
+      software: updated.inboxSoftware.software
     });
   }
 
@@ -355,13 +355,13 @@ router.post('/projects/:projectId/software/:id/request', asyncHandler(async (req
 
   const request = await prisma.softwareAccessRequest.create({
     data: {
-      projectSoftwareId: id,
+      inboxSoftwareId: id,
       requesterId: req.membership.id,
       reason,
-      assigneeId: project.defaultAssigneeId
+      assigneeId: inbox.defaultAssigneeId
     },
     include: {
-      projectSoftware: {
+      inboxSoftware: {
         include: {
           software: {
             select: { id: true, name: true }
@@ -372,17 +372,17 @@ router.post('/projects/:projectId/software/:id/request', asyncHandler(async (req
   });
 
   // Notify assignee about new request
-  if (project.defaultAssigneeId) {
+  if (inbox.defaultAssigneeId) {
     try {
       await createNotification(prisma, {
         type: 'ACCESS_REQUEST_SUBMITTED',
-        recipientId: project.defaultAssigneeId,
+        recipientId: inbox.defaultAssigneeId,
         organizationId: req.organization.id,
         data: {
           requesterName: req.user.name,
-          softwareName: request.projectSoftware.software.name,
-          projectId,
-          projectSoftwareId: id,
+          softwareName: request.inboxSoftware.software.name,
+          inboxId,
+          inboxSoftwareId: id,
         },
         entityType: 'access_request',
         entityId: request.id,
@@ -397,7 +397,7 @@ router.post('/projects/:projectId/software/:id/request', asyncHandler(async (req
     status: request.status,
     reason: request.reason,
     createdAt: request.createdAt,
-    software: request.projectSoftware.software
+    software: request.inboxSoftware.software
   });
 }));
 

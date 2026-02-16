@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useProjectForm } from '../../hooks/useProjectForm'
+import { useInboxForm } from '../../hooks/useInboxForm'
 import { api } from '../../api/client'
 import { RichTextEditor, RichTextEditorRef } from '@/components/ui/rich-text-editor'
 import { Subheading } from '@/components/ui/heading'
@@ -8,13 +8,13 @@ import { Text } from '@/components/ui/text'
 import { Switch } from '@/components/ui/switch'
 import { Field, Label, Description } from '@/components/ui/fieldset'
 
-interface ProjectAutoReplyTabProps {
-  projectForm: ReturnType<typeof useProjectForm>
-  projectId: string
+interface InboxAutoReplyTabProps {
+  inboxForm: ReturnType<typeof useInboxForm>
+  inboxId: string
 }
 
-export function ProjectAutoReplyTab({ projectForm, projectId }: ProjectAutoReplyTabProps) {
-  const { form, setField, saving } = projectForm
+export function InboxAutoReplyTab({ inboxForm, inboxId }: InboxAutoReplyTabProps) {
+  const { form, setField, saving } = inboxForm
   const editorRef = useRef<RichTextEditorRef>(null)
 
   useEffect(() => {
@@ -31,10 +31,10 @@ export function ProjectAutoReplyTab({ projectForm, projectId }: ProjectAutoReply
     const isEmpty = editorRef.current?.isEmpty()
 
     setField('autoReplyHtml', isEmpty ? '' : html)
-    projectForm.setSaving(true)
+    inboxForm.setSaving(true)
 
     try {
-      await api.updateProject(projectId, {
+      await api.updateInbox(inboxId, {
         autoReplyEnabled: form.autoReplyEnabled,
         autoReplyHtml: isEmpty ? null : html,
       })
@@ -42,7 +42,7 @@ export function ProjectAutoReplyTab({ projectForm, projectId }: ProjectAutoReply
     } catch (error) {
       console.error('Failed to save auto-reply:', error)
     } finally {
-      projectForm.setSaving(false)
+      inboxForm.setSaving(false)
     }
   }
 

@@ -9,15 +9,15 @@ import type {
 // Portal - Tickets
 // ==========================================
 
-export async function getPortalProjects() {
-  return request<any[]>('/portal/projects')
+export async function getPortalInboxes() {
+  return request<any[]>('/portal/inboxes')
 }
 
 export async function getPortalDashboard() {
   return request<any>('/portal/dashboard')
 }
 
-export async function getPortalTickets(filters: { projectId?: string; status?: string } = {}) {
+export async function getPortalTickets(filters: { inboxId?: string; status?: string } = {}) {
   const params = new URLSearchParams()
   Object.entries(filters).forEach(([key, value]) => {
     if (value) params.append(key, value)
@@ -31,7 +31,7 @@ export async function getPortalTicket(id: string) {
 }
 
 export async function submitPortalTicket(data: {
-  projectId: string
+  inboxId: string
   subject: string
   requestType?: string
   priorityLevel?: string
@@ -82,7 +82,7 @@ export async function getPortalTicketMentionableMembers(ticketId: string) {
 // Portal - Software
 // ==========================================
 
-export async function getPortalProjectSoftware(projectId: string, params: {
+export async function getPortalInboxSoftware(inboxId: string, params: {
   categoryId?: string
   filter?: 'my-software'
 } = {}) {
@@ -92,37 +92,37 @@ export async function getPortalProjectSoftware(projectId: string, params: {
 
   const query = queryParams.toString()
   return request<PortalSoftware[]>(
-    `/portal/software/projects/${projectId}/software${query ? `?${query}` : ''}`
+    `/portal/software/inboxes/${inboxId}/software${query ? `?${query}` : ''}`
   )
 }
 
-export async function getPortalProjectSoftwareById(projectId: string, id: string) {
-  return request<PortalSoftware>(`/portal/software/projects/${projectId}/software/${id}`)
+export async function getPortalInboxSoftwareById(inboxId: string, id: string) {
+  return request<PortalSoftware>(`/portal/software/inboxes/${inboxId}/software/${id}`)
 }
 
-export async function getPortalSoftwareCategories(projectId: string) {
+export async function getPortalSoftwareCategories(inboxId: string) {
   return request<SoftwareCategory[]>(
-    `/portal/software/projects/${projectId}/software/categories`
+    `/portal/software/inboxes/${inboxId}/software/categories`
   )
 }
 
-export async function submitPortalAccessRequest(projectId: string, softwareId: string, reason?: string) {
+export async function submitPortalAccessRequest(inboxId: string, softwareId: string, reason?: string) {
   return request<{
     id: string
     status: string
     reason?: string
     createdAt: string
     software: { id: string; name: string }
-  }>(`/portal/software/projects/${projectId}/software/${softwareId}/request`, {
+  }>(`/portal/software/inboxes/${inboxId}/software/${softwareId}/request`, {
     method: 'POST',
     body: JSON.stringify({ reason })
   })
 }
 
-export async function getPortalMyRequests(params: { status?: string; projectId?: string } = {}) {
+export async function getPortalMyRequests(params: { status?: string; inboxId?: string } = {}) {
   const queryParams = new URLSearchParams()
   if (params.status) queryParams.append('status', params.status)
-  if (params.projectId) queryParams.append('projectId', params.projectId)
+  if (params.inboxId) queryParams.append('inboxId', params.inboxId)
 
   const query = queryParams.toString()
   return request<PortalAccessRequest[]>(

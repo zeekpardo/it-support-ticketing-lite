@@ -1,4 +1,4 @@
-import { useProjectForm } from '../../hooks/useProjectForm'
+import { useInboxForm } from '../../hooks/useInboxForm'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -12,8 +12,8 @@ interface StaffMember {
   user: { id: string; name: string; email: string }
 }
 
-interface ProjectGeneralTabProps {
-  projectForm: ReturnType<typeof useProjectForm>
+interface InboxGeneralTabProps {
+  inboxForm: ReturnType<typeof useInboxForm>
   staffMembers: StaffMember[]
 }
 
@@ -24,21 +24,21 @@ const DUE_DATE_CONFIG = [
   { key: 'dueDateUrgentDays' as const, label: 'Urgent Priority', placeholder: 'e.g. 1' },
 ]
 
-export function ProjectGeneralTab({ projectForm, staffMembers }: ProjectGeneralTabProps) {
-  const { form, setField, saving } = projectForm
+export function InboxGeneralTab({ inboxForm, staffMembers }: InboxGeneralTabProps) {
+  const { form, setField, saving } = inboxForm
 
   return (
     <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10">
-      <form onSubmit={projectForm.handleSubmit}>
-        {projectForm.error && (
+      <form onSubmit={inboxForm.handleSubmit}>
+        {inboxForm.error && (
           <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-            {projectForm.error}
+            {inboxForm.error}
           </div>
         )}
 
         <FieldGroup>
           <Field>
-            <Label>Project Name</Label>
+            <Label>Inbox Name</Label>
             <Input
               type="text"
               value={form.name}
@@ -49,11 +49,11 @@ export function ProjectGeneralTab({ projectForm, staffMembers }: ProjectGeneralT
           </Field>
 
           <Field>
-            <Label>Project Code</Label>
+            <Label>Inbox Code</Label>
             <Input
               type="text"
-              value={form.projectCode}
-              onChange={(e) => setField('projectCode', e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))}
+              value={form.inboxCode}
+              onChange={(e) => setField('inboxCode', e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))}
               placeholder="WEB-REDESIGN"
               required
               maxLength={10}
@@ -76,7 +76,7 @@ export function ProjectGeneralTab({ projectForm, staffMembers }: ProjectGeneralT
             <Textarea
               value={form.description}
               onChange={(e) => setField('description', e.target.value)}
-              placeholder="Brief description of the project..."
+              placeholder="Brief description of the inbox..."
               rows={3}
             />
           </Field>
@@ -94,7 +94,7 @@ export function ProjectGeneralTab({ projectForm, staffMembers }: ProjectGeneralT
                 </option>
               ))}
             </Select>
-            <Description>Tickets created for this project will be automatically assigned to this person</Description>
+            <Description>Tickets created for this inbox will be automatically assigned to this person</Description>
           </Field>
 
           {/* Due Date Fields */}
@@ -121,7 +121,7 @@ export function ProjectGeneralTab({ projectForm, staffMembers }: ProjectGeneralT
             <div className="flex items-center justify-between">
               <div>
                 <Label>Active</Label>
-                <Description>Inactive projects are hidden from time entry</Description>
+                <Description>Inactive inboxes are hidden from time entry</Description>
               </div>
               <Switch
                 checked={form.isActive}

@@ -7,7 +7,7 @@ import { NotFoundError, ValidationError, ForbiddenError } from '../../utils/erro
 import { createTicketAttachments } from '../../utils/entityHelpers.js';
 import { sanitizeUrl } from '../../utils/sanitize.js';
 import { createNotification } from '../../services/notificationService.js';
-import { PROJECT_SELECT_BRIEF, MEMBER_WITH_USER_BRIEF, MEMBER_WITH_ROLE_AND_USER_BRIEF } from '../../utils/prismaFragments.js';
+import { INBOX_SELECT_BRIEF, MEMBER_WITH_USER_BRIEF, MEMBER_WITH_ROLE_AND_USER_BRIEF } from '../../utils/prismaFragments.js';
 import { uploadFile, generateAttachmentKey, isStorageConfigured } from '../../lib/storage.js';
 import { resolveS3ImageUrls, resolveAttachmentUrl } from '../../utils/resolveS3Urls.js';
 
@@ -15,22 +15,22 @@ const router = express.Router();
 
 // Get client's own tickets
 router.get('/', asyncHandler(async (req, res) => {
-  const { projectId, status } = req.query;
+  const { inboxId, status } = req.query;
 
   const where = {
     organizationId: req.organization.id,
     clientId: req.membership.id
   };
 
-  if (projectId) where.projectId = projectId;
+  if (inboxId) where.inboxId = inboxId;
   if (status) where.status = status;
 
   const tickets = await prisma.supportTicket.findMany({
     where,
     orderBy: { createdAt: 'desc' },
     include: {
-      project: {
-        select: PROJECT_SELECT_BRIEF
+      inbox: {
+        select: INBOX_SELECT_BRIEF
       },
       owner: {
         select: MEMBER_WITH_USER_BRIEF
@@ -55,8 +55,8 @@ router.get('/:id', asyncHandler(async (req, res) => {
       clientId: req.membership.id
     },
     include: {
-      project: {
-        select: PROJECT_SELECT_BRIEF
+      inbox: {
+        select: INBOX_SELECT_BRIEF
       },
       owner: {
         select: MEMBER_WITH_USER_BRIEF
@@ -107,7 +107,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 // Submit new ticket
 router.post('/', asyncHandler(async (req, res) => {
   const {
-    projectId,
+    inboxId,
     subject,
     requestType,
     priorityLevel,
@@ -115,20 +115,20 @@ router.post('/', asyncHandler(async (req, res) => {
     screenRecordingLink
   } = req.body;
 
-  if (!projectId || !subject || !description) {
-    throw new ValidationError('Project, subject, and description are required');
+  if (!inboxId || !subject || !description) {
+    throw new ValidationError('Inbox, subject, and description are required');
   }
 
-  // Verify client has access to this project and get project details
-  const assignment = await prisma.projectAssignment.findUnique({
+  // Verify client has access to this inbox and get inbox details
+  const assignment = await prisma.inboxAssignment.findUnique({
     where: {
-      memberId_projectId: {
+      memberId_inboxId: {
         memberId: req.membership.id,
-        projectId
+        inboxId
       }
     },
     include: {
-      project: {
+      inbox: {
         select: {
           id: true,
           isActive: true,
@@ -142,8 +142,8 @@ router.post('/', asyncHandler(async (req, res) => {
     }
   });
 
-  if (!assignment || !assignment.project.isActive) {
-    throw new ForbiddenError('You do not have access to this project');
+  if (!assignment || !assignment.inbox.isActive) {
+    throw new ForbiddenError('You do not have access to this inbox');
   }
 
   const user = await prisma.user.findUnique({
@@ -161,10 +161,10 @@ router.post('/', asyncHandler(async (req, res) => {
 
   const effectivePriority = priorityLevel || 'MEDIUM';
   const priorityDueDaysMap = {
-    LOW: assignment.project.dueDateLowDays,
-    MEDIUM: assignment.project.dueDateMediumDays,
-    HIGH: assignment.project.dueDateHighDays,
-    URGENT: assignment.project.dueDateUrgentDays
+    LOW: assignment.inbox.dueDateLowDays,
+    MEDIUM: assignment.inbox.dueDateMediumDays,
+    HIGH: assignment.inbox.dueDateHighDays,
+    URGENT: assignment.inbox.dueDateUrgentDays
   };
   const dueDays = priorityDueDaysMap[effectivePriority];
   const dueDate = dueDays != null ? new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000) : null;
@@ -172,9 +172,9 @@ router.post('/', asyncHandler(async (req, res) => {
   const ticket = await prisma.supportTicket.create({
     data: {
       organizationId: req.organization.id,
-      projectId,
+      inboxId,
       clientId: req.membership.id,
-      ownerId: assignment.project.defaultAssigneeId,
+      ownerId: assignment.inbox.defaultAssigneeId,
       firstName,
       lastName,
       email: user.email,
@@ -187,7 +187,7 @@ router.post('/', asyncHandler(async (req, res) => {
       dueDate
     },
     include: {
-      project: { select: PROJECT_SELECT_BRIEF }
+      inbox: { select: INBOX_SELECT_BRIEF }
     }
   });
 
@@ -196,7 +196,7 @@ router.post('/', asyncHandler(async (req, res) => {
     const notificationData = {
       ticketId: ticket.id,
       ticketSubject: subject,
-      projectName: ticket.project.name,
+      inboxName: ticket.inbox.name,
       requestType: requestType || 'GENERAL_SUPPORT',
       priorityLevel: effectivePriority,
       description,
@@ -212,10 +212,10 @@ router.post('/', asyncHandler(async (req, res) => {
       entityId: ticket.id,
     });
 
-    if (assignment.project.defaultAssigneeId) {
+    if (assignment.inbox.defaultAssigneeId) {
       await createNotification(prisma, {
         type: 'NEW_TICKET_ASSIGNED',
-        recipientId: assignment.project.defaultAssigneeId,
+        recipientId: assignment.inbox.defaultAssigneeId,
         organizationId: req.organization.id,
         data: notificationData,
         entityType: 'ticket',

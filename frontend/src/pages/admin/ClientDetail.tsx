@@ -24,9 +24,9 @@ interface Client {
   id: string
   role: string
   user: { id: string; name: string; email: string; phone?: string }
-  projectAssignments: Array<{
+  inboxAssignments: Array<{
     id: string
-    project: { id: string; name: string; projectCode: string; isActive: boolean }
+    inbox: { id: string; name: string; inboxCode: string; isActive: boolean }
   }>
   tickets: Array<{
     id: string
@@ -35,7 +35,7 @@ interface Client {
     priorityLevel: string
     requestType: string
     createdAt: string
-    project: { id: string; name: string; projectCode: string }
+    inbox: { id: string; name: string; inboxCode: string }
     owner?: { id: string; user: { id: string; name: string } }
   }>
   softwareAccess: Array<{
@@ -44,10 +44,10 @@ interface Client {
     reason?: string
     reviewNotes?: string
     createdAt: string
-    projectSoftware: {
+    inboxSoftware: {
       id: string
       software: { id: string; name: string; iconUrl?: string; vendor?: string }
-      project: { id: string; name: string; projectCode: string }
+      inbox: { id: string; name: string; inboxCode: string }
     }
     reviewer?: { id: string; user: { id: string; name: string } }
   }>
@@ -107,10 +107,10 @@ export default function ClientDetail() {
   const [editPhone, setEditPhone] = useState('')
   const phoneRef = useRef<HTMLInputElement>(null)
 
-  // Inline project editing
-  const [editingProjects, setEditingProjects] = useState(false)
-  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([])
-  const [allProjects, setAllProjects] = useState<Array<{ id: string; name: string; projectCode: string; isActive: boolean }>>([])
+  // Inline inbox editing
+  const [editingInboxes, setEditingInboxes] = useState(false)
+  const [selectedInboxIds, setSelectedInboxIds] = useState<string[]>([])
+  const [allInboxes, setAllInboxes] = useState<Array<{ id: string; name: string; inboxCode: string; isActive: boolean }>>([])
 
   useEffect(() => {
     if (currentOrg && memberId) {
@@ -209,44 +209,44 @@ export default function ClientDetail() {
     }
   }
 
-  // Project editing handlers
-  const startEditingProjects = async () => {
+  // Inbox editing handlers
+  const startEditingInboxes = async () => {
     if (!client) return
-    setSelectedProjectIds(client.projectAssignments.map((pa) => pa.project.id))
-    setEditingProjects(true)
-    if (allProjects.length === 0) {
+    setSelectedInboxIds(client.inboxAssignments.map((ia) => ia.inbox.id))
+    setEditingInboxes(true)
+    if (allInboxes.length === 0) {
       try {
-        const projects = await api.getProjects()
-        setAllProjects(projects)
+        const inboxes = await api.getInboxes()
+        setAllInboxes(inboxes)
       } catch (error) {
-        console.error('Failed to load projects:', error)
+        console.error('Failed to load inboxes:', error)
       }
     }
   }
 
-  const cancelEditingProjects = () => setEditingProjects(false)
+  const cancelEditingInboxes = () => setEditingInboxes(false)
 
-  const toggleProject = (projectId: string) => {
-    setSelectedProjectIds((prev) =>
-      prev.includes(projectId) ? prev.filter((id) => id !== projectId) : [...prev, projectId],
+  const toggleInbox = (inboxId: string) => {
+    setSelectedInboxIds((prev) =>
+      prev.includes(inboxId) ? prev.filter((id) => id !== inboxId) : [...prev, inboxId],
     )
   }
 
-  const saveProjects = async () => {
+  const saveInboxes = async () => {
     if (!client || !memberId) return
-    const currentIds = client.projectAssignments.map((pa) => pa.project.id).sort()
-    const newIds = [...selectedProjectIds].sort()
+    const currentIds = client.inboxAssignments.map((ia) => ia.inbox.id).sort()
+    const newIds = [...selectedInboxIds].sort()
     if (JSON.stringify(currentIds) === JSON.stringify(newIds)) {
-      setEditingProjects(false)
+      setEditingInboxes(false)
       return
     }
     setSaving(true)
     try {
-      const assignments = await api.updateMemberProjects(memberId, selectedProjectIds)
-      setClient({ ...client, projectAssignments: assignments })
-      setEditingProjects(false)
+      const assignments = await api.updateMemberInboxes(memberId, selectedInboxIds)
+      setClient({ ...client, inboxAssignments: assignments })
+      setEditingInboxes(false)
     } catch (error) {
-      console.error('Failed to update projects:', error)
+      console.error('Failed to update inboxes:', error)
     } finally {
       setSaving(false)
     }
@@ -363,46 +363,46 @@ export default function ClientDetail() {
                 </div>
               )}
             </div>
-            {editingProjects ? (
+            {editingInboxes ? (
               <div className="mt-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-3 shadow-sm">
                 <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                  {allProjects.filter((p) => p.isActive).map((project) => (
-                    <label key={project.id} className="flex items-center gap-2 cursor-pointer rounded px-2 py-1 hover:bg-zinc-50 dark:hover:bg-zinc-700">
+                  {allInboxes.filter((p) => p.isActive).map((inbox) => (
+                    <label key={inbox.id} className="flex items-center gap-2 cursor-pointer rounded px-2 py-1 hover:bg-zinc-50 dark:hover:bg-zinc-700">
                       <input
                         type="checkbox"
-                        checked={selectedProjectIds.includes(project.id)}
-                        onChange={() => toggleProject(project.id)}
+                        checked={selectedInboxIds.includes(inbox.id)}
+                        onChange={() => toggleInbox(inbox.id)}
                         disabled={saving}
                         className="rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-blue-500"
                       />
-                      <span className="text-sm text-zinc-900 dark:text-white">{project.name}</span>
-                      <span className="text-xs text-zinc-400">{project.projectCode}</span>
+                      <span className="text-sm text-zinc-900 dark:text-white">{inbox.name}</span>
+                      <span className="text-xs text-zinc-400">{inbox.inboxCode}</span>
                     </label>
                   ))}
                 </div>
                 <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-700">
-                  <button onClick={saveProjects} disabled={saving} className="text-green-600 hover:text-green-700 dark:text-green-400">
+                  <button onClick={saveInboxes} disabled={saving} className="text-green-600 hover:text-green-700 dark:text-green-400">
                     <CheckIcon className="h-4 w-4" />
                   </button>
-                  <button onClick={cancelEditingProjects} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300">
+                  <button onClick={cancelEditingInboxes} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300">
                     <XMarkIcon className="h-4 w-4" />
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="group/projects flex items-center gap-2 mt-2">
-                {client.projectAssignments.length > 0 ? (
-                  client.projectAssignments.map((pa) => (
-                    <Badge key={pa.id} color={pa.project.isActive ? 'blue' : 'zinc'}>
-                      {pa.project.name}
+              <div className="group/inboxes flex items-center gap-2 mt-2">
+                {client.inboxAssignments.length > 0 ? (
+                  client.inboxAssignments.map((ia) => (
+                    <Badge key={ia.id} color={ia.inbox.isActive ? 'blue' : 'zinc'}>
+                      {ia.inbox.name}
                     </Badge>
                   ))
                 ) : (
-                  <Text className="text-sm text-zinc-400">No projects assigned</Text>
+                  <Text className="text-sm text-zinc-400">No inboxes assigned</Text>
                 )}
                 <button
-                  onClick={startEditingProjects}
-                  className="opacity-0 group-hover/projects:opacity-100 transition-opacity text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                  onClick={startEditingInboxes}
+                  className="opacity-0 group-hover/inboxes:opacity-100 transition-opacity text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
                 >
                   <PencilSquareIcon className="h-3.5 w-3.5" />
                 </button>
@@ -457,7 +457,7 @@ export default function ClientDetail() {
                 <TableHead>
                   <TableRow>
                     <TableHeader>Subject</TableHeader>
-                    <TableHeader>Project</TableHeader>
+                    <TableHeader>Inbox</TableHeader>
                     <TableHeader>Status</TableHeader>
                     <TableHeader>Priority</TableHeader>
                     <TableHeader>Owner</TableHeader>
@@ -469,14 +469,14 @@ export default function ClientDetail() {
                     <TableRow key={ticket.id}>
                       <TableCell>
                         <Link
-                          to={`/projects/${ticket.project.id}/tickets/${ticket.id}`}
+                          to={`/inboxes/${ticket.inbox.id}/tickets/${ticket.id}`}
                           className="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                         >
                           {ticket.subject}
                         </Link>
                       </TableCell>
                       <TableCell>
-                        <Badge color="zinc">{ticket.project.projectCode}</Badge>
+                        <Badge color="zinc">{ticket.inbox.inboxCode}</Badge>
                       </TableCell>
                       <TableCell>
                         <Badge color={statusColors[ticket.status] || 'zinc'}>
@@ -514,7 +514,7 @@ export default function ClientDetail() {
                 <TableHead>
                   <TableRow>
                     <TableHeader>Software</TableHeader>
-                    <TableHeader>Project</TableHeader>
+                    <TableHeader>Inbox</TableHeader>
                     <TableHeader>Status</TableHeader>
                     <TableHeader>Reason</TableHeader>
                     <TableHeader>Reviewed By</TableHeader>
@@ -526,9 +526,9 @@ export default function ClientDetail() {
                     <TableRow key={access.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          {access.projectSoftware.software.iconUrl ? (
+                          {access.inboxSoftware.software.iconUrl ? (
                             <img
-                              src={access.projectSoftware.software.iconUrl}
+                              src={access.inboxSoftware.software.iconUrl}
                               alt=""
                               className="w-8 h-8 rounded"
                             />
@@ -538,15 +538,15 @@ export default function ClientDetail() {
                             </div>
                           )}
                           <div>
-                            <span className="font-medium">{access.projectSoftware.software.name}</span>
-                            {access.projectSoftware.software.vendor && (
-                              <Text className="text-xs text-zinc-500">{access.projectSoftware.software.vendor}</Text>
+                            <span className="font-medium">{access.inboxSoftware.software.name}</span>
+                            {access.inboxSoftware.software.vendor && (
+                              <Text className="text-xs text-zinc-500">{access.inboxSoftware.software.vendor}</Text>
                             )}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge color="zinc">{access.projectSoftware.project.projectCode}</Badge>
+                        <Badge color="zinc">{access.inboxSoftware.inbox.inboxCode}</Badge>
                       </TableCell>
                       <TableCell>
                         <Badge color={accessStatusColors[access.status] || 'zinc'}>

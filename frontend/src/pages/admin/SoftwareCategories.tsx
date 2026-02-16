@@ -17,33 +17,33 @@ import { ArrowLeftIcon, PlusIcon, PencilIcon, TrashIcon, TagIcon } from '@heroic
 import { SoftwareCategoryForm } from '@/components/software'
 
 export default function SoftwareCategories() {
-  const { projectId } = useParams<{ projectId: string }>()
+  const { inboxId } = useParams<{ inboxId: string }>()
   const navigate = useNavigate()
   const { currentOrg } = useOrganization()
   const [categories, setCategories] = useState<SoftwareCategory[]>([])
-  const [projectName, setProjectName] = useState('')
+  const [inboxName, setProjectName] = useState('')
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingCategory, setEditingCategory] = useState<SoftwareCategory | null>(null)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (currentOrg && projectId) {
+    if (currentOrg && inboxId) {
       loadData()
     }
-  }, [currentOrg, projectId])
+  }, [currentOrg, inboxId])
 
   const loadData = async () => {
-    if (!projectId) return
+    if (!inboxId) return
 
     setLoading(true)
     try {
-      const [categoriesData, projectData] = await Promise.all([
-        api.getSoftwareCategories(projectId),
-        api.getProject(projectId)
+      const [categoriesData, inboxData] = await Promise.all([
+        api.getSoftwareCategories(inboxId),
+        api.getInbox(inboxId)
       ])
       setCategories(categoriesData)
-      setProjectName(projectData.name)
+      setInboxName(inboxData.name)
     } catch (error) {
       console.error('Failed to load categories:', error)
     } finally {
@@ -62,14 +62,14 @@ export default function SoftwareCategories() {
   }
 
   const handleSubmit = async (data: { name: string; description?: string }) => {
-    if (!projectId) return
+    if (!inboxId) return
 
     setSaving(true)
     try {
       if (editingCategory) {
-        await api.updateSoftwareCategory(projectId, editingCategory.id, data)
+        await api.updateSoftwareCategory(inboxId, editingCategory.id, data)
       } else {
-        await api.createSoftwareCategory(projectId, data)
+        await api.createSoftwareCategory(inboxId, data)
       }
       loadData()
     } finally {
@@ -78,7 +78,7 @@ export default function SoftwareCategories() {
   }
 
   const handleDelete = async (category: SoftwareCategory) => {
-    if (!projectId) return
+    if (!inboxId) return
 
     const message = category._count?.software
       ? `This category has ${category._count.software} software items. They will be moved to "No category". Delete anyway?`
@@ -87,7 +87,7 @@ export default function SoftwareCategories() {
     if (!confirm(message)) return
 
     try {
-      await api.deleteSoftwareCategory(projectId, category.id)
+      await api.deleteSoftwareCategory(inboxId, category.id)
       loadData()
     } catch (error) {
       console.error('Failed to delete category:', error)
@@ -120,7 +120,7 @@ export default function SoftwareCategories() {
           </Button>
           <div>
             <Heading>Software Categories</Heading>
-            <Text className="text-zinc-500">{projectName}</Text>
+            <Text className="text-zinc-500">{inboxName}</Text>
           </div>
         </div>
         <Button color="blue" onClick={openCreateModal}>
@@ -134,7 +134,7 @@ export default function SoftwareCategories() {
           <TagIcon className="mx-auto h-12 w-12 text-zinc-400" />
           <Subheading className="mt-4">No categories yet</Subheading>
           <Text className="mt-2">
-            Create categories to organize software in this project.
+            Create categories to organize software in this inbox.
           </Text>
           <Button color="blue" onClick={openCreateModal} className="mt-4">
             <PlusIcon className="h-4 w-4" />

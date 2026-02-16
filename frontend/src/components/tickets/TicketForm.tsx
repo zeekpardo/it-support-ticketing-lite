@@ -7,7 +7,7 @@ import { Field, FieldGroup, Label, Description } from '../ui/fieldset'
 import { FileUpload } from '../ui/file-upload'
 
 interface TicketFormData {
-  projectId: string
+  inboxId: string
   firstName: string
   lastName: string
   email: string
@@ -19,20 +19,20 @@ interface TicketFormData {
   screenRecordingLink: string
 }
 
-interface Project {
+interface Inbox {
   id: string
   name: string
-  projectCode: string
+  inboxCode: string
 }
 
 interface TicketFormProps {
-  projects: Project[]
+  inboxes: Inbox[]
   onSubmit: (data: TicketFormData) => Promise<any>
   initialData?: Partial<TicketFormData>
   isLoading?: boolean
   showPriority?: boolean
   showContactFields?: boolean
-  preselectedProjectId?: string
+  preselectedInboxId?: string
   showAttachments?: boolean
   onUploadAttachments?: (ticketId: string, files: File[]) => Promise<any>
   onSuccess?: (ticket: any) => void
@@ -55,23 +55,23 @@ const PRIORITY_LEVELS = [
 ]
 
 export function TicketForm({
-  projects,
+  inboxes,
   onSubmit,
   initialData,
   isLoading,
   showPriority = false,
   showContactFields = true,
-  preselectedProjectId,
+  preselectedInboxId,
   showAttachments = false,
   onUploadAttachments,
   onSuccess
 }: TicketFormProps) {
-  // Auto-select project if only one is available
-  const autoSelectedProjectId = projects.length === 1 ? projects[0].id : undefined
-  const effectiveProjectId = preselectedProjectId || autoSelectedProjectId
+  // Auto-select inbox if only one is available
+  const autoSelectedInboxId = inboxes.length === 1 ? inboxes[0].id : undefined
+  const effectiveInboxId = preselectedInboxId || autoSelectedInboxId
 
   const [formData, setFormData] = useState<TicketFormData>({
-    projectId: effectiveProjectId || initialData?.projectId || '',
+    inboxId: effectiveInboxId || initialData?.inboxId || '',
     firstName: initialData?.firstName || '',
     lastName: initialData?.lastName || '',
     email: initialData?.email || '',
@@ -83,12 +83,12 @@ export function TicketForm({
     screenRecordingLink: initialData?.screenRecordingLink || ''
   })
 
-  // Update projectId when projects load and there's only one
+  // Update inboxId when inboxes load and there's only one
   useEffect(() => {
-    if (projects.length === 1 && !formData.projectId) {
-      setFormData(prev => ({ ...prev, projectId: projects[0].id }))
+    if (inboxes.length === 1 && !formData.inboxId) {
+      setFormData(prev => ({ ...prev, inboxId: inboxes[0].id }))
     }
-  }, [projects])
+  }, [inboxes])
 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -103,7 +103,7 @@ export function TicketForm({
     setError(null)
 
     // Validate required fields
-    if (!formData.projectId || !formData.subject || !formData.description) {
+    if (!formData.inboxId || !formData.subject || !formData.description) {
       setError('Please fill in all required fields')
       return
     }
@@ -120,7 +120,7 @@ export function TicketForm({
       const submitData = showContactFields
         ? formData
         : {
-            projectId: formData.projectId,
+            inboxId: formData.inboxId,
             subject: formData.subject,
             requestType: formData.requestType,
             priorityLevel: formData.priorityLevel,
@@ -205,18 +205,18 @@ export function TicketForm({
       <div>
         <h3 className="text-sm font-semibold text-zinc-900 dark:text-white mb-4">Issue Information</h3>
         <FieldGroup>
-          {!effectiveProjectId && projects.length > 1 && (
+          {!effectiveInboxId && inboxes.length > 1 && (
             <Field>
-              <Label>Project *</Label>
+              <Label>Inbox *</Label>
               <Select
-                value={formData.projectId}
-                onChange={e => handleChange('projectId', e.target.value)}
+                value={formData.inboxId}
+                onChange={e => handleChange('inboxId', e.target.value)}
                 required
               >
-                <option value="">Select a project</option>
-                {projects.map(project => (
-                  <option key={project.id} value={project.id}>
-                    {project.name} ({project.projectCode})
+                <option value="">Select an inbox</option>
+                {inboxes.map(inbox => (
+                  <option key={inbox.id} value={inbox.id}>
+                    {inbox.name} ({inbox.inboxCode})
                   </option>
                 ))}
               </Select>

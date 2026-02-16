@@ -2,29 +2,29 @@ import { Text } from '@/components/ui/text'
 import { Label } from '@/components/ui/fieldset'
 import { Checkbox, CheckboxField, CheckboxGroup } from '@/components/ui/checkbox'
 
-interface Project {
+interface Inbox {
   id: string
   name: string
-  projectCode: string
+  inboxCode: string
   isActive: boolean
 }
 
-interface ProjectCheckboxListProps {
-  projects: Project[]
+interface InboxCheckboxListProps {
+  inboxes: Inbox[]
   selectedIds: string[] | Set<string>
-  onToggle: (projectId: string, checked: boolean) => void
+  onToggle: (inboxId: string, checked: boolean) => void
   emptyMessage?: string
   activeOnly?: boolean
 }
 
-export default function ProjectCheckboxList({
-  projects,
+export default function InboxCheckboxList({
+  inboxes,
   selectedIds,
   onToggle,
-  emptyMessage = 'No projects available.',
+  emptyMessage = 'No inboxes available.',
   activeOnly = true,
-}: ProjectCheckboxListProps) {
-  const filtered = activeOnly ? projects.filter(p => p.isActive) : projects
+}: InboxCheckboxListProps) {
+  const filtered = activeOnly ? inboxes.filter(p => p.isActive) : inboxes
 
   if (filtered.length === 0) {
     return (
@@ -39,15 +39,15 @@ export default function ProjectCheckboxList({
 
   return (
     <CheckboxGroup>
-      {filtered.map((project) => (
-        <CheckboxField key={project.id}>
+      {filtered.map((inbox) => (
+        <CheckboxField key={inbox.id}>
           <Checkbox
-            checked={isSelected(project.id)}
-            onChange={(checked) => onToggle(project.id, checked)}
+            checked={isSelected(inbox.id)}
+            onChange={(checked) => onToggle(inbox.id, checked)}
           />
           <Label>
-            {project.name}
-            <span className="ml-2 text-zinc-500">({project.projectCode})</span>
+            {inbox.name}
+            <span className="ml-2 text-zinc-500">({inbox.inboxCode})</span>
           </Label>
         </CheckboxField>
       ))}

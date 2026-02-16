@@ -10,7 +10,7 @@ export async function createUserAndAddToOrg(data: {
   phone?: string
   password: string
   role: 'manager' | 'member' | 'client'
-  projectIds?: string[]
+  inboxIds?: string[]
 }) {
   return request<{
     success: boolean
@@ -43,9 +43,9 @@ export async function getClients() {
     id: string
     role: string
     user: { id: string; name: string; email: string }
-    projectAssignments: Array<{
+    inboxAssignments: Array<{
       id: string
-      project: { id: string; name: string; projectCode: string; isActive: boolean }
+      inbox: { id: string; name: string; inboxCode: string; isActive: boolean }
     }>
   }>>('/members/clients')
 }
@@ -55,9 +55,9 @@ export async function getClientDetail(memberId: string) {
     id: string
     role: string
     user: { id: string; name: string; email: string; phone?: string }
-    projectAssignments: Array<{
+    inboxAssignments: Array<{
       id: string
-      project: { id: string; name: string; projectCode: string; isActive: boolean }
+      inbox: { id: string; name: string; inboxCode: string; isActive: boolean }
     }>
     tickets: Array<{
       id: string
@@ -66,7 +66,7 @@ export async function getClientDetail(memberId: string) {
       priorityLevel: string
       requestType: string
       createdAt: string
-      project: { id: string; name: string; projectCode: string }
+      inbox: { id: string; name: string; inboxCode: string }
       owner?: { id: string; user: { id: string; name: string } }
     }>
     softwareAccess: Array<{
@@ -75,10 +75,10 @@ export async function getClientDetail(memberId: string) {
       reason?: string
       reviewNotes?: string
       createdAt: string
-      projectSoftware: {
+      inboxSoftware: {
         id: string
         software: { id: string; name: string; iconUrl?: string; vendor?: string }
-        project: { id: string; name: string; projectCode: string }
+        inbox: { id: string; name: string; inboxCode: string }
       }
       reviewer?: { id: string; user: { id: string; name: string } }
     }>
@@ -93,54 +93,54 @@ export async function updateClient(memberId: string, data: { name?: string; phon
 }
 
 // ==========================================
-// Project Assignments
+// Inbox Assignments
 // ==========================================
 
-export async function getMemberProjects(memberId: string) {
+export async function getMemberInboxes(memberId: string) {
   return request<Array<{
     id: string
-    project: { id: string; name: string; projectCode: string; isActive: boolean }
-  }>>(`/members/${memberId}/projects`)
+    inbox: { id: string; name: string; inboxCode: string; isActive: boolean }
+  }>>(`/members/${memberId}/inboxes`)
 }
 
-export async function assignProject(memberId: string, projectId: string) {
+export async function assignInbox(memberId: string, inboxId: string) {
   return request<{
     id: string
-    project: { id: string; name: string; projectCode: string; isActive: boolean }
-  }>(`/members/${memberId}/projects`, {
+    inbox: { id: string; name: string; inboxCode: string; isActive: boolean }
+  }>(`/members/${memberId}/inboxes`, {
     method: 'POST',
-    body: JSON.stringify({ projectId })
+    body: JSON.stringify({ inboxId })
   })
 }
 
-export async function unassignProject(memberId: string, projectId: string) {
-  return request<{ message: string }>(`/members/${memberId}/projects/${projectId}`, {
+export async function unassignInbox(memberId: string, inboxId: string) {
+  return request<{ message: string }>(`/members/${memberId}/inboxes/${inboxId}`, {
     method: 'DELETE'
   })
 }
 
-export async function updateMemberProjects(memberId: string, projectIds: string[]) {
+export async function updateMemberInboxes(memberId: string, inboxIds: string[]) {
   return request<Array<{
     id: string
-    project: { id: string; name: string; projectCode: string; isActive: boolean }
-  }>>(`/members/${memberId}/projects`, {
+    inbox: { id: string; name: string; inboxCode: string; isActive: boolean }
+  }>>(`/members/${memberId}/inboxes`, {
     method: 'PUT',
-    body: JSON.stringify({ projectIds })
+    body: JSON.stringify({ inboxIds })
   })
 }
 
 // ==========================================
-// Invitation Project Assignments
+// Invitation Inbox Assignments
 // ==========================================
 
-export async function getInvitationProjects() {
-  return request<Record<string, Array<{ id: string; name: string; projectCode: string }>>>('/members/invitations/projects')
+export async function getInvitationInboxes() {
+  return request<Record<string, Array<{ id: string; name: string; inboxCode: string }>>>('/members/invitations/inboxes')
 }
 
-export async function saveInvitationProjects(invitationId: string, projectIds: string[]) {
-  return request<{ success: boolean }>(`/members/invitations/${invitationId}/projects`, {
+export async function saveInvitationInboxes(invitationId: string, inboxIds: string[]) {
+  return request<{ success: boolean }>(`/members/invitations/${invitationId}/inboxes`, {
     method: 'POST',
-    body: JSON.stringify({ projectIds })
+    body: JSON.stringify({ inboxIds })
   })
 }
 
@@ -189,7 +189,7 @@ export async function getAvatarUrl() {
 // Import
 // ==========================================
 
-export async function importClients(projectId: string, clients: Array<{
+export async function importClients(inboxId: string, clients: Array<{
   firstName: string
   lastName: string
   email: string
@@ -212,6 +212,6 @@ export async function importClients(projectId: string, clients: Array<{
     }>
   }>('/import/clients', {
     method: 'POST',
-    body: JSON.stringify({ projectId, clients })
+    body: JSON.stringify({ inboxId, clients })
   })
 }

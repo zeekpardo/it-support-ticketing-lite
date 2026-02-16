@@ -6,11 +6,11 @@ export interface Membership {
     name: string
     slug: string
   }
-  projectAssignments: Array<{
-    project: {
+  inboxAssignments: Array<{
+    inbox: {
       id: string
       name: string
-      projectCode: string
+      inboxCode: string
     }
   }>
 }

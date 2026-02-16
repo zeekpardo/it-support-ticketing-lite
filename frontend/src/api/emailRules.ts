@@ -3,17 +3,17 @@ import { request } from './base'
 export interface EmailRule {
   id: string
   organizationId: string
-  projectId: string
+  inboxId: string
   matchType: 'EXACT_ADDRESS' | 'DOMAIN' | 'CATCH_ALL'
   matchValue: string | null
   priority: number
   isActive: boolean
   createdAt: string
   updatedAt: string
-  project?: {
+  inbox?: {
     id: string
     name: string
-    projectCode: string
+    inboxCode: string
   }
   _count?: {
     inboundEmails: number
@@ -41,7 +41,7 @@ export interface InboundEmail {
     id: string
     matchType: string
     matchValue: string | null
-    project: {
+    inbox: {
       id: string
       name: string
     }
@@ -57,7 +57,7 @@ export interface InboundEmail {
 }
 
 export interface CreateEmailRuleData {
-  projectId: string
+  inboxId: string
   matchType: 'EXACT_ADDRESS' | 'DOMAIN' | 'CATCH_ALL'
   matchValue?: string
   priority?: number
@@ -74,8 +74,8 @@ export const emailRulesApi = {
   /**
    * Get all email rules for the organization
    */
-  async getEmailRules(params?: { projectId?: string }): Promise<EmailRule[]> {
-    const query = params?.projectId ? `?projectId=${params.projectId}` : ''
+  async getEmailRules(params?: { inboxId?: string }): Promise<EmailRule[]> {
+    const query = params?.inboxId ? `?inboxId=${params.inboxId}` : ''
     return request<EmailRule[]>(`/email-rules${query}`)
   },
 

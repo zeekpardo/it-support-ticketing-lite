@@ -4,7 +4,7 @@ import { prisma, auth } from '../lib/auth.js';
 import { authenticate, requireOrganization, requireAdmin } from '../middleware/auth.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { ValidationError } from '../utils/errors.js';
-import { findProjectOrFail } from '../utils/entityHelpers.js';
+import { findInboxOrFail } from '../utils/entityHelpers.js';
 import { sendMagicLinkEmail } from '../lib/email/index.js';
 
 const router = express.Router();
@@ -16,22 +16,22 @@ const generateId = () => crypto.randomBytes(16).toString('hex');
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 /**
- * Bulk import clients into a project
+ * Bulk import clients into an inbox
  * POST /api/import/clients
  */
 router.post('/clients', authenticate, requireOrganization, requireAdmin, asyncHandler(async (req, res) => {
-  const { projectId, clients } = req.body;
+  const { inboxId, clients } = req.body;
 
-  if (!projectId) {
-    throw new ValidationError('Project ID is required');
+  if (!inboxId) {
+    throw new ValidationError('Inbox ID is required');
   }
 
   if (!clients || !Array.isArray(clients) || clients.length === 0) {
     throw new ValidationError('At least one client is required');
   }
 
-  // Verify project belongs to organization
-  await findProjectOrFail(projectId, req.organization.id);
+  // Verify inbox belongs to organization
+  await findInboxOrFail(inboxId, req.organization.id);
 
   const results = [];
   const summary = {
@@ -93,12 +93,12 @@ router.post('/clients', authenticate, requireOrganization, requireAdmin, asyncHa
         });
 
         if (existingMember) {
-          // Check if already assigned to this project
-          const existingAssignment = await prisma.projectAssignment.findUnique({
+          // Check if already assigned to this inbox
+          const existingAssignment = await prisma.inboxAssignment.findUnique({
             where: {
-              memberId_projectId: {
+              memberId_inboxId: {
                 memberId: existingMember.id,
-                projectId
+                inboxId
               }
             }
           });
@@ -107,17 +107,17 @@ router.post('/clients', authenticate, requireOrganization, requireAdmin, asyncHa
             results.push({
               email,
               status: 'already_member',
-              message: 'User is already a client on this project'
+              message: 'User is already a client on this inbox'
             });
             summary.alreadyMembers++;
             continue;
           }
 
-          // Add project assignment for existing member
-          await prisma.projectAssignment.create({
+          // Add inbox assignment for existing member
+          await prisma.inboxAssignment.create({
             data: {
               memberId: existingMember.id,
-              projectId
+              inboxId
             }
           });
 
@@ -125,12 +125,12 @@ router.post('/clients', authenticate, requireOrganization, requireAdmin, asyncHa
           results.push({
             email,
             status: 'existing_added',
-            message: 'Existing user added to project',
+            message: 'Existing user added to inbox',
             memberId
           });
           summary.existingUsersAdded++;
         } else {
-          // User exists but not a member - add them to org and project
+          // User exists but not a member - add them to org and inbox
           const member = await prisma.member.create({
             data: {
               id: generateId(),
@@ -140,10 +140,10 @@ router.post('/clients', authenticate, requireOrganization, requireAdmin, asyncHa
             }
           });
 
-          await prisma.projectAssignment.create({
+          await prisma.inboxAssignment.create({
             data: {
               memberId: member.id,
-              projectId
+              inboxId
             }
           });
 
@@ -151,7 +151,7 @@ router.post('/clients', authenticate, requireOrganization, requireAdmin, asyncHa
           results.push({
             email,
             status: 'existing_added',
-            message: 'Existing user added to organization and project',
+            message: 'Existing user added to organization and inbox',
             memberId
           });
           summary.existingUsersAdded++;
@@ -182,11 +182,11 @@ router.post('/clients', authenticate, requireOrganization, requireAdmin, asyncHa
           }
         });
 
-        // Create project assignment
-        await prisma.projectAssignment.create({
+        // Create inbox assignment
+        await prisma.inboxAssignment.create({
           data: {
             memberId: member.id,
-            projectId
+            inboxId
           }
         });
 
@@ -194,7 +194,7 @@ router.post('/clients', authenticate, requireOrganization, requireAdmin, asyncHa
         results.push({
           email,
           status: 'created',
-          message: 'New client created and added to project',
+          message: 'New client created and added to inbox',
           memberId
         });
         summary.created++;

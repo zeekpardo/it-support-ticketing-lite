@@ -20,10 +20,10 @@ interface TimeEntry {
   durationMins?: number
   isRunning: boolean
   notes?: string
-  project: {
+  inbox: {
     id: string
     name: string
-    projectCode: string
+    inboxCode: string
   }
   user: {
     id: string
@@ -91,7 +91,7 @@ export function TimeEntryList({ entries, isAdmin, onDelete, onRefresh }: TimeEnt
       <TableHead>
         <TableRow>
           <TableHeader>Date</TableHeader>
-          <TableHeader>Project</TableHeader>
+          <TableHeader>Inbox</TableHeader>
           <TableHeader>Task</TableHeader>
           {isAdmin && <TableHeader>User</TableHeader>}
           <TableHeader>Time</TableHeader>
@@ -107,10 +107,10 @@ export function TimeEntryList({ entries, isAdmin, onDelete, onRefresh }: TimeEnt
             </TableCell>
             <TableCell>
               <Badge color="blue">
-                {entry.project.projectCode}
+                {entry.inbox.inboxCode}
               </Badge>
               <span className="ml-2 text-zinc-600 dark:text-zinc-400">
-                {entry.project.name}
+                {entry.inbox.name}
               </span>
             </TableCell>
             <TableCell>{entry.taskName}</TableCell>

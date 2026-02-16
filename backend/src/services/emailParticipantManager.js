@@ -7,7 +7,7 @@ const generateId = () => crypto.randomBytes(16).toString('hex');
  * Store all email participants (FROM, TO, CC) for a ticket.
  * Creates client accounts for external participants and tracks them for threaded replies.
  */
-export async function storeEmailParticipants(ticketId, { from, toAddresses, ccAddresses, emailDomain, organizationId, projectId, primaryClientId }) {
+export async function storeEmailParticipants(ticketId, { from, toAddresses, ccAddresses, emailDomain, organizationId, inboxId, primaryClientId }) {
   const participants = [];
 
   // Add the sender as 'from' participant
@@ -54,7 +54,7 @@ export async function storeEmailParticipants(ticketId, { from, toAddresses, ccAd
     if (!memberId && p.type !== 'from') {
       try {
         const { firstName, lastName } = parseFullName(p.name || p.email);
-        const member = await findOrCreateClient(p.email, firstName, lastName, organizationId, projectId);
+        const member = await findOrCreateClient(p.email, firstName, lastName, organizationId, inboxId);
         memberId = member.id;
       } catch (err) {
         console.warn('[InboundEmail] Could not create client for participant:', p.email, err.message);
@@ -84,9 +84,9 @@ export async function storeEmailParticipants(ticketId, { from, toAddresses, ccAd
 }
 
 /**
- * Find existing client or create new one with project assignment
+ * Find existing client or create new one with inbox assignment
  */
-export async function findOrCreateClient(email, firstName, lastName, organizationId, projectId) {
+export async function findOrCreateClient(email, firstName, lastName, organizationId, inboxId) {
   // Try to find existing user by email
   const existingUser = await prisma.user.findUnique({
     where: { email },
@@ -101,8 +101,8 @@ export async function findOrCreateClient(email, firstName, lastName, organizatio
   if (existingUser?.members?.[0]) {
     const member = existingUser.members[0];
 
-    // Ensure client is assigned to this project
-    await ensureProjectAssignment(member.id, projectId);
+    // Ensure client is assigned to this inbox
+    await ensureInboxAssignment(member.id, inboxId);
 
     console.log('[InboundEmail] Using existing client:', email);
     return member;
@@ -129,11 +129,11 @@ export async function findOrCreateClient(email, firstName, lastName, organizatio
     },
   });
 
-  // Assign to project
-  await prisma.projectAssignment.create({
+  // Assign to inbox
+  await prisma.inboxAssignment.create({
     data: {
       memberId: member.id,
-      projectId,
+      inboxId,
     },
   });
 
@@ -142,20 +142,20 @@ export async function findOrCreateClient(email, firstName, lastName, organizatio
 }
 
 /**
- * Ensure a member is assigned to a project
+ * Ensure a member is assigned to an inbox
  */
-export async function ensureProjectAssignment(memberId, projectId) {
-  const existing = await prisma.projectAssignment.findUnique({
+export async function ensureInboxAssignment(memberId, inboxId) {
+  const existing = await prisma.inboxAssignment.findUnique({
     where: {
-      memberId_projectId: { memberId, projectId },
+      memberId_inboxId: { memberId, inboxId },
     },
   });
 
   if (!existing) {
-    await prisma.projectAssignment.create({
-      data: { memberId, projectId },
+    await prisma.inboxAssignment.create({
+      data: { memberId, inboxId },
     });
-    console.log('[InboundEmail] Assigned client to project');
+    console.log('[InboundEmail] Assigned client to inbox');
   }
 }
 

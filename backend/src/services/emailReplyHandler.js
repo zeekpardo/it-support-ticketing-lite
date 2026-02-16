@@ -77,7 +77,7 @@ export async function handleEmailReply(inboundEmail, inReplyToMessageId) {
     if (participant) {
       // Auto-create client for known participant
       const { firstName, lastName } = parseFullName(inboundEmail.fromName || inboundEmail.from);
-      client = await findOrCreateClient(inboundEmail.from, firstName, lastName, ticket.organizationId, ticket.projectId);
+      client = await findOrCreateClient(inboundEmail.from, firstName, lastName, ticket.organizationId, ticket.inboxId);
 
       // Update participant with member ID
       await prisma.ticketEmailParticipant.update({
@@ -135,7 +135,7 @@ async function handleParticipantReply(inboundEmail, ticket, memberId) {
 
   if (!client) {
     const { firstName, lastName } = parseFullName(inboundEmail.fromName || inboundEmail.from);
-    client = await findOrCreateClient(inboundEmail.from, firstName, lastName, ticket.organizationId, ticket.projectId);
+    client = await findOrCreateClient(inboundEmail.from, firstName, lastName, ticket.organizationId, ticket.inboxId);
   }
 
   const content = sanitizeEmailBody(inboundEmail.htmlBody || inboundEmail.textBody || '');

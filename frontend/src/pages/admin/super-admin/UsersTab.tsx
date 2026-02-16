@@ -224,7 +224,7 @@ export function UsersTab() {
             <TableRow>
               <TableHeader>Name</TableHeader>
               <TableHeader>Email</TableHeader>
-              <TableHeader>Organizations / Projects</TableHeader>
+              <TableHeader>Organizations / Inboxes</TableHeader>
               <TableHeader>Role</TableHeader>
               <TableHeader>Status</TableHeader>
               <TableHeader>Created</TableHeader>
@@ -245,9 +245,9 @@ export function UsersTab() {
                             {membership.organization.name}
                           </span>
                           <span className="text-zinc-400 ml-1">({membership.role})</span>
-                          {membership.projectAssignments.length > 0 && (
+                          {membership.inboxAssignments.length > 0 && (
                             <div className="ml-3 text-xs text-zinc-500">
-                              {membership.projectAssignments.map(pa => pa.project.name).join(', ')}
+                              {membership.inboxAssignments.map(ia => ia.inbox.name).join(', ')}
                             </div>
                           )}
                         </div>

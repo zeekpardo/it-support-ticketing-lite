@@ -3,28 +3,28 @@ import { api } from '../../../api/client'
 import { Button } from '@/components/ui/button'
 import { Text } from '@/components/ui/text'
 import { Dialog, DialogTitle, DialogDescription, DialogBody, DialogActions } from '@/components/ui/dialog'
-import ProjectCheckboxList from './ProjectCheckboxList'
+import InboxCheckboxList from './InboxCheckboxList'
 
 interface Member {
   id: string
   user: { id: string; name: string; email: string }
 }
 
-interface Project {
+interface Inbox {
   id: string
   name: string
-  projectCode: string
+  inboxCode: string
   isActive: boolean
 }
 
-interface ProjectAssignmentModalProps {
+interface InboxAssignmentModalProps {
   member: Member | null
   onClose: () => void
   onSuccess?: () => void
 }
 
-export default function ProjectAssignmentModal({ member, onClose, onSuccess }: ProjectAssignmentModalProps) {
-  const [projects, setProjects] = useState<Project[]>([])
+export default function InboxAssignmentModal({ member, onClose, onSuccess }: InboxAssignmentModalProps) {
+  const [inboxes, setInboxes] = useState<Inbox[]>([])
   const [assignedIds, setAssignedIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -34,22 +34,22 @@ export default function ProjectAssignmentModal({ member, onClose, onSuccess }: P
 
     setLoading(true)
     Promise.all([
-      api.getProjects(),
-      api.getMemberProjects(member.id),
+      api.getInboxes(),
+      api.getMemberInboxes(member.id),
     ])
-      .then(([projectsData, assignmentsData]) => {
-        setProjects(projectsData)
-        setAssignedIds(new Set(assignmentsData.map(a => a.project.id)))
+      .then(([inboxesData, assignmentsData]) => {
+        setInboxes(inboxesData)
+        setAssignedIds(new Set(assignmentsData.map(a => a.inbox.id)))
       })
-      .catch(err => console.error('Failed to load projects:', err))
+      .catch(err => console.error('Failed to load inboxes:', err))
       .finally(() => setLoading(false))
   }, [member])
 
-  const handleToggle = (projectId: string, checked: boolean) => {
+  const handleToggle = (inboxId: string, checked: boolean) => {
     setAssignedIds(prev => {
       const next = new Set(prev)
-      if (checked) next.add(projectId)
-      else next.delete(projectId)
+      if (checked) next.add(inboxId)
+      else next.delete(inboxId)
       return next
     })
   }
@@ -59,11 +59,11 @@ export default function ProjectAssignmentModal({ member, onClose, onSuccess }: P
 
     setSaving(true)
     try {
-      await api.updateMemberProjects(member.id, Array.from(assignedIds))
+      await api.updateMemberInboxes(member.id, Array.from(assignedIds))
       onClose()
       onSuccess?.()
     } catch (err) {
-      console.error('Failed to save project assignments:', err)
+      console.error('Failed to save inbox assignments:', err)
     } finally {
       setSaving(false)
     }
@@ -71,24 +71,24 @@ export default function ProjectAssignmentModal({ member, onClose, onSuccess }: P
 
   return (
     <Dialog open={!!member} onClose={onClose} size="md">
-      <DialogTitle>Manage Project Access</DialogTitle>
+      <DialogTitle>Manage Inbox Access</DialogTitle>
       <DialogDescription>
         {member && (
-          <>Select which projects <strong>{member.user.name}</strong> can access.</>
+          <>Select which inboxes <strong>{member.user.name}</strong> can access.</>
         )}
       </DialogDescription>
 
       <DialogBody>
         {loading ? (
           <div className="py-8 text-center">
-            <Text>Loading projects...</Text>
+            <Text>Loading inboxes...</Text>
           </div>
         ) : (
-          <ProjectCheckboxList
-            projects={projects}
+          <InboxCheckboxList
+            inboxes={inboxes}
             selectedIds={assignedIds}
             onToggle={handleToggle}
-            emptyMessage="No projects available. Create a project first."
+            emptyMessage="No inboxes available. Create an inbox first."
           />
         )}
       </DialogBody>

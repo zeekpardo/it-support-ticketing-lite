@@ -3,8 +3,8 @@ import { prisma } from '../lib/auth.js';
 import { authenticate, requireOrganization, requireAdmin } from '../middleware/auth.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { ValidationError } from '../utils/errors.js';
-import { findProjectOrFail, findStageOrFail } from '../utils/entityHelpers.js';
-import { pickDefined } from '../utils/projectValidation.js';
+import { findInboxOrFail, findStageOrFail } from '../utils/entityHelpers.js';
+import { pickDefined } from '../utils/inboxValidation.js';
 
 const router = express.Router();
 
@@ -24,8 +24,8 @@ function generateSlug(name) {
     .substring(0, 50);
 }
 
-async function ensureSlugUnique(projectId, slug, excludeId = null) {
-  const where = { projectId, slug };
+async function ensureSlugUnique(inboxId, slug, excludeId = null) {
+  const where = { inboxId, slug };
   if (excludeId) where.NOT = { id: excludeId };
 
   const existing = await prisma.ticketStage.findFirst({ where });
@@ -34,19 +34,19 @@ async function ensureSlugUnique(projectId, slug, excludeId = null) {
   }
 }
 
-async function clearDefaultStage(projectId) {
+async function clearDefaultStage(inboxId) {
   await prisma.ticketStage.updateMany({
-    where: { projectId, isDefault: true },
+    where: { inboxId, isDefault: true },
     data: { isDefault: false },
   });
 }
 
-// Get all stages for a project
-router.get('/:projectId/stages', asyncHandler(async (req, res) => {
-  await findProjectOrFail(req.params.projectId, req.organization.id);
+// Get all stages for an inbox
+router.get('/:inboxId/stages', asyncHandler(async (req, res) => {
+  await findInboxOrFail(req.params.inboxId, req.organization.id);
 
   const stages = await prisma.ticketStage.findMany({
-    where: { projectId: req.params.projectId },
+    where: { inboxId: req.params.inboxId },
     orderBy: { position: 'asc' },
     include: STAGE_INCLUDE,
   });
@@ -55,8 +55,8 @@ router.get('/:projectId/stages', asyncHandler(async (req, res) => {
 }));
 
 // Create a new stage
-router.post('/:projectId/stages', requireAdmin, asyncHandler(async (req, res) => {
-  await findProjectOrFail(req.params.projectId, req.organization.id);
+router.post('/:inboxId/stages', requireAdmin, asyncHandler(async (req, res) => {
+  await findInboxOrFail(req.params.inboxId, req.organization.id);
 
   const { name, color, isDefault, isResolved } = req.body;
 
@@ -65,22 +65,22 @@ router.post('/:projectId/stages', requireAdmin, asyncHandler(async (req, res) =>
   }
 
   const slug = generateSlug(name);
-  await ensureSlugUnique(req.params.projectId, slug);
+  await ensureSlugUnique(req.params.inboxId, slug);
 
   // Get the next position
   const maxPositionStage = await prisma.ticketStage.findFirst({
-    where: { projectId: req.params.projectId },
+    where: { inboxId: req.params.inboxId },
     orderBy: { position: 'desc' },
   });
   const newPosition = maxPositionStage ? maxPositionStage.position + 1 : 0;
 
   if (isDefault) {
-    await clearDefaultStage(req.params.projectId);
+    await clearDefaultStage(req.params.inboxId);
   }
 
   const stage = await prisma.ticketStage.create({
     data: {
-      projectId: req.params.projectId,
+      inboxId: req.params.inboxId,
       name,
       slug,
       color,
@@ -95,8 +95,8 @@ router.post('/:projectId/stages', requireAdmin, asyncHandler(async (req, res) =>
 }));
 
 // Update a stage
-router.put('/:projectId/stages/:stageId', requireAdmin, asyncHandler(async (req, res) => {
-  const stage = await findStageOrFail(req.params.stageId, req.params.projectId, req.organization.id);
+router.put('/:inboxId/stages/:stageId', requireAdmin, asyncHandler(async (req, res) => {
+  const stage = await findStageOrFail(req.params.stageId, req.params.inboxId, req.organization.id);
 
   const { name, isDefault } = req.body;
 
@@ -104,11 +104,11 @@ router.put('/:projectId/stages/:stageId', requireAdmin, asyncHandler(async (req,
   let slug = stage.slug;
   if (name && name !== stage.name) {
     slug = generateSlug(name);
-    await ensureSlugUnique(req.params.projectId, slug, stage.id);
+    await ensureSlugUnique(req.params.inboxId, slug, stage.id);
   }
 
   if (isDefault && !stage.isDefault) {
-    await clearDefaultStage(req.params.projectId);
+    await clearDefaultStage(req.params.inboxId);
   }
 
   const data = {
@@ -126,8 +126,8 @@ router.put('/:projectId/stages/:stageId', requireAdmin, asyncHandler(async (req,
 }));
 
 // Reorder stages
-router.put('/:projectId/stages/reorder', requireAdmin, asyncHandler(async (req, res) => {
-  await findProjectOrFail(req.params.projectId, req.organization.id);
+router.put('/:inboxId/stages/reorder', requireAdmin, asyncHandler(async (req, res) => {
+  await findInboxOrFail(req.params.inboxId, req.organization.id);
 
   const { stageIds } = req.body;
 
@@ -136,11 +136,11 @@ router.put('/:projectId/stages/reorder', requireAdmin, asyncHandler(async (req, 
   }
 
   const stages = await prisma.ticketStage.findMany({
-    where: { projectId: req.params.projectId },
+    where: { inboxId: req.params.inboxId },
   });
 
-  const projectStageIds = new Set(stages.map(s => s.id));
-  const allValid = stageIds.every(id => projectStageIds.has(id));
+  const inboxStageIds = new Set(stages.map(s => s.id));
+  const allValid = stageIds.every(id => inboxStageIds.has(id));
 
   if (!allValid || stageIds.length !== stages.length) {
     throw new ValidationError('Invalid stage IDs provided');
@@ -156,7 +156,7 @@ router.put('/:projectId/stages/reorder', requireAdmin, asyncHandler(async (req, 
   );
 
   const updatedStages = await prisma.ticketStage.findMany({
-    where: { projectId: req.params.projectId },
+    where: { inboxId: req.params.inboxId },
     orderBy: { position: 'asc' },
     include: STAGE_INCLUDE,
   });
@@ -165,13 +165,13 @@ router.put('/:projectId/stages/reorder', requireAdmin, asyncHandler(async (req, 
 }));
 
 // Delete a stage (requires moving tickets to another stage)
-router.delete('/:projectId/stages/:stageId', requireAdmin, asyncHandler(async (req, res) => {
-  const stage = await findStageOrFail(req.params.stageId, req.params.projectId, req.organization.id, {
+router.delete('/:inboxId/stages/:stageId', requireAdmin, asyncHandler(async (req, res) => {
+  const stage = await findStageOrFail(req.params.stageId, req.params.inboxId, req.organization.id, {
     include: STAGE_INCLUDE,
   });
 
   const stageCount = await prisma.ticketStage.count({
-    where: { projectId: req.params.projectId },
+    where: { inboxId: req.params.inboxId },
   });
 
   if (stageCount <= 1) {
@@ -186,7 +186,7 @@ router.delete('/:projectId/stages/:stageId', requireAdmin, asyncHandler(async (r
     }
 
     const destinationStage = await prisma.ticketStage.findFirst({
-      where: { id: moveTicketsToStageId, projectId: req.params.projectId },
+      where: { id: moveTicketsToStageId, inboxId: req.params.inboxId },
     });
 
     if (!destinationStage) {
@@ -207,7 +207,7 @@ router.delete('/:projectId/stages/:stageId', requireAdmin, asyncHandler(async (r
   if (stage.isDefault) {
     const nextStage = await prisma.ticketStage.findFirst({
       where: {
-        projectId: req.params.projectId,
+        inboxId: req.params.inboxId,
         NOT: { id: stage.id },
       },
       orderBy: { position: 'asc' },
@@ -225,7 +225,7 @@ router.delete('/:projectId/stages/:stageId', requireAdmin, asyncHandler(async (r
 
   // Compact remaining positions
   const remainingStages = await prisma.ticketStage.findMany({
-    where: { projectId: req.params.projectId },
+    where: { inboxId: req.params.inboxId },
     orderBy: { position: 'asc' },
   });
 

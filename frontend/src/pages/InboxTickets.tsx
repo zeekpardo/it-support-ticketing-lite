@@ -26,34 +26,34 @@ interface Ticket {
   }
 }
 
-interface Project {
+interface Inbox {
   id: string
   name: string
-  projectCode: string
+  inboxCode: string
 }
 
-export default function ProjectTickets() {
-  const { projectId } = useParams<{ projectId: string }>()
+export default function InboxTickets() {
+  const { inboxId } = useParams<{ inboxId: string }>()
   const navigate = useNavigate()
   const { currentOrg } = useOrganization()
-  const [project, setProject] = useState<Project | null>(null)
+  const [inbox, setInbox] = useState<Inbox | null>(null)
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (currentOrg && projectId) {
+    if (currentOrg && inboxId) {
       loadData()
     }
-  }, [currentOrg, projectId])
+  }, [currentOrg, inboxId])
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const [projectData, ticketsData] = await Promise.all([
-        api.getProject(projectId!),
-        api.getTickets({ projectId })
+      const [inboxData, ticketsData] = await Promise.all([
+        api.getInbox(inboxId!),
+        api.getTickets({ inboxId })
       ])
-      setProject(projectData)
+      setInbox(inboxData)
       setTickets(ticketsData)
     } catch (error) {
       console.error('Failed to load data:', error)
@@ -76,7 +76,7 @@ export default function ProjectTickets() {
   }
 
   const handleTicketClick = (ticket: Ticket) => {
-    navigate(`/projects/${projectId}/tickets/${ticket.id}`)
+    navigate(`/inboxes/${inboxId}/tickets/${ticket.id}`)
   }
 
   if (!currentOrg) {
@@ -95,10 +95,10 @@ export default function ProjectTickets() {
     )
   }
 
-  if (!project) {
+  if (!inbox) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Text>Project not found</Text>
+        <Text>Inbox not found</Text>
       </div>
     )
   }
@@ -108,17 +108,17 @@ export default function ProjectTickets() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link
-            to="/projects"
+            to="/inboxes"
             className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
           >
             <ArrowLeftIcon className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
           </Link>
           <div>
-            <Heading>{project.name} - Tickets</Heading>
-            <Text className="text-zinc-500">{project.projectCode}</Text>
+            <Heading>{inbox.name} - Tickets</Heading>
+            <Text className="text-zinc-500">{inbox.inboxCode}</Text>
           </div>
         </div>
-        <Button onClick={() => navigate(`/projects/${projectId}/tickets/new`)}>
+        <Button onClick={() => navigate(`/inboxes/${inboxId}/tickets/new`)}>
           <PlusIcon className="w-4 h-4" />
           New Ticket
         </Button>

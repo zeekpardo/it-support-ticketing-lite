@@ -18,29 +18,28 @@ import {
 interface CatalogBrowserTabProps {
   globalSoftware: GlobalSoftware[]
   categories: SoftwareCategory[]
-  projectSoftwareIds: Set<string>
+  inboxSoftwareIds: Set<string>
   loadingCatalog: boolean
   searchQuery: string
   onSearchQueryChange: (query: string) => void
   categoryFilter: string
   onCategoryFilterChange: (filter: string) => void
   onSearch: () => void
-  onAddToProject: (softwareId: string, notes?: string) => Promise<void>
+  onAddToInbox: (softwareId: string, notes?: string) => Promise<void>
 }
 
 export function CatalogBrowserTab({
   globalSoftware,
   categories,
-  projectSoftwareIds,
+  inboxSoftwareIds,
   loadingCatalog,
   searchQuery,
   onSearchQueryChange,
   categoryFilter,
   onCategoryFilterChange,
   onSearch,
-  onAddToProject,
+  onAddToInbox,
 }: CatalogBrowserTabProps) {
-  // Add-to-project modal
   const addModal = useModalForm<{ notes: string }, GlobalSoftware>({
     initialData: { notes: '' },
   })
@@ -57,15 +56,15 @@ export function CatalogBrowserTab({
     },
   })
 
-  const handleAddToProject = async () => {
+  const handleAddToInbox = async () => {
     if (!addModal.editingItem) return
     try {
       await addModal.handleSubmit(async () => {
-        await onAddToProject(addModal.editingItem!.id, addModal.formData.notes || undefined)
+        await onAddToInbox(addModal.editingItem!.id, addModal.formData.notes || undefined)
         addModal.close()
       })
     } catch (error) {
-      console.error('Failed to add software to project:', error)
+      console.error('Failed to add software to inbox:', error)
     }
   }
 
@@ -143,7 +142,7 @@ export function CatalogBrowserTab({
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {globalSoftware.map((software) => {
-            const isAdded = projectSoftwareIds.has(software.id)
+            const isAdded = inboxSoftwareIds.has(software.id)
             return (
               <div
                 key={software.id}
@@ -182,12 +181,12 @@ export function CatalogBrowserTab({
                   {isAdded ? (
                     <Button disabled className="w-full">
                       <CheckIcon className="h-4 w-4" />
-                      Added to Project
+                      Added to Inbox
                     </Button>
                   ) : (
                     <Button color="blue" className="w-full" onClick={() => addModal.open(software)}>
                       <PlusIcon className="h-4 w-4" />
-                      Add to Project
+                      Add to Inbox
                     </Button>
                   )}
                 </div>
@@ -197,12 +196,12 @@ export function CatalogBrowserTab({
         </div>
       )}
 
-      {/* Add to Project Modal */}
+      {/* Add to Inbox Modal */}
       {addModal.isOpen && addModal.editingItem && (
         <Dialog open={true} onClose={addModal.close} size="md">
-          <DialogTitle>Add Software to Project</DialogTitle>
+          <DialogTitle>Add Software to Inbox</DialogTitle>
           <DialogDescription>
-            Add "{addModal.editingItem.name}" to this project's software catalog
+            Add "{addModal.editingItem.name}" to this inbox's software catalog
           </DialogDescription>
 
           <DialogBody>
@@ -211,7 +210,7 @@ export function CatalogBrowserTab({
               <Textarea
                 value={addModal.formData.notes}
                 onChange={(e) => addModal.setField('notes', e.target.value)}
-                placeholder="Add project-specific notes or setup instructions..."
+                placeholder="Add inbox-specific notes or setup instructions..."
                 rows={4}
               />
             </Field>
@@ -221,8 +220,8 @@ export function CatalogBrowserTab({
             <Button plain onClick={addModal.close} disabled={addModal.saving}>
               Cancel
             </Button>
-            <Button color="blue" onClick={handleAddToProject} disabled={addModal.saving}>
-              {addModal.saving ? 'Adding...' : 'Add to Project'}
+            <Button color="blue" onClick={handleAddToInbox} disabled={addModal.saving}>
+              {addModal.saving ? 'Adding...' : 'Add to Inbox'}
             </Button>
           </DialogActions>
         </Dialog>

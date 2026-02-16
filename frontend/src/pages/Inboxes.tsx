@@ -16,10 +16,10 @@ import {
 } from '@/components/ui/table'
 import { FolderIcon, TicketIcon } from '@heroicons/react/24/outline'
 
-interface Project {
+interface Inbox {
   id: string
   name: string
-  projectCode: string
+  inboxCode: string
   clientName?: string
   description?: string
   isActive: boolean
@@ -28,24 +28,24 @@ interface Project {
   }
 }
 
-export default function Projects() {
+export default function Inboxes() {
   const { currentOrg } = useOrganization()
-  const [projects, setProjects] = useState<Project[]>([])
+  const [inboxes, setInboxes] = useState<Inbox[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (currentOrg) {
-      loadProjects()
+      loadInboxes()
     }
   }, [currentOrg])
 
-  const loadProjects = async () => {
+  const loadInboxes = async () => {
     setLoading(true)
     try {
-      const data = await api.getProjects()
-      setProjects(data)
+      const data = await api.getInboxes()
+      setInboxes(data)
     } catch (error) {
-      console.error('Failed to load projects:', error)
+      console.error('Failed to load inboxes:', error)
     } finally {
       setLoading(false)
     }
@@ -54,7 +54,7 @@ export default function Projects() {
   if (!currentOrg) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Text>Select an organization to view projects</Text>
+        <Text>Select an organization to view inboxes</Text>
       </div>
     )
   }
@@ -70,15 +70,15 @@ export default function Projects() {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <Heading>Projects</Heading>
+        <Heading>Inboxes</Heading>
       </div>
 
-      {projects.length === 0 ? (
+      {inboxes.length === 0 ? (
         <div className="rounded-xl bg-white p-12 text-center shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
           <FolderIcon className="mx-auto h-12 w-12 text-zinc-400" />
-          <Subheading className="mt-4">No projects yet</Subheading>
+          <Subheading className="mt-4">No inboxes yet</Subheading>
           <Text className="mt-2">
-            Projects will be created by administrators. Contact your admin to set up projects.
+            Inboxes will be created by administrators. Contact your admin to set up inboxes.
           </Text>
         </div>
       ) : (
@@ -95,27 +95,27 @@ export default function Projects() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {projects.map((project) => (
-                <TableRow key={project.id}>
+              {inboxes.map((inbox) => (
+                <TableRow key={inbox.id}>
                   <TableCell>
-                    <Badge color="blue">{project.projectCode}</Badge>
+                    <Badge color="blue">{inbox.inboxCode}</Badge>
                   </TableCell>
-                  <TableCell className="font-medium">{project.name}</TableCell>
+                  <TableCell className="font-medium">{inbox.name}</TableCell>
                   <TableCell className="text-zinc-500">
-                    {project.clientName || '-'}
+                    {inbox.clientName || '-'}
                   </TableCell>
                   <TableCell className="text-zinc-500">
-                    {project._count?.timeEntries || 0}
+                    {inbox._count?.timeEntries || 0}
                   </TableCell>
                   <TableCell>
-                    {project.isActive ? (
+                    {inbox.isActive ? (
                       <Badge color="green">Active</Badge>
                     ) : (
                       <Badge color="zinc">Archived</Badge>
                     )}
                   </TableCell>
                   <TableCell>
-                    <Link to={`/projects/${project.id}/tickets`}>
+                    <Link to={`/inboxes/${inbox.id}/tickets`}>
                       <Button outline className="flex items-center gap-1">
                         <TicketIcon className="w-4 h-4" />
                         Tickets

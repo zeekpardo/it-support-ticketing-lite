@@ -2,9 +2,9 @@ import { useState, useCallback, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 
-interface ProjectFormData {
+interface InboxFormData {
   name: string
-  projectCode: string
+  inboxCode: string
   clientName: string
   description: string
   defaultAssigneeId: string
@@ -17,9 +17,9 @@ interface ProjectFormData {
   autoReplyHtml: string
 }
 
-const INITIAL_FORM: ProjectFormData = {
+const INITIAL_FORM: InboxFormData = {
   name: '',
-  projectCode: '',
+  inboxCode: '',
   clientName: '',
   description: '',
   defaultAssigneeId: '',
@@ -32,10 +32,10 @@ const INITIAL_FORM: ProjectFormData = {
   autoReplyHtml: '',
 }
 
-interface Project {
+interface Inbox {
   id: string
   name: string
-  projectCode: string
+  inboxCode: string
   clientName?: string
   description?: string
   isActive: boolean
@@ -49,23 +49,23 @@ interface Project {
   _count?: { timeEntries: number }
 }
 
-export function useProjectForm(projectId: string | undefined) {
+export function useInboxForm(inboxId: string | undefined) {
   const navigate = useNavigate()
-  const [form, setForm] = useState<ProjectFormData>(INITIAL_FORM)
+  const [form, setForm] = useState<InboxFormData>(INITIAL_FORM)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [project, setProject] = useState<Project | null>(null)
+  const [inbox, setInbox] = useState<Inbox | null>(null)
 
-  const setField = useCallback(<K extends keyof ProjectFormData>(key: K, value: ProjectFormData[K]) => {
+  const setField = useCallback(<K extends keyof InboxFormData>(key: K, value: InboxFormData[K]) => {
     setForm(prev => ({ ...prev, [key]: value }))
   }, [])
 
-  const populateFromProject = useCallback((data: Project) => {
-    setProject(data)
+  const populateFromInbox = useCallback((data: Inbox) => {
+    setInbox(data)
     setForm({
       name: data.name,
-      projectCode: data.projectCode,
+      inboxCode: data.inboxCode,
       clientName: data.clientName || '',
       description: data.description || '',
       defaultAssigneeId: data.defaultAssigneeId || '',
@@ -87,9 +87,9 @@ export function useProjectForm(projectId: string | undefined) {
     const parseDays = (val: string) => val ? parseInt(val, 10) : null
 
     try {
-      await api.updateProject(projectId!, {
+      await api.updateInbox(inboxId!, {
         name: form.name,
-        projectCode: form.projectCode,
+        inboxCode: form.inboxCode,
         clientName: form.clientName || undefined,
         description: form.description || undefined,
         defaultAssigneeId: form.defaultAssigneeId || null,
@@ -101,38 +101,38 @@ export function useProjectForm(projectId: string | undefined) {
         autoReplyEnabled: form.autoReplyEnabled,
         autoReplyHtml: form.autoReplyHtml || null,
       })
-      navigate('/admin/projects')
+      navigate('/admin/inboxes')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update project')
+      setError(err instanceof Error ? err.message : 'Failed to update inbox')
       setSaving(false)
     }
-  }, [projectId, form, navigate])
+  }, [inboxId, form, navigate])
 
   const handleDelete = useCallback(async () => {
-    if (!project) return
+    if (!inbox) return
 
-    const hasEntries = project._count?.timeEntries && project._count.timeEntries > 0
+    const hasEntries = inbox._count?.timeEntries && inbox._count.timeEntries > 0
     const message = hasEntries
-      ? 'This project has time entries. It will be archived instead of deleted. Continue?'
-      : 'Are you sure you want to delete this project? This action cannot be undone.'
+      ? 'This inbox has time entries. It will be archived instead of deleted. Continue?'
+      : 'Are you sure you want to delete this inbox? This action cannot be undone.'
 
     if (!confirm(message)) return
 
     setDeleting(true)
     try {
-      await api.deleteProject(project.id)
-      navigate('/admin/projects')
+      await api.deleteInbox(inbox.id)
+      navigate('/admin/inboxes')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete project')
+      setError(err instanceof Error ? err.message : 'Failed to delete inbox')
       setDeleting(false)
     }
-  }, [project, navigate])
+  }, [inbox, navigate])
 
   return {
     form,
     setField,
-    project,
-    populateFromProject,
+    inbox,
+    populateFromInbox,
     error,
     saving,
     setSaving,

@@ -22,10 +22,10 @@ interface Ticket {
   screenRecordingLink?: string
   createdAt: string
   updatedAt: string
-  project: {
+  inbox: {
     id: string
     name: string
-    projectCode: string
+    inboxCode: string
   }
   owner?: {
     id: string
@@ -143,7 +143,7 @@ export default function PortalTicketDetail() {
             <Heading>{ticket.subject}</Heading>
           </div>
           <div className="flex items-center gap-3 text-sm text-zinc-500">
-            <span>{ticket.project.name}</span>
+            <span>{ticket.inbox.name}</span>
             <span>·</span>
             <StatusBadge status={ticket.status} />
             <span>·</span>

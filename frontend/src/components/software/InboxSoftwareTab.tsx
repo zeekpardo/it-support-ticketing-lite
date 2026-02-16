@@ -3,23 +3,23 @@ import { Button } from '@/components/ui/button'
 import { Text } from '@/components/ui/text'
 import { Badge } from '@/components/ui/badge'
 import { PlusIcon, ComputerDesktopIcon } from '@heroicons/react/24/outline'
-import type { ProjectSoftware } from '../../api/client'
-import { getDaysUntilRenewal } from '../../hooks/useProjectSoftwareCatalog'
+import type { InboxSoftware } from '../../api/client'
+import { getDaysUntilRenewal } from '../../hooks/useInboxSoftwareCatalog'
 
-interface ProjectSoftwareTabProps {
-  projectId: string
-  projectSoftware: ProjectSoftware[]
+interface InboxSoftwareTabProps {
+  inboxId: string
+  inboxSoftware: InboxSoftware[]
   onSwitchToCatalog: () => void
 }
 
-export function ProjectSoftwareTab({ projectId, projectSoftware, onSwitchToCatalog }: ProjectSoftwareTabProps) {
+export function InboxSoftwareTab({ inboxId, inboxSoftware, onSwitchToCatalog }: InboxSoftwareTabProps) {
   const navigate = useNavigate()
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <Text className="text-zinc-500">
-          Software added to this project ({projectSoftware.length})
+          Software added to this inbox ({inboxSoftware.length})
         </Text>
         <Button color="blue" onClick={onSwitchToCatalog}>
           <PlusIcon className="h-4 w-4" />
@@ -27,21 +27,21 @@ export function ProjectSoftwareTab({ projectId, projectSoftware, onSwitchToCatal
         </Button>
       </div>
 
-      {projectSoftware.length === 0 ? (
+      {inboxSoftware.length === 0 ? (
         <div className="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 p-8 text-center">
           <ComputerDesktopIcon className="mx-auto h-12 w-12 text-zinc-400" />
-          <Text className="mt-4 text-zinc-500">No software added to this project yet</Text>
+          <Text className="mt-4 text-zinc-500">No software added to this inbox yet</Text>
           <Button className="mt-4" outline onClick={onSwitchToCatalog}>
             Browse Global Catalog
           </Button>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {projectSoftware.map((ps) => (
+          {inboxSoftware.map((ps) => (
             <div
               key={ps.id}
               className="group relative rounded-xl border border-zinc-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-zinc-700 dark:bg-zinc-800 cursor-pointer"
-              onClick={() => navigate(`/admin/projects/${projectId}/software/${ps.id}`)}
+              onClick={() => navigate(`/admin/inboxes/${inboxId}/software/${ps.id}`)}
             >
               <div className="flex items-start gap-3">
                 {ps.software.iconUrl ? (

@@ -6,16 +6,16 @@ import { Textarea } from '@/components/ui/textarea'
 import { Field, FieldGroup, Label, Description } from '@/components/ui/fieldset'
 import { Dialog, DialogTitle, DialogDescription, DialogBody, DialogActions } from '@/components/ui/dialog'
 
-interface Project {
+interface Inbox {
   id: string
   name: string
-  projectCode: string
+  inboxCode: string
 }
 
 interface ManualEntryModalProps {
-  projects: Project[]
+  inboxes: Inbox[]
   onSave: (data: {
-    projectId: string
+    inboxId: string
     taskName: string
     startTime: string
     endTime: string
@@ -24,8 +24,8 @@ interface ManualEntryModalProps {
   onClose: () => void
 }
 
-export function ManualEntryModal({ projects, onSave, onClose }: ManualEntryModalProps) {
-  const [projectId, setProjectId] = useState('')
+export function ManualEntryModal({ inboxes, onSave, onClose }: ManualEntryModalProps) {
+  const [inboxId, setInboxId] = useState('')
   const [taskName, setTaskName] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [startTime, setStartTime] = useState('09:00')
@@ -38,7 +38,7 @@ export function ManualEntryModal({ projects, onSave, onClose }: ManualEntryModal
     e.preventDefault()
     setError('')
 
-    if (!projectId || !taskName.trim()) {
+    if (!inboxId || !taskName.trim()) {
       setError('Please fill in all required fields')
       return
     }
@@ -54,7 +54,7 @@ export function ManualEntryModal({ projects, onSave, onClose }: ManualEntryModal
     setLoading(true)
     try {
       await onSave({
-        projectId,
+        inboxId,
         taskName: taskName.trim(),
         startTime: start.toISOString(),
         endTime: end.toISOString(),
@@ -84,16 +84,16 @@ export function ManualEntryModal({ projects, onSave, onClose }: ManualEntryModal
 
           <FieldGroup>
             <Field>
-              <Label>Project</Label>
+              <Label>Inbox</Label>
               <Select
-                value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
+                value={inboxId}
+                onChange={(e) => setInboxId(e.target.value)}
                 required
               >
-                <option value="">Select a project...</option>
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    [{project.projectCode}] {project.name}
+                <option value="">Select an inbox...</option>
+                {inboxes.map((inbox) => (
+                  <option key={inbox.id} value={inbox.id}>
+                    [{inbox.inboxCode}] {inbox.name}
                   </option>
                 ))}
               </Select>

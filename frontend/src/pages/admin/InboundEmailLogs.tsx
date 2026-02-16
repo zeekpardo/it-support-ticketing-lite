@@ -266,7 +266,7 @@ export default function InboundEmailLogs() {
                       )}
                       <div>
                         <Text className="text-sm">
-                          Project: {selectedEmail.emailRule.project.name}
+                          Inbox: {selectedEmail.emailRule.inbox.name}
                         </Text>
                       </div>
                     </div>

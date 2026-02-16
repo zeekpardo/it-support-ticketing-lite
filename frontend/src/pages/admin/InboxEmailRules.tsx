@@ -4,7 +4,7 @@ import { useOrganization } from '../../context/OrganizationContext'
 import { useModalForm } from '../../hooks/useModalForm'
 import { api } from '../../api/client'
 import { emailRulesApi, EmailRule, CreateEmailRuleData } from '../../api/emailRules'
-import { getMatchTypeBadge, getMatchTypeDescription } from '../../components/project/emailRuleHelpers'
+import { getMatchTypeBadge, getMatchTypeDescription } from '../../components/inbox/emailRuleHelpers'
 import { Heading, Subheading } from '@/components/ui/heading'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -29,21 +29,21 @@ import {
 } from '@/components/ui/dialog'
 import { PlusIcon, EnvelopeIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline'
 
-interface Project {
+interface Inbox {
   id: string
   name: string
-  projectCode: string
+  inboxCode: string
 }
 
-export default function ProjectEmailRules() {
+export default function InboxEmailRules() {
   const navigate = useNavigate()
   const { currentOrg } = useOrganization()
   const [emailRules, setEmailRules] = useState<EmailRule[]>([])
-  const [projects, setProjects] = useState<Project[]>([])
+  const [inboxes, setInboxes] = useState<Inbox[]>([])
   const [loading, setLoading] = useState(true)
   const createRuleModal = useModalForm({
     initialData: {
-      projectId: '',
+      inboxId: '',
       matchType: 'EXACT_ADDRESS' as 'EXACT_ADDRESS' | 'DOMAIN' | 'CATCH_ALL',
       matchValue: '',
       priority: 0,
@@ -61,12 +61,12 @@ export default function ProjectEmailRules() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [rulesData, projectsData] = await Promise.all([
+      const [rulesData, inboxesData] = await Promise.all([
         emailRulesApi.getEmailRules(),
-        api.getProjects(),
+        api.getInboxes(),
       ])
       setEmailRules(rulesData)
-      setProjects(projectsData)
+      setInboxes(inboxesData)
     } catch (error) {
       console.error('Failed to load data:', error)
     } finally {
@@ -78,7 +78,7 @@ export default function ProjectEmailRules() {
     try {
       await createRuleModal.handleSubmit(async () => {
         const data: CreateEmailRuleData = {
-          projectId: createRuleModal.formData.projectId,
+          inboxId: createRuleModal.formData.inboxId,
           matchType: createRuleModal.formData.matchType,
           priority: createRuleModal.formData.priority || 0,
         }
@@ -139,7 +139,7 @@ export default function ProjectEmailRules() {
       <div className="flex items-center justify-between">
         <div>
           <Heading>Email Routing Rules</Heading>
-          <Text className="mt-2">Configure how incoming emails are routed to projects</Text>
+          <Text className="mt-2">Configure how incoming emails are routed to inboxes</Text>
         </div>
         <div className="flex gap-3">
           <Button plain onClick={() => navigate('/admin/email-logs')}>
@@ -171,7 +171,7 @@ export default function ProjectEmailRules() {
               <TableRow>
                 <TableHeader>Match Type</TableHeader>
                 <TableHeader>Match Value</TableHeader>
-                <TableHeader>Project</TableHeader>
+                <TableHeader>Inbox</TableHeader>
                 <TableHeader>Priority</TableHeader>
                 <TableHeader>Emails</TableHeader>
                 <TableHeader>Status</TableHeader>
@@ -187,10 +187,10 @@ export default function ProjectEmailRules() {
                   </TableCell>
                   <TableCell>
                     <button
-                      onClick={() => navigate(`/admin/projects/${rule.projectId}`)}
+                      onClick={() => navigate(`/admin/inboxes/${rule.inboxId}`)}
                       className="font-medium text-zinc-950 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline text-left"
                     >
-                      {rule.project?.name || 'Unknown'}
+                      {rule.inbox?.name || 'Unknown'}
                     </button>
                   </TableCell>
                   <TableCell className="text-zinc-500">{rule.priority}</TableCell>
@@ -237,20 +237,20 @@ export default function ProjectEmailRules() {
       <Dialog open={createRuleModal.isOpen} onClose={createRuleModal.close}>
         <DialogTitle>Create Email Routing Rule</DialogTitle>
         <DialogDescription>
-          Configure how incoming emails should be routed to projects.
+          Configure how incoming emails should be routed to inboxes.
         </DialogDescription>
         <DialogBody>
           <FieldGroup>
             <Field>
-              <Label>Project</Label>
+              <Label>Inbox</Label>
               <Select
-                value={createRuleModal.formData.projectId}
-                onChange={(e) => createRuleModal.setField('projectId', e.target.value)}
+                value={createRuleModal.formData.inboxId}
+                onChange={(e) => createRuleModal.setField('inboxId', e.target.value)}
               >
-                <option value="">Select project...</option>
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
+                <option value="">Select inbox...</option>
+                {inboxes.map((inbox) => (
+                  <option key={inbox.id} value={inbox.id}>
+                    {inbox.name}
                   </option>
                 ))}
               </Select>
@@ -335,9 +335,9 @@ export default function ProjectEmailRules() {
                   </div>
                 )}
                 <div>
-                  <Text className="font-medium">Project:</Text>
+                  <Text className="font-medium">Inbox:</Text>
                   <Text className="text-zinc-600 dark:text-zinc-400">
-                    {selectedRule.project?.name}
+                    {selectedRule.inbox?.name}
                   </Text>
                 </div>
               </div>

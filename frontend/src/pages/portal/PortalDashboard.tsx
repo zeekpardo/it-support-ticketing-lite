@@ -30,7 +30,7 @@ interface DashboardData {
     status: string
     priorityLevel: string
     updatedAt: string
-    project: { id: string; name: string }
+    inbox: { id: string; name: string }
   }>
 }
 
@@ -157,7 +157,7 @@ export default function PortalDashboard() {
                     {ticket.subject}
                   </p>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                    {ticket.project.name} · Updated {new Date(ticket.updatedAt).toLocaleDateString()}
+                    {ticket.inbox.name} · Updated {new Date(ticket.updatedAt).toLocaleDateString()}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 ml-4">

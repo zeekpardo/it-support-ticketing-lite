@@ -77,7 +77,7 @@ export const auth = betterAuth({
         after: async (member) => {
           try {
             // When a member is created (e.g., from accepting an invitation),
-            // apply any pre-assigned project assignments from the invitation.
+            // apply any pre-assigned inbox assignments from the invitation.
             const user = await prisma.user.findUnique({ where: { id: member.userId } });
             if (!user) return;
 
@@ -88,21 +88,21 @@ export const auth = betterAuth({
                 status: 'accepted'
               },
               orderBy: { createdAt: 'desc' },
-              include: { invitationProjects: true }
+              include: { invitationInboxes: true }
             });
 
-            if (invitation?.invitationProjects?.length > 0) {
-              const projectIds = invitation.invitationProjects.map(ip => ip.projectId);
-              await prisma.projectAssignment.createMany({
-                data: projectIds.map(projectId => ({ memberId: member.id, projectId })),
+            if (invitation?.invitationInboxes?.length > 0) {
+              const inboxIds = invitation.invitationInboxes.map(ii => ii.inboxId);
+              await prisma.inboxAssignment.createMany({
+                data: inboxIds.map(inboxId => ({ memberId: member.id, inboxId })),
                 skipDuplicates: true
               });
-              await prisma.invitationProject.deleteMany({
+              await prisma.invitationInbox.deleteMany({
                 where: { invitationId: invitation.id }
               });
             }
           } catch (err) {
-            console.error('Failed to apply invitation project assignments:', err);
+            console.error('Failed to apply invitation inbox assignments:', err);
           }
         }
       }

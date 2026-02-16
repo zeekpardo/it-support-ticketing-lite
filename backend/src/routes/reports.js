@@ -4,7 +4,7 @@ import { authenticate, requireOrganization } from '../middleware/auth.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { ForbiddenError } from '../utils/errors.js';
 import { generateCSV } from '../utils/csv.js';
-import { PROJECT_SELECT, USER_SELECT } from '../utils/prismaFragments.js';
+import { INBOX_SELECT, USER_SELECT } from '../utils/prismaFragments.js';
 
 const router = express.Router();
 
@@ -13,7 +13,7 @@ router.use(requireOrganization);
 
 // Get summary report
 router.get('/summary', asyncHandler(async (req, res) => {
-  const { startDate, endDate, projectId, userId, groupBy = 'project' } = req.query;
+  const { startDate, endDate, inboxId, userId, groupBy = 'inbox' } = req.query;
   const canViewAll = ['admin', 'owner'].includes(req.membership.role);
 
   const where = {
@@ -28,8 +28,8 @@ router.get('/summary', asyncHandler(async (req, res) => {
     where.userId = userId;
   }
 
-  if (projectId) {
-    where.projectId = projectId;
+  if (inboxId) {
+    where.inboxId = inboxId;
   }
 
   if (startDate || endDate) {
@@ -45,7 +45,7 @@ router.get('/summary', asyncHandler(async (req, res) => {
   const entries = await prisma.timeEntry.findMany({
     where,
     include: {
-      project: { select: PROJECT_SELECT },
+      inbox: { select: INBOX_SELECT },
       user: { select: USER_SELECT }
     },
     orderBy: { startTime: 'desc' }
@@ -56,12 +56,12 @@ router.get('/summary', asyncHandler(async (req, res) => {
 
   // Group data
   let grouped = {};
-  if (groupBy === 'project') {
+  if (groupBy === 'inbox') {
     entries.forEach(entry => {
-      const key = entry.projectId;
+      const key = entry.inboxId;
       if (!grouped[key]) {
         grouped[key] = {
-          project: entry.project,
+          inbox: entry.inbox,
           totalMinutes: 0,
           entryCount: 0,
           users: new Set()
@@ -85,17 +85,17 @@ router.get('/summary', asyncHandler(async (req, res) => {
           user: entry.user,
           totalMinutes: 0,
           entryCount: 0,
-          projects: new Set()
+          inboxes: new Set()
         };
       }
       grouped[key].totalMinutes += entry.durationMins || 0;
       grouped[key].entryCount++;
-      grouped[key].projects.add(entry.projectId);
+      grouped[key].inboxes.add(entry.inboxId);
     });
 
     Object.values(grouped).forEach(g => {
-      g.projectCount = g.projects.size;
-      delete g.projects;
+      g.inboxCount = g.inboxes.size;
+      delete g.inboxes;
     });
   } else if (groupBy === 'date') {
     entries.forEach(entry => {
@@ -132,7 +132,7 @@ router.get('/summary', asyncHandler(async (req, res) => {
 
 // Export time entries to CSV
 router.get('/export', asyncHandler(async (req, res) => {
-  const { startDate, endDate, projectId, userId, format = 'csv' } = req.query;
+  const { startDate, endDate, inboxId, userId, format = 'csv' } = req.query;
   const canViewAll = ['admin', 'owner'].includes(req.membership.role);
 
   const where = {
@@ -146,8 +146,8 @@ router.get('/export', asyncHandler(async (req, res) => {
     where.userId = userId;
   }
 
-  if (projectId) {
-    where.projectId = projectId;
+  if (inboxId) {
+    where.inboxId = inboxId;
   }
 
   if (startDate || endDate) {
@@ -161,7 +161,7 @@ router.get('/export', asyncHandler(async (req, res) => {
   const entries = await prisma.timeEntry.findMany({
     where,
     include: {
-      project: { select: { name: true, projectCode: true, clientName: true } },
+      inbox: { select: { name: true, inboxCode: true, clientName: true } },
       user: { select: { name: true, email: true } }
     },
     orderBy: { startTime: 'asc' }
@@ -174,9 +174,9 @@ router.get('/export', asyncHandler(async (req, res) => {
     'End Time': entry.endTime ? entry.endTime.toISOString() : '',
     'Duration (mins)': entry.durationMins || 0,
     'Duration (hrs)': entry.durationMins ? Math.round(entry.durationMins / 60 * 100) / 100 : 0,
-    'Project Code': entry.project.projectCode,
-    'Project Name': entry.project.name,
-    'Client': entry.project.clientName || '',
+    'Inbox Code': entry.inbox.inboxCode,
+    'Inbox Name': entry.inbox.name,
+    'Client': entry.inbox.clientName || '',
     'Task': entry.taskName,
     'User': entry.user.name,
     'Email': entry.user.email,
@@ -195,7 +195,7 @@ router.get('/export', asyncHandler(async (req, res) => {
   }
 }));
 
-// Get billing summary by client/project
+// Get billing summary by client/inbox
 router.get('/billing', asyncHandler(async (req, res) => {
   const { startDate, endDate, hourlyRate } = req.query;
   const canViewAll = ['admin', 'owner'].includes(req.membership.role);
@@ -220,35 +220,35 @@ router.get('/billing', asyncHandler(async (req, res) => {
   const entries = await prisma.timeEntry.findMany({
     where,
     include: {
-      project: { select: PROJECT_SELECT }
+      inbox: { select: INBOX_SELECT }
     }
   });
 
-  // Group by client then project
+  // Group by client then inbox
   const byClient = {};
   entries.forEach(entry => {
-    const clientName = entry.project.clientName || 'No Client';
+    const clientName = entry.inbox.clientName || 'No Client';
 
     if (!byClient[clientName]) {
       byClient[clientName] = {
         client: clientName,
         totalMinutes: 0,
-        projects: {}
+        inboxes: {}
       };
     }
 
-    const projectKey = entry.project.id;
-    if (!byClient[clientName].projects[projectKey]) {
-      byClient[clientName].projects[projectKey] = {
-        project: entry.project,
+    const inboxKey = entry.inbox.id;
+    if (!byClient[clientName].inboxes[inboxKey]) {
+      byClient[clientName].inboxes[inboxKey] = {
+        inbox: entry.inbox,
         totalMinutes: 0,
         entryCount: 0
       };
     }
 
     byClient[clientName].totalMinutes += entry.durationMins || 0;
-    byClient[clientName].projects[projectKey].totalMinutes += entry.durationMins || 0;
-    byClient[clientName].projects[projectKey].entryCount++;
+    byClient[clientName].inboxes[inboxKey].totalMinutes += entry.durationMins || 0;
+    byClient[clientName].inboxes[inboxKey].entryCount++;
   });
 
   const rate = parseFloat(hourlyRate) || 0;
@@ -257,7 +257,7 @@ router.get('/billing', asyncHandler(async (req, res) => {
     totalMinutes: client.totalMinutes,
     totalHours: Math.round(client.totalMinutes / 60 * 100) / 100,
     billableAmount: rate ? Math.round(client.totalMinutes / 60 * rate * 100) / 100 : null,
-    projects: Object.values(client.projects).map(p => ({
+    inboxes: Object.values(client.inboxes).map(p => ({
       ...p,
       totalHours: Math.round(p.totalMinutes / 60 * 100) / 100,
       billableAmount: rate ? Math.round(p.totalMinutes / 60 * rate * 100) / 100 : null

@@ -2,21 +2,21 @@ import { request, publicRequest } from './base'
 import type { TicketStage } from './types'
 
 // ==========================================
-// Projects
+// Inboxes
 // ==========================================
 
-export async function getProjects(includeInactive = false) {
+export async function getInboxes(includeInactive = false) {
   const params = includeInactive ? '?includeInactive=true' : ''
-  return request<any[]>(`/projects${params}`)
+  return request<any[]>(`/inboxes${params}`)
 }
 
-export async function getProject(id: string) {
-  return request<any>(`/projects/${id}`)
+export async function getInbox(id: string) {
+  return request<any>(`/inboxes/${id}`)
 }
 
-export async function createProject(data: {
+export async function createInbox(data: {
   name: string
-  projectCode: string
+  inboxCode: string
   clientName?: string
   description?: string
   defaultAssigneeId?: string | null
@@ -25,15 +25,15 @@ export async function createProject(data: {
   dueDateHighDays?: number | null
   dueDateUrgentDays?: number | null
 }) {
-  return request<any>('/projects', {
+  return request<any>('/inboxes', {
     method: 'POST',
     body: JSON.stringify(data)
   })
 }
 
-export async function updateProject(id: string, data: {
+export async function updateInbox(id: string, data: {
   name?: string
-  projectCode?: string
+  inboxCode?: string
   clientName?: string
   description?: string
   isActive?: boolean
@@ -45,68 +45,68 @@ export async function updateProject(id: string, data: {
   autoReplyEnabled?: boolean
   autoReplyHtml?: string | null
 }) {
-  return request<any>(`/projects/${id}`, {
+  return request<any>(`/inboxes/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data)
   })
 }
 
-export async function deleteProject(id: string) {
-  return request<{ message: string }>(`/projects/${id}`, {
+export async function deleteInbox(id: string) {
+  return request<{ message: string }>(`/inboxes/${id}`, {
     method: 'DELETE'
   })
 }
 
-export async function getProjectStats(id: string, filters: { startDate?: string; endDate?: string } = {}) {
+export async function getInboxStats(id: string, filters: { startDate?: string; endDate?: string } = {}) {
   const params = new URLSearchParams()
   if (filters.startDate) params.append('startDate', filters.startDate)
   if (filters.endDate) params.append('endDate', filters.endDate)
 
   const query = params.toString()
-  return request<any>(`/projects/${id}/stats${query ? `?${query}` : ''}`)
+  return request<any>(`/inboxes/${id}/stats${query ? `?${query}` : ''}`)
 }
 
 // ==========================================
-// Project Stages
+// Inbox Stages
 // ==========================================
 
-export async function getProjectStages(projectId: string) {
-  return request<TicketStage[]>(`/projects/${projectId}/stages`)
+export async function getInboxStages(inboxId: string) {
+  return request<TicketStage[]>(`/inboxes/${inboxId}/stages`)
 }
 
-export async function createStage(projectId: string, data: {
+export async function createStage(inboxId: string, data: {
   name: string
   color: string
   isDefault?: boolean
   isResolved?: boolean
 }) {
-  return request<TicketStage>(`/projects/${projectId}/stages`, {
+  return request<TicketStage>(`/inboxes/${inboxId}/stages`, {
     method: 'POST',
     body: JSON.stringify(data)
   })
 }
 
-export async function updateStage(projectId: string, stageId: string, data: {
+export async function updateStage(inboxId: string, stageId: string, data: {
   name?: string
   color?: string
   isDefault?: boolean
   isResolved?: boolean
 }) {
-  return request<TicketStage>(`/projects/${projectId}/stages/${stageId}`, {
+  return request<TicketStage>(`/inboxes/${inboxId}/stages/${stageId}`, {
     method: 'PUT',
     body: JSON.stringify(data)
   })
 }
 
-export async function reorderStages(projectId: string, stageIds: string[]) {
-  return request<TicketStage[]>(`/projects/${projectId}/stages/reorder`, {
+export async function reorderStages(inboxId: string, stageIds: string[]) {
+  return request<TicketStage[]>(`/inboxes/${inboxId}/stages/reorder`, {
     method: 'PUT',
     body: JSON.stringify({ stageIds })
   })
 }
 
-export async function deleteStage(projectId: string, stageId: string, moveTicketsToStageId: string) {
-  return request<{ message: string }>(`/projects/${projectId}/stages/${stageId}`, {
+export async function deleteStage(inboxId: string, stageId: string, moveTicketsToStageId: string) {
+  return request<{ message: string }>(`/inboxes/${inboxId}/stages/${stageId}`, {
     method: 'DELETE',
     body: JSON.stringify({ moveTicketsToStageId })
   })
@@ -116,21 +116,21 @@ export async function deleteStage(projectId: string, stageId: string, moveTicket
 // Client Signup Links
 // ==========================================
 
-export async function generateSignupLink(projectId: string) {
-  return request<{ token: string; enabled: boolean }>(`/projects/${projectId}/signup-link`, {
+export async function generateSignupLink(inboxId: string) {
+  return request<{ token: string; enabled: boolean }>(`/inboxes/${inboxId}/signup-link`, {
     method: 'POST',
   })
 }
 
-export async function toggleSignupLink(projectId: string, enabled: boolean) {
-  return request<{ token: string; enabled: boolean }>(`/projects/${projectId}/signup-link`, {
+export async function toggleSignupLink(inboxId: string, enabled: boolean) {
+  return request<{ token: string; enabled: boolean }>(`/inboxes/${inboxId}/signup-link`, {
     method: 'PATCH',
     body: JSON.stringify({ enabled }),
   })
 }
 
-export async function deleteSignupLink(projectId: string) {
-  return request<{ success: boolean }>(`/projects/${projectId}/signup-link`, {
+export async function deleteSignupLink(inboxId: string) {
+  return request<{ success: boolean }>(`/inboxes/${inboxId}/signup-link`, {
     method: 'DELETE',
   })
 }
@@ -138,7 +138,7 @@ export async function deleteSignupLink(projectId: string) {
 export async function getSignupInfo(token: string) {
   return publicRequest<{
     organizationName: string
-    projectName: string
+    inboxName: string
     branding: { appName: string; primaryColor: string; logoUrl: string | null }
   }>(`/client-signup/${token}`)
 }

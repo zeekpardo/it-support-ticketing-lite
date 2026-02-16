@@ -16,24 +16,24 @@ import ResetPassword from './pages/ResetPassword'
 import ClientSignup from './pages/ClientSignup'
 
 // Lazy-loaded staff pages
-const Projects = lazy(() => import('./pages/Projects'))
+const Inboxes = lazy(() => import('./pages/Inboxes'))
 const Reports = lazy(() => import('./pages/Reports'))
 const Settings = lazy(() => import('./pages/Settings'))
-const ProjectTickets = lazy(() => import('./pages/ProjectTickets'))
+const InboxTickets = lazy(() => import('./pages/InboxTickets'))
 const TicketDetail = lazy(() => import('./pages/TicketDetail'))
 const NewTicket = lazy(() => import('./pages/NewTicket'))
 
 // Lazy-loaded admin pages
 const AdminMembers = lazy(() => import('./pages/admin/Members'))
-const AdminProjects = lazy(() => import('./pages/admin/Projects'))
-const AdminProjectNew = lazy(() => import('./pages/admin/ProjectNew'))
-const AdminProjectEdit = lazy(() => import('./pages/admin/ProjectEdit'))
-const AdminProjectDetail = lazy(() => import('./pages/admin/ProjectDetail'))
+const AdminInboxes = lazy(() => import('./pages/admin/Inboxes'))
+const AdminInboxNew = lazy(() => import('./pages/admin/InboxNew'))
+const AdminInboxEdit = lazy(() => import('./pages/admin/InboxEdit'))
+const AdminInboxDetail = lazy(() => import('./pages/admin/InboxDetail'))
 const AdminClientDetail = lazy(() => import('./pages/admin/ClientDetail'))
 const SuperAdmin = lazy(() => import('./pages/admin/SuperAdmin'))
-const ProjectSoftwareCatalog = lazy(() => import('./pages/admin/ProjectSoftwareCatalog'))
-const ProjectSoftwareDetail = lazy(() => import('./pages/admin/ProjectSoftwareDetail'))
-const ProjectEmailRules = lazy(() => import('./pages/admin/ProjectEmailRules'))
+const InboxSoftwareCatalog = lazy(() => import('./pages/admin/InboxSoftwareCatalog'))
+const InboxSoftwareDetail = lazy(() => import('./pages/admin/InboxSoftwareDetail'))
+const InboxEmailRules = lazy(() => import('./pages/admin/InboxEmailRules'))
 const InboundEmailLogs = lazy(() => import('./pages/admin/InboundEmailLogs'))
 const AdminBranding = lazy(() => import('./pages/admin/Branding'))
 
@@ -43,8 +43,8 @@ const PortalTickets = lazy(() => import('./pages/portal/PortalTickets'))
 const PortalTicketDetail = lazy(() => import('./pages/portal/PortalTicketDetail'))
 const PortalNewTicket = lazy(() => import('./pages/portal/PortalNewTicket'))
 const PortalSettings = lazy(() => import('./pages/portal/PortalSettings'))
-const PortalProjectSoftware = lazy(() => import('./pages/portal/PortalProjectSoftware'))
-const PortalProjectSoftwareDetail = lazy(() => import('./pages/portal/PortalProjectSoftwareDetail'))
+const PortalInboxSoftware = lazy(() => import('./pages/portal/PortalInboxSoftware'))
+const PortalInboxSoftwareDetail = lazy(() => import('./pages/portal/PortalInboxSoftwareDetail'))
 const PortalCatalog = lazy(() => import('./pages/portal/PortalCatalog'))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -198,10 +198,10 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/projects"
+        path="/inboxes"
         element={
           <ProtectedRoute>
-            <Projects />
+            <Inboxes />
           </ProtectedRoute>
         }
       />
@@ -224,17 +224,17 @@ function AppRoutes() {
 
       {/* Ticket routes (staff) */}
       <Route
-        path="/projects/:projectId/tickets"
+        path="/inboxes/:inboxId/tickets"
         element={
           <ProtectedRoute>
             <StaffRoute>
-              <ProjectTickets />
+              <InboxTickets />
             </StaffRoute>
           </ProtectedRoute>
         }
       />
       <Route
-        path="/projects/:projectId/tickets/new"
+        path="/inboxes/:inboxId/tickets/new"
         element={
           <ProtectedRoute>
             <StaffRoute>
@@ -244,7 +244,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/projects/:projectId/tickets/:ticketId"
+        path="/inboxes/:inboxId/tickets/:ticketId"
         element={
           <ProtectedRoute>
             <StaffRoute>
@@ -304,18 +304,18 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/portal/projects/:projectId/software"
+        path="/portal/inboxes/:inboxId/software"
         element={
           <ClientRoute>
-            <PortalProjectSoftware />
+            <PortalInboxSoftware />
           </ClientRoute>
         }
       />
       <Route
-        path="/portal/projects/:projectId/software/:id"
+        path="/portal/inboxes/:inboxId/software/:id"
         element={
           <ClientRoute>
-            <PortalProjectSoftwareDetail />
+            <PortalInboxSoftwareDetail />
           </ClientRoute>
         }
       />
@@ -336,7 +336,7 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <AdminRoute>
-              <ProjectEmailRules />
+              <InboxEmailRules />
             </AdminRoute>
           </ProtectedRoute>
         }
@@ -352,61 +352,61 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/admin/projects/:projectId/software"
+        path="/admin/inboxes/:inboxId/software"
         element={
           <ProtectedRoute>
             <AdminRoute>
-              <ProjectSoftwareCatalog />
+              <InboxSoftwareCatalog />
             </AdminRoute>
           </ProtectedRoute>
         }
       />
       <Route
-        path="/admin/projects/:projectId/software/:id"
+        path="/admin/inboxes/:inboxId/software/:id"
         element={
           <ProtectedRoute>
             <AdminRoute>
-              <ProjectSoftwareDetail />
+              <InboxSoftwareDetail />
             </AdminRoute>
           </ProtectedRoute>
         }
       />
       <Route
-        path="/admin/projects"
+        path="/admin/inboxes"
         element={
           <ProtectedRoute>
             <AdminRoute>
-              <AdminProjects />
+              <AdminInboxes />
             </AdminRoute>
           </ProtectedRoute>
         }
       />
       <Route
-        path="/admin/projects/new"
+        path="/admin/inboxes/new"
         element={
           <ProtectedRoute>
             <AdminRoute>
-              <AdminProjectNew />
+              <AdminInboxNew />
             </AdminRoute>
           </ProtectedRoute>
         }
       />
       <Route
-        path="/admin/projects/:id"
+        path="/admin/inboxes/:id"
         element={
           <ProtectedRoute>
             <AdminRoute>
-              <AdminProjectDetail />
+              <AdminInboxDetail />
             </AdminRoute>
           </ProtectedRoute>
         }
       />
       <Route
-        path="/admin/projects/:id/edit"
+        path="/admin/inboxes/:id/edit"
         element={
           <ProtectedRoute>
             <AdminRoute>
-              <AdminProjectEdit />
+              <AdminInboxEdit />
             </AdminRoute>
           </ProtectedRoute>
         }

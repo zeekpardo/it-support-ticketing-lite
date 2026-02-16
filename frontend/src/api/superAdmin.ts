@@ -29,11 +29,11 @@ export async function getSuperAdminUsers(params: { limit?: number; offset?: numb
           name: string
           slug: string
         }
-        projectAssignments: Array<{
-          project: {
+        inboxAssignments: Array<{
+          inbox: {
             id: string
             name: string
-            projectCode: string
+            inboxCode: string
           }
         }>
       }>
@@ -57,7 +57,7 @@ export interface SuperAdminAccount {
   createdAt: string
   _count: {
     members: number
-    projects: number
+    inboxes: number
     tickets: number
     timeEntries: number
   }
@@ -74,11 +74,11 @@ export interface SuperAdminAccountMember {
     image?: string | null
     banned?: boolean
   }
-  projectAssignments: Array<{
-    project: {
+  inboxAssignments: Array<{
+    inbox: {
       id: string
       name: string
-      projectCode: string
+      inboxCode: string
     }
   }>
 }
@@ -120,21 +120,21 @@ export async function deleteSuperAdminAccount(id: string) {
   })
 }
 
-export interface AccountProject {
+export interface AccountInbox {
   id: string
   name: string
-  projectCode: string
+  inboxCode: string
   isActive: boolean
 }
 
-export async function getSuperAdminAccountProjects(accountId: string) {
-  return request<AccountProject[]>(`/super-admin/accounts/${accountId}/projects`)
+export async function getSuperAdminAccountInboxes(accountId: string) {
+  return request<AccountInbox[]>(`/super-admin/accounts/${accountId}/inboxes`)
 }
 
-export async function updateSuperAdminMemberProjects(accountId: string, memberId: string, projectIds: string[]) {
-  return request<SuperAdminAccountMember>(`/super-admin/accounts/${accountId}/members/${memberId}/projects`, {
+export async function updateSuperAdminMemberInboxes(accountId: string, memberId: string, inboxIds: string[]) {
+  return request<SuperAdminAccountMember>(`/super-admin/accounts/${accountId}/members/${memberId}/inboxes`, {
     method: 'PUT',
-    body: JSON.stringify({ projectIds }),
+    body: JSON.stringify({ inboxIds }),
   })
 }
 

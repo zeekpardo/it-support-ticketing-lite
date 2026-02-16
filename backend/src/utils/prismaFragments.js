@@ -45,26 +45,26 @@ export const MEMBER_WITH_ROLE_AND_USER = {
   user: { select: USER_SELECT },
 };
 
-// Project brief info
-export const PROJECT_SELECT_BRIEF = {
+// Inbox brief info
+export const INBOX_SELECT_BRIEF = {
   id: true,
   name: true,
-  projectCode: true,
+  inboxCode: true,
 };
 
-// Project with client name
-export const PROJECT_SELECT = {
+// Inbox with client name
+export const INBOX_SELECT = {
   id: true,
   name: true,
-  projectCode: true,
+  inboxCode: true,
   clientName: true,
 };
 
-// Project with active status (used in assignments)
-export const PROJECT_SELECT_ACTIVE = {
+// Inbox with active status (used in assignments)
+export const INBOX_SELECT_ACTIVE = {
   id: true,
   name: true,
-  projectCode: true,
+  inboxCode: true,
   isActive: true,
 };
 
@@ -79,13 +79,13 @@ export const STAGE_SELECT = {
   isResolved: true,
 };
 
-// Project assignment with project info
-export const PROJECT_ASSIGNMENT_INCLUDE = {
-  project: {
+// Inbox assignment with inbox info
+export const INBOX_ASSIGNMENT_INCLUDE = {
+  inbox: {
     select: {
       id: true,
       name: true,
-      projectCode: true,
+      inboxCode: true,
       isActive: true,
     },
   },

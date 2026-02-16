@@ -25,12 +25,12 @@ export interface GlobalSoftware {
   submittedBy?: { id: string; name: string; email: string }
   createdAt: string
   updatedAt: string
-  _count?: { projectSoftware: number }
+  _count?: { inboxSoftware: number }
 }
 
-export interface ProjectSoftware {
+export interface InboxSoftware {
   id: string
-  projectId: string
+  inboxId: string
   softwareId: string
   software: GlobalSoftware
   notes?: string
@@ -80,9 +80,9 @@ export interface SoftwareBudgetSummary {
   }>
 }
 
-export interface ProjectSoftwareAdmin {
+export interface InboxSoftwareAdmin {
   id: string
-  projectSoftwareId: string
+  inboxSoftwareId: string
   memberId: string
   member: {
     id: string
@@ -94,7 +94,7 @@ export interface ProjectSoftwareAdmin {
 
 export interface SoftwareAccessRequest {
   id: string
-  projectSoftwareId: string
+  inboxSoftwareId: string
   requesterId: string
   requester: {
     id: string
@@ -117,8 +117,8 @@ export interface SoftwareAccessRequest {
   updatedAt: string
 }
 
-export interface ProjectSoftwareDetail extends ProjectSoftware {
-  admins: ProjectSoftwareAdmin[]
+export interface InboxSoftwareDetail extends InboxSoftware {
+  admins: InboxSoftwareAdmin[]
   accessRequests: SoftwareAccessRequest[]
 }
 
@@ -146,8 +146,8 @@ export interface PortalAccessRequest {
   reviewNotes?: string
   createdAt: string
   updatedAt: string
-  projectSoftwareId: string
-  project: { id: string; name: string; projectCode: string }
+  inboxSoftwareId: string
+  inbox: { id: string; name: string; inboxCode: string }
   software: { id: string; name: string; iconUrl?: string; vendor?: string }
   reviewer?: { id: string; user: { name: string } }
 }
@@ -158,7 +158,7 @@ export interface PortalAccessRequest {
 
 export interface TicketStage {
   id: string
-  projectId: string
+  inboxId: string
   name: string
   slug: string
   color: string
@@ -205,18 +205,18 @@ export interface Notification {
 // Compatibility Type Aliases
 // ==========================================
 // These types are referenced across the codebase as aliases
-// for the project-level types, or as extended variants.
+// for the inbox-level types, or as extended variants.
 
-/** Organization software is the same shape as ProjectSoftware */
-export type OrganizationSoftware = ProjectSoftware
+/** Organization software is the same shape as InboxSoftware */
+export type OrganizationSoftware = InboxSoftware
 
-/** Organization software detail is the same shape as ProjectSoftwareDetail */
-export type OrganizationSoftwareDetail = ProjectSoftwareDetail
+/** Organization software detail is the same shape as InboxSoftwareDetail */
+export type OrganizationSoftwareDetail = InboxSoftwareDetail
 
-/** SoftwareAdmin is the same shape as ProjectSoftwareAdmin with optional image */
+/** SoftwareAdmin is the same shape as InboxSoftwareAdmin with optional image */
 export interface SoftwareAdmin {
   id: string
-  projectSoftwareId: string
+  inboxSoftwareId: string
   memberId: string
   member: {
     id: string

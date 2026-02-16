@@ -104,7 +104,7 @@ model Organization {
 
   members       Member[]
   invitations   Invitation[]
-  projects      Project[]
+  inboxes       Inbox[]
   timeEntries   TimeEntry[]
   tickets       SupportTicket[]
   notifications Notification[]
@@ -128,13 +128,13 @@ model Member {
   ticketComments    TicketComment[]
   ticketAttachments TicketAttachment[]
 
-  // Project relations
-  projectAssignments      ProjectAssignment[]
-  defaultAssigneeProjects Project[]           @relation("ProjectDefaultAssignee")
+  // Inbox relations
+  inboxAssignments      InboxAssignment[]
+  defaultAssigneeInboxes Inbox[]           @relation("InboxDefaultAssignee")
 
   // Software catalog relations
-  projectSoftwareAdded        ProjectSoftware[]       @relation("ProjectSoftwareAddedBy")
-  projectSoftwareAdmins       ProjectSoftwareAdmin[]
+  inboxSoftwareAdded        InboxSoftware[]       @relation("InboxSoftwareAddedBy")
+  inboxSoftwareAdmins       InboxSoftwareAdmin[]
   softwareRequestsAsRequester SoftwareAccessRequest[] @relation("SoftwareRequester")
   softwareRequestsAsAssignee  SoftwareAccessRequest[] @relation("SoftwareRequestAssignee")
   softwareRequestsAsReviewer  SoftwareAccessRequest[] @relation("SoftwareReviewer")
@@ -149,15 +149,15 @@ model Member {
   @@map("members")
 }
 
-model ProjectAssignment {
+model InboxAssignment {
   id        String   @id @default(cuid())
   memberId  String   @map("member_id")
   member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  projectId String   @map("project_id")
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inboxId   String   @map("project_id")
+  inbox     Inbox    @relation(fields: [inboxId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now()) @map("created_at")
 
-  @@unique([memberId, projectId])
+  @@unique([memberId, inboxId])
   @@map("project_assignments")
 }
 
@@ -173,19 +173,19 @@ model Invitation {
   inviter        User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now()) @map("created_at")
 
-  invitationProjects InvitationProject[]
+  invitationInboxes InvitationInbox[]
 
   @@map("invitations")
 }
 
-model InvitationProject {
+model InvitationInbox {
   id           String     @id @default(cuid())
   invitationId String     @map("invitation_id")
   invitation   Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
-  projectId    String     @map("project_id")
-  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inboxId      String     @map("project_id")
+  inbox        Inbox      @relation(fields: [inboxId], references: [id], onDelete: Cascade)
 
-  @@unique([invitationId, projectId])
+  @@unique([invitationId, inboxId])
   @@map("invitation_projects")
 }
 
@@ -193,17 +193,17 @@ model InvitationProject {
 // Application Tables (Org-scoped)
 // ==========================================
 
-model Project {
+model Inbox {
   id                String       @id @default(cuid())
   organizationId    String       @map("organization_id")
   organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name              String
-  projectCode       String       @map("project_code")
+  inboxCode         String       @map("project_code")
   clientName        String?      @map("client_name")
   description       String?
   isActive          Boolean      @default(true) @map("is_active")
   defaultAssigneeId String?      @map("default_assignee_id")
-  defaultAssignee   Member?      @relation("ProjectDefaultAssignee", fields: [defaultAssigneeId], references: [id], onDelete: SetNull)
+  defaultAssignee   Member?      @relation("InboxDefaultAssignee", fields: [defaultAssigneeId], references: [id], onDelete: SetNull)
 
   // Priority-based due date settings (in days, null means no auto due date)
   dueDateLowDays    Int? @map("due_date_low_days")
@@ -224,15 +224,15 @@ model Project {
 
   timeEntries        TimeEntry[]
   tickets            SupportTicket[]
-  projectAssignments ProjectAssignment[]
-  invitationProjects InvitationProject[]
+  inboxAssignments   InboxAssignment[]
+  invitationInboxes  InvitationInbox[]
   stages             TicketStage[]
   emailRules         EmailRule[]
 
   // Software catalog
-  projectSoftware ProjectSoftware[]
+  inboxSoftware InboxSoftware[]
 
-  @@unique([organizationId, projectCode])
+  @@unique([organizationId, inboxCode])
   @@map("projects")
 }
 
@@ -257,8 +257,8 @@ model EmailRule {
   id             String       @id @default(cuid())
   organizationId String       @map("organization_id")
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  projectId      String       @map("project_id")
-  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inboxId        String       @map("project_id")
+  inbox          Inbox        @relation(fields: [inboxId], references: [id], onDelete: Cascade)
 
   matchType  EmailRuleMatchType @map("match_type")
   matchValue String?            @map("match_value") // Email or domain (null for CATCH_ALL)
@@ -348,8 +348,8 @@ model TimeEntry {
   organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userId         String         @map("user_id")
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  projectId      String         @map("project_id")
-  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inboxId        String         @map("project_id")
+  inbox          Inbox          @relation(fields: [inboxId], references: [id], onDelete: Cascade)
   ticketId       String?        @map("ticket_id")
   ticket         SupportTicket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
   taskName       String         @map("task_name")
@@ -362,7 +362,7 @@ model TimeEntry {
   updatedAt      DateTime       @updatedAt @map("updated_at")
 
   @@index([organizationId, userId])
-  @@index([organizationId, projectId])
+  @@index([organizationId, inboxId])
   @@index([ticketId])
   @@map("time_entries")
 }
@@ -382,8 +382,8 @@ enum TicketStatus {
 
 model TicketStage {
   id         String   @id @default(cuid())
-  projectId  String   @map("project_id")
-  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inboxId    String   @map("project_id")
+  inbox      Inbox    @relation(fields: [inboxId], references: [id], onDelete: Cascade)
   name       String // e.g., "New Requests", "In Progress"
   slug       String // e.g., "new_request", "in_progress"
   color      String // Tailwind color name, e.g., "purple", "blue"
@@ -395,8 +395,8 @@ model TicketStage {
 
   tickets SupportTicket[]
 
-  @@unique([projectId, slug])
-  @@index([projectId])
+  @@unique([inboxId, slug])
+  @@index([inboxId])
   @@map("ticket_stages")
 }
 
@@ -420,8 +420,8 @@ model SupportTicket {
   id             String       @id @default(cuid())
   organizationId String       @map("organization_id")
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  projectId      String       @map("project_id")
-  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inboxId        String       @map("project_id")
+  inbox          Inbox        @relation(fields: [inboxId], references: [id], onDelete: Cascade)
 
   // Contact info (stored for audit trail even if client is deleted)
   firstName String  @map("first_name")
@@ -464,7 +464,7 @@ model SupportTicket {
   @@index([organizationId, stageId])
   @@index([organizationId, clientId])
   @@index([organizationId, ownerId])
-  @@index([projectId])
+  @@index([inboxId])
   @@map("support_tickets")
 }
 
@@ -509,7 +509,7 @@ model TicketComment {
 }
 
 // ==========================================
-// Software Catalog Tables (Global + Project-scoped)
+// Software Catalog Tables (Global + Inbox-scoped)
 // ==========================================
 
 enum SoftwareCatalogStatus {
@@ -563,7 +563,7 @@ model SoftwareCatalog {
   createdAt     DateTime              @default(now()) @map("created_at")
   updatedAt     DateTime              @updatedAt @map("updated_at")
 
-  projectSoftware ProjectSoftware[]
+  inboxSoftware InboxSoftware[]
 
   @@map("software_catalog")
 }
@@ -580,16 +580,16 @@ model SoftwareCategory {
   @@map("software_categories")
 }
 
-// Software added to a PROJECT
-model ProjectSoftware {
+// Software added to an INBOX
+model InboxSoftware {
   id         String          @id @default(cuid())
-  projectId  String          @map("project_id")
-  project    Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inboxId    String          @map("project_id")
+  inbox      Inbox           @relation(fields: [inboxId], references: [id], onDelete: Cascade)
   softwareId String          @map("software_id")
   software   SoftwareCatalog @relation(fields: [softwareId], references: [id], onDelete: Cascade)
   notes      String?
   addedById  String          @map("added_by_id")
-  addedBy    Member          @relation("ProjectSoftwareAddedBy", fields: [addedById], references: [id], onDelete: Cascade)
+  addedBy    Member          @relation("InboxSoftwareAddedBy", fields: [addedById], references: [id], onDelete: Cascade)
   createdAt  DateTime        @default(now()) @map("created_at")
   updatedAt  DateTime        @updatedAt @map("updated_at")
 
@@ -610,35 +610,35 @@ model ProjectSoftware {
   contractUrl        String? @map("contract_url")
   loginUrl           String? @map("login_url")
 
-  admins               ProjectSoftwareAdmin[]
+  admins               InboxSoftwareAdmin[]
   accessRequests       SoftwareAccessRequest[]
   renewalNotifications SoftwareRenewalNotification[]
 
-  @@unique([projectId, softwareId])
-  @@index([projectId])
+  @@unique([inboxId, softwareId])
+  @@index([inboxId])
   @@index([renewalDate])
   @@map("project_software")
 }
 
-// Admins for project software (can approve/decline requests)
-model ProjectSoftwareAdmin {
+// Admins for inbox software (can approve/decline requests)
+model InboxSoftwareAdmin {
   id                String            @id @default(cuid())
-  projectSoftwareId String            @map("project_software_id")
-  projectSoftware   ProjectSoftware   @relation(fields: [projectSoftwareId], references: [id], onDelete: Cascade)
+  inboxSoftwareId   String            @map("project_software_id")
+  inboxSoftware     InboxSoftware     @relation(fields: [inboxSoftwareId], references: [id], onDelete: Cascade)
   memberId          String            @map("member_id")
   member            Member            @relation(fields: [memberId], references: [id], onDelete: Cascade)
   role              SoftwareAdminRole @default(ADMIN)
   createdAt         DateTime          @default(now()) @map("created_at")
 
-  @@unique([projectSoftwareId, memberId])
+  @@unique([inboxSoftwareId, memberId])
   @@map("project_software_admins")
 }
 
-// Access requests from clients for project software
+// Access requests from clients for inbox software
 model SoftwareAccessRequest {
   id                String                      @id @default(cuid())
-  projectSoftwareId String                      @map("project_software_id")
-  projectSoftware   ProjectSoftware             @relation(fields: [projectSoftwareId], references: [id], onDelete: Cascade)
+  inboxSoftwareId   String                      @map("project_software_id")
+  inboxSoftware     InboxSoftware               @relation(fields: [inboxSoftwareId], references: [id], onDelete: Cascade)
   requesterId       String                      @map("requester_id")
   requester         Member                      @relation("SoftwareRequester", fields: [requesterId], references: [id], onDelete: Cascade)
   reason            String?
@@ -651,21 +651,21 @@ model SoftwareAccessRequest {
   createdAt         DateTime                    @default(now()) @map("created_at")
   updatedAt         DateTime                    @updatedAt @map("updated_at")
 
-  @@index([projectSoftwareId])
+  @@index([inboxSoftwareId])
   @@map("software_access_requests")
 }
 
 // Tracks which renewal notifications have been sent (prevents duplicates)
 model SoftwareRenewalNotification {
-  id                String          @id @default(cuid())
-  projectSoftwareId String          @map("project_software_id")
-  projectSoftware   ProjectSoftware @relation(fields: [projectSoftwareId], references: [id], onDelete: Cascade)
-  threshold         String // "30_days", "14_days", "3_days", "1_day"
-  renewalDate       DateTime        @map("renewal_date")
-  sentAt            DateTime        @default(now()) @map("sent_at")
+  id              String        @id @default(cuid())
+  inboxSoftwareId String        @map("project_software_id")
+  inboxSoftware   InboxSoftware @relation(fields: [inboxSoftwareId], references: [id], onDelete: Cascade)
+  threshold       String // "30_days", "14_days", "3_days", "1_day"
+  renewalDate     DateTime      @map("renewal_date")
+  sentAt          DateTime      @default(now()) @map("sent_at")
 
-  @@unique([projectSoftwareId, threshold, renewalDate])
-  @@index([projectSoftwareId])
+  @@unique([inboxSoftwareId, threshold, renewalDate])
+  @@index([inboxSoftwareId])
   @@map("software_renewal_notifications")
 }
 

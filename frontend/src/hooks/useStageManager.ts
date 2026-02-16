@@ -7,7 +7,7 @@ function getErrorMessage(err: unknown, fallback: string) {
   return err instanceof Error ? err.message : fallback
 }
 
-export function useStageManager(projectId: string | undefined) {
+export function useStageManager(inboxId: string | undefined) {
   const [stages, setStages] = useState<TicketStage[]>([])
   const [error, setError] = useState('')
 
@@ -20,19 +20,19 @@ export function useStageManager(projectId: string | undefined) {
   const [moveTicketsToStageId, setMoveTicketsToStageId] = useState('')
 
   const loadStages = useCallback(async () => {
-    if (!projectId) return []
-    const data = await api.getProjectStages(projectId)
+    if (!inboxId) return []
+    const data = await api.getInboxStages(inboxId)
     const sorted = data.sort((a, b) => a.position - b.position)
     setStages(sorted)
     return sorted
-  }, [projectId])
+  }, [inboxId])
 
   const handleAdd = useCallback(async () => {
-    if (!newStageName.trim() || !projectId) return
+    if (!newStageName.trim() || !inboxId) return
     setError('')
 
     try {
-      const newStage = await api.createStage(projectId, {
+      const newStage = await api.createStage(inboxId, {
         name: newStageName.trim(),
         color: newStageColor,
       })
@@ -42,46 +42,46 @@ export function useStageManager(projectId: string | undefined) {
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to create stage'))
     }
-  }, [projectId, newStageName, newStageColor])
+  }, [inboxId, newStageName, newStageColor])
 
   const handleUpdate = useCallback(async (stageId: string, data: { name?: string; color?: string }) => {
-    if (!projectId) return
+    if (!inboxId) return
     setError('')
     try {
-      const updated = await api.updateStage(projectId, stageId, data)
+      const updated = await api.updateStage(inboxId, stageId, data)
       setStages(prev => prev.map(s => s.id === stageId ? updated : s))
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to update stage'))
     }
-  }, [projectId])
+  }, [inboxId])
 
   const handleSetDefault = useCallback(async (stageId: string) => {
-    if (!projectId) return
+    if (!inboxId) return
     setError('')
     try {
-      await api.updateStage(projectId, stageId, { isDefault: true })
+      await api.updateStage(inboxId, stageId, { isDefault: true })
       setStages(prev => prev.map(s => ({ ...s, isDefault: s.id === stageId })))
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to set default stage'))
     }
-  }, [projectId])
+  }, [inboxId])
 
   const handleToggleResolved = useCallback(async (stageId: string) => {
-    if (!projectId) return
+    if (!inboxId) return
     const stage = stages.find(s => s.id === stageId)
     if (!stage) return
     setError('')
 
     try {
-      const updated = await api.updateStage(projectId, stageId, { isResolved: !stage.isResolved })
+      const updated = await api.updateStage(inboxId, stageId, { isResolved: !stage.isResolved })
       setStages(prev => prev.map(s => s.id === stageId ? updated : s))
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to update stage'))
     }
-  }, [projectId, stages])
+  }, [inboxId, stages])
 
   const handleDelete = useCallback(async () => {
-    if (!stageToDelete || !projectId) return
+    if (!stageToDelete || !inboxId) return
     setError('')
 
     if (stageToDelete._count?.tickets && stageToDelete._count.tickets > 0 && !moveTicketsToStageId) {
@@ -90,17 +90,17 @@ export function useStageManager(projectId: string | undefined) {
     }
 
     try {
-      await api.deleteStage(projectId, stageToDelete.id, moveTicketsToStageId)
+      await api.deleteStage(inboxId, stageToDelete.id, moveTicketsToStageId)
       setStages(prev => prev.filter(s => s.id !== stageToDelete.id))
       setStageToDelete(null)
       setMoveTicketsToStageId('')
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to delete stage'))
     }
-  }, [projectId, stageToDelete, moveTicketsToStageId])
+  }, [inboxId, stageToDelete, moveTicketsToStageId])
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
-    if (!projectId) return
+    if (!inboxId) return
     const { active, over } = event
     if (!over || active.id === over.id) return
 
@@ -110,14 +110,14 @@ export function useStageManager(projectId: string | undefined) {
       const reordered = arrayMove(prev, oldIndex, newIndex)
 
       // Fire-and-forget save; revert on failure
-      api.reorderStages(projectId, reordered.map(s => s.id)).catch(err => {
+      api.reorderStages(inboxId, reordered.map(s => s.id)).catch(err => {
         setStages(prev) // revert
         setError(getErrorMessage(err, 'Failed to reorder stages'))
       })
 
       return reordered
     })
-  }, [projectId])
+  }, [inboxId])
 
   const dismissDelete = useCallback(() => {
     setStageToDelete(null)

@@ -17,8 +17,8 @@ import {
   XCircleIcon,
 } from '@heroicons/react/24/outline'
 
-export default function PortalProjectSoftwareDetail() {
-  const { projectId, id } = useParams<{ projectId: string; id: string }>()
+export default function PortalInboxSoftwareDetail() {
+  const { inboxId, id } = useParams<{ inboxId: string; id: string }>()
   const navigate = useNavigate()
 
   const [software, setSoftware] = useState<PortalSoftware | null>(null)
@@ -30,16 +30,16 @@ export default function PortalProjectSoftwareDetail() {
   const [requesting, setRequesting] = useState(false)
 
   useEffect(() => {
-    if (projectId && id) {
+    if (inboxId && id) {
       loadSoftware()
     }
-  }, [projectId, id])
+  }, [inboxId, id])
 
   const loadSoftware = async () => {
-    if (!projectId || !id) return
+    if (!inboxId || !id) return
     setLoading(true)
     try {
-      const data = await api.getPortalProjectSoftwareById(projectId, id)
+      const data = await api.getPortalInboxSoftwareById(inboxId, id)
       setSoftware(data)
     } catch (error) {
       console.error('Failed to load software:', error)
@@ -49,10 +49,10 @@ export default function PortalProjectSoftwareDetail() {
   }
 
   const handleRequestAccess = async () => {
-    if (!projectId || !id) return
+    if (!inboxId || !id) return
     setRequesting(true)
     try {
-      await api.submitPortalAccessRequest(projectId, id, requestReason || undefined)
+      await api.submitPortalAccessRequest(inboxId, id, requestReason || undefined)
       setShowRequestModal(false)
       loadSoftware()
     } catch (error) {
@@ -140,7 +140,7 @@ export default function PortalProjectSoftwareDetail() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
-          <Button plain onClick={() => navigate(`/portal/projects/${projectId}/software`)}>
+          <Button plain onClick={() => navigate(`/portal/inboxes/${inboxId}/software`)}>
             <ArrowLeftIcon className="h-4 w-4" />
           </Button>
           <div className="flex items-center gap-4">
@@ -199,7 +199,7 @@ export default function PortalProjectSoftwareDetail() {
         </div>
       )}
 
-      {/* Project Notes */}
+      {/* Inbox Notes */}
       {software.notes && (
         <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 p-4">
           <Text className="font-medium mb-2">Setup Instructions</Text>

@@ -15,10 +15,10 @@ import {
   XCircleIcon,
 } from '@heroicons/react/24/outline'
 
-interface Project {
+interface Inbox {
   id: string
   name: string
-  projectCode: string
+  inboxCode: string
   clientName?: string
 }
 
@@ -27,8 +27,8 @@ type FilterType = 'all' | 'my-software'
 export default function PortalCatalog() {
   const { currentOrg } = useOrganization()
   const navigate = useNavigate()
-  const [projects, setProjects] = useState<Project[]>([])
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('')
+  const [inboxes, setInboxes] = useState<Inbox[]>([])
+  const [selectedInboxId, setSelectedInboxId] = useState<string>('')
   const [software, setSoftware] = useState<PortalSoftware[]>([])
   const [categories, setCategories] = useState<SoftwareCategory[]>([])
   const [loading, setLoading] = useState(true)
@@ -38,37 +38,37 @@ export default function PortalCatalog() {
 
   useEffect(() => {
     if (currentOrg) {
-      loadProjects()
+      loadInboxes()
     }
   }, [currentOrg])
 
   useEffect(() => {
-    if (selectedProjectId) {
+    if (selectedInboxId) {
       loadCategories()
       loadSoftware()
     }
-  }, [selectedProjectId, categoryFilter, viewFilter])
+  }, [selectedInboxId, categoryFilter, viewFilter])
 
-  const loadProjects = async () => {
+  const loadInboxes = async () => {
     setLoading(true)
     try {
-      const data = await api.getPortalProjects()
-      setProjects(data)
-      // Auto-select the first project if there's only one or more
+      const data = await api.getPortalInboxes()
+      setInboxes(data)
+      // Auto-select the first inbox if there's only one or more
       if (data.length > 0) {
-        setSelectedProjectId(data[0].id)
+        setSelectedInboxId(data[0].id)
       }
     } catch (error) {
-      console.error('Failed to load projects:', error)
+      console.error('Failed to load inboxes:', error)
     } finally {
       setLoading(false)
     }
   }
 
   const loadCategories = async () => {
-    if (!selectedProjectId) return
+    if (!selectedInboxId) return
     try {
-      const data = await api.getPortalSoftwareCategories(selectedProjectId)
+      const data = await api.getPortalSoftwareCategories(selectedInboxId)
       setCategories(data)
     } catch (error) {
       console.error('Failed to load categories:', error)
@@ -76,10 +76,10 @@ export default function PortalCatalog() {
   }
 
   const loadSoftware = async () => {
-    if (!selectedProjectId) return
+    if (!selectedInboxId) return
     setSoftwareLoading(true)
     try {
-      const data = await api.getPortalProjectSoftware(selectedProjectId, {
+      const data = await api.getPortalInboxSoftware(selectedInboxId, {
         categoryId: categoryFilter || undefined,
         filter: viewFilter === 'my-software' ? 'my-software' : undefined
       })
@@ -121,7 +121,7 @@ export default function PortalCatalog() {
     }
   }
 
-  const selectedProject = projects.find(p => p.id === selectedProjectId)
+  const selectedInbox = inboxes.find(p => p.id === selectedInboxId)
 
   if (!currentOrg || loading) {
     return (
@@ -131,19 +131,19 @@ export default function PortalCatalog() {
     )
   }
 
-  if (projects.length === 0) {
+  if (inboxes.length === 0) {
     return (
       <div className="space-y-6">
         <div>
           <Heading>Software Catalog</Heading>
           <Text className="text-zinc-500">
-            Browse available software for your projects.
+            Browse available software for your inboxes.
           </Text>
         </div>
         <div className="bg-white dark:bg-zinc-800 rounded-xl p-12 text-center shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10">
           <FolderIcon className="mx-auto h-12 w-12 text-zinc-400" />
           <Text className="mt-4 text-zinc-500">
-            No projects available.
+            No inboxes available.
           </Text>
         </div>
       </div>
@@ -160,30 +160,30 @@ export default function PortalCatalog() {
             Browse available software and request access
           </Text>
         </div>
-        {/* Project selector - only show if multiple projects */}
-        {projects.length > 1 && (
+        {/* Inbox selector - only show if multiple inboxes */}
+        {inboxes.length > 1 && (
           <Select
-            value={selectedProjectId}
+            value={selectedInboxId}
             onChange={(e) => {
-              setSelectedProjectId(e.target.value)
+              setSelectedInboxId(e.target.value)
               setCategoryFilter('')
             }}
             className="w-full sm:w-64"
           >
-            {projects.map(project => (
-              <option key={project.id} value={project.id}>
-                {project.name} ({project.projectCode})
+            {inboxes.map(inbox => (
+              <option key={inbox.id} value={inbox.id}>
+                {inbox.name} ({inbox.inboxCode})
               </option>
             ))}
           </Select>
         )}
       </div>
 
-      {/* Show current project badge if only one project */}
-      {projects.length === 1 && selectedProject && (
+      {/* Show current inbox badge if only one inbox */}
+      {inboxes.length === 1 && selectedInbox && (
         <div className="flex items-center gap-2">
-          <Badge color="blue">{selectedProject.projectCode}</Badge>
-          <Text className="text-sm text-zinc-500">{selectedProject.name}</Text>
+          <Badge color="blue">{selectedInbox.inboxCode}</Badge>
+          <Text className="text-sm text-zinc-500">{selectedInbox.name}</Text>
         </div>
       )}
 
@@ -232,7 +232,7 @@ export default function PortalCatalog() {
           <Text className="mt-4 text-zinc-500">
             {viewFilter === 'my-software'
               ? 'You don\'t have access to any software yet'
-              : 'No software available in this project'}
+              : 'No software available in this inbox'}
           </Text>
         </div>
       ) : (
@@ -241,7 +241,7 @@ export default function PortalCatalog() {
             <div
               key={item.id}
               className="group relative rounded-xl border border-zinc-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-zinc-700 dark:bg-zinc-800 cursor-pointer"
-              onClick={() => navigate(`/portal/projects/${selectedProjectId}/software/${item.id}`)}
+              onClick={() => navigate(`/portal/inboxes/${selectedInboxId}/software/${item.id}`)}
             >
               <div className="flex items-start gap-3">
                 {item.iconUrl ? (

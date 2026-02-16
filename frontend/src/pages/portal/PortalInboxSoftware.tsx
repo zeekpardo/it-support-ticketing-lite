@@ -16,46 +16,46 @@ import {
 
 type FilterType = 'all' | 'my-software'
 
-export default function PortalProjectSoftware() {
-  const { projectId } = useParams<{ projectId: string }>()
+export default function PortalInboxSoftware() {
+  const { inboxId } = useParams<{ inboxId: string }>()
   const navigate = useNavigate()
   const [software, setSoftware] = useState<PortalSoftware[]>([])
   const [categories, setCategories] = useState<SoftwareCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [categoryFilter, setCategoryFilter] = useState('')
   const [viewFilter, setViewFilter] = useState<FilterType>('all')
-  const [project, setProject] = useState<{ id: string; name: string; projectCode: string } | null>(null)
+  const [inbox, setInbox] = useState<{ id: string; name: string; inboxCode: string } | null>(null)
 
   useEffect(() => {
-    if (projectId) {
-      loadProject()
+    if (inboxId) {
+      loadInbox()
       loadCategories()
     }
-  }, [projectId])
+  }, [inboxId])
 
   useEffect(() => {
-    if (projectId) {
+    if (inboxId) {
       loadSoftware()
     }
-  }, [projectId, categoryFilter, viewFilter])
+  }, [inboxId, categoryFilter, viewFilter])
 
-  const loadProject = async () => {
-    if (!projectId) return
+  const loadInbox = async () => {
+    if (!inboxId) return
     try {
-      const projects = await api.getPortalProjects()
-      const proj = projects.find(p => p.id === projectId)
-      if (proj) {
-        setProject(proj)
+      const inboxes = await api.getPortalInboxes()
+      const found = inboxes.find(p => p.id === inboxId)
+      if (found) {
+        setInbox(found)
       }
     } catch (error) {
-      console.error('Failed to load project:', error)
+      console.error('Failed to load inbox:', error)
     }
   }
 
   const loadCategories = async () => {
-    if (!projectId) return
+    if (!inboxId) return
     try {
-      const data = await api.getPortalSoftwareCategories(projectId)
+      const data = await api.getPortalSoftwareCategories(inboxId)
       setCategories(data)
     } catch (error) {
       console.error('Failed to load categories:', error)
@@ -63,10 +63,10 @@ export default function PortalProjectSoftware() {
   }
 
   const loadSoftware = async () => {
-    if (!projectId) return
+    if (!inboxId) return
     setLoading(true)
     try {
-      const data = await api.getPortalProjectSoftware(projectId, {
+      const data = await api.getPortalInboxSoftware(inboxId, {
         categoryId: categoryFilter || undefined,
         filter: viewFilter === 'my-software' ? 'my-software' : undefined
       })
@@ -122,7 +122,7 @@ export default function PortalProjectSoftware() {
       <div>
         <Heading>Software Catalog</Heading>
         <Text className="mt-1 text-zinc-500">
-          {project?.name || 'Project'} - Browse available software and request access
+          {inbox?.name || 'Inbox'} - Browse available software and request access
         </Text>
       </div>
 
@@ -165,7 +165,7 @@ export default function PortalProjectSoftware() {
           <Text className="mt-4 text-zinc-500">
             {viewFilter === 'my-software'
               ? 'You don\'t have access to any software yet'
-              : 'No software available in this project'}
+              : 'No software available in this inbox'}
           </Text>
         </div>
       ) : (
@@ -174,7 +174,7 @@ export default function PortalProjectSoftware() {
             <div
               key={item.id}
               className="group relative rounded-xl border border-zinc-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-zinc-700 dark:bg-zinc-800 cursor-pointer"
-              onClick={() => navigate(`/portal/projects/${projectId}/software/${item.id}`)}
+              onClick={() => navigate(`/portal/inboxes/${inboxId}/software/${item.id}`)}
             >
               <div className="flex items-start gap-3">
                 {item.iconUrl ? (

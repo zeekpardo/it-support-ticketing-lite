@@ -9,7 +9,7 @@ import { Text } from '@/components/ui/text'
 import { ArrowLeftIcon, TrashIcon } from '@heroicons/react/24/outline'
 
 export default function TicketDetail() {
-  const { projectId, ticketId } = useParams<{ projectId: string; ticketId: string }>()
+  const { inboxId, ticketId } = useParams<{ inboxId: string; ticketId: string }>()
   const {
     ticket,
     staffMembers,
@@ -41,7 +41,7 @@ export default function TicketDetail() {
     cancelEditingName,
     saveClientName,
     handleNameKeyDown,
-  } = useTicketDetail(ticketId, projectId)
+  } = useTicketDetail(ticketId, inboxId)
 
   if (!currentOrg) {
     return (
@@ -76,7 +76,7 @@ export default function TicketDetail() {
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-4">
               <Link
-                to={`/projects/${projectId}/tickets`}
+                to={`/inboxes/${inboxId}/tickets`}
                 className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 mt-1"
               >
                 <ArrowLeftIcon className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
@@ -86,7 +86,7 @@ export default function TicketDetail() {
                   <Heading>{ticket.subject}</Heading>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-zinc-500">
-                  <span>{ticket.project.name}</span>
+                  <span>{ticket.inbox.name}</span>
                   <span>·</span>
                   <span>Created {new Date(ticket.createdAt).toLocaleDateString()}</span>
                 </div>

@@ -16,18 +16,18 @@ router.use(requireClient);
 router.use('/tickets', ticketRoutes);
 router.use('/tickets', commentRoutes);  // /tickets/:id/messages
 
-// Get projects assigned to client
-router.get('/projects', asyncHandler(async (req, res) => {
-  const assignments = await prisma.projectAssignment.findMany({
+// Get inboxes assigned to client
+router.get('/inboxes', asyncHandler(async (req, res) => {
+  const assignments = await prisma.inboxAssignment.findMany({
     where: {
       memberId: req.membership.id
     },
     include: {
-      project: {
+      inbox: {
         select: {
           id: true,
           name: true,
-          projectCode: true,
+          inboxCode: true,
           description: true,
           isActive: true,
           _count: {
@@ -42,14 +42,14 @@ router.get('/projects', asyncHandler(async (req, res) => {
     }
   });
 
-  const projects = assignments
-    .filter(a => a.project.isActive)
+  const inboxes = assignments
+    .filter(a => a.inbox.isActive)
     .map(a => ({
-      ...a.project,
-      ticketCount: a.project._count.tickets
+      ...a.inbox,
+      ticketCount: a.inbox._count.tickets
     }));
 
-  res.json(projects);
+  res.json(inboxes);
 }));
 
 // Get dashboard stats for client

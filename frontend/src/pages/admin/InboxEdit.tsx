@@ -3,10 +3,10 @@ import { useParams, Link } from 'react-router-dom'
 import { useOrganization } from '../../context/OrganizationContext'
 import { useTabbedPage } from '../../hooks/useTabbedPage'
 import { api } from '../../api/client'
-import { useProjectForm } from '../../hooks/useProjectForm'
+import { useInboxForm } from '../../hooks/useInboxForm'
 import { useStageManager } from '../../hooks/useStageManager'
 import StageManager from '../../components/StageManager'
-import { ProjectGeneralTab, ProjectEmailRulesTab, ProjectAutoReplyTab } from '../../components/project'
+import { InboxGeneralTab, InboxEmailRulesTab, InboxAutoReplyTab } from '../../components/inbox'
 import { Heading } from '@/components/ui/heading'
 import { Text } from '@/components/ui/text'
 import { Button } from '@/components/ui/button'
@@ -27,14 +27,14 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]['id']
 
-export default function ProjectEdit() {
+export default function InboxEdit() {
   const { id } = useParams<{ id: string }>()
   const { currentOrg } = useOrganization()
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
   const [loading, setLoading] = useState(true)
   const tabs = useTabbedPage({ tabs: ['general', 'email-rules', 'auto-reply', 'stages'] as const, defaultTab: 'general' as TabId })
 
-  const projectForm = useProjectForm(id)
+  const inboxForm = useInboxForm(id)
   const stageManager = useStageManager(id)
 
   useEffect(() => {
@@ -46,11 +46,11 @@ export default function ProjectEdit() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [projectData, staffData] = await Promise.all([
-        api.getProject(id!),
+      const [inboxData, staffData] = await Promise.all([
+        api.getInbox(id!),
         api.getStaffMembers(),
       ])
-      projectForm.populateFromProject(projectData)
+      inboxForm.populateFromInbox(inboxData)
       setStaffMembers(staffData)
       await stageManager.loadStages()
     } catch (error) {
@@ -76,10 +76,10 @@ export default function ProjectEdit() {
     )
   }
 
-  if (!projectForm.project) {
+  if (!inboxForm.inbox) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Text>Project not found</Text>
+        <Text>Inbox not found</Text>
       </div>
     )
   }
@@ -88,14 +88,14 @@ export default function ProjectEdit() {
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
         <Link
-          to="/admin/projects"
+          to="/admin/inboxes"
           className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
         >
           <ArrowLeftIcon className="w-5 h-5 text-zinc-600 dark:text-zinc-400" />
         </Link>
         <div>
-          <Heading>Edit Project</Heading>
-          <Text className="text-zinc-500">Update the project details.</Text>
+          <Heading>Edit Inbox</Heading>
+          <Text className="text-zinc-500">Update the inbox details.</Text>
         </div>
       </div>
 
@@ -119,15 +119,15 @@ export default function ProjectEdit() {
       </div>
 
       {tabs.active === 'general' && (
-        <ProjectGeneralTab projectForm={projectForm} staffMembers={staffMembers} />
+        <InboxGeneralTab inboxForm={inboxForm} staffMembers={staffMembers} />
       )}
 
       {tabs.active === 'email-rules' && (
-        <ProjectEmailRulesTab projectId={id!} />
+        <InboxEmailRulesTab inboxId={id!} />
       )}
 
       {tabs.active === 'auto-reply' && (
-        <ProjectAutoReplyTab projectForm={projectForm} projectId={id!} />
+        <InboxAutoReplyTab inboxForm={inboxForm} inboxId={id!} />
       )}
 
       {tabs.active === 'stages' && (
@@ -158,18 +158,18 @@ export default function ProjectEdit() {
           <div>
             <h3 className="text-sm font-medium text-red-600 dark:text-red-400">Danger Zone</h3>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-              {projectForm.project._count?.timeEntries && projectForm.project._count.timeEntries > 0
-                ? 'This project has time entries and will be archived instead of deleted.'
-                : 'Permanently delete this project. This action cannot be undone.'}
+              {inboxForm.inbox._count?.timeEntries && inboxForm.inbox._count.timeEntries > 0
+                ? 'This inbox has time entries and will be archived instead of deleted.'
+                : 'Permanently delete this inbox. This action cannot be undone.'}
             </p>
           </div>
           <Button
             color="red"
-            onClick={projectForm.handleDelete}
-            disabled={projectForm.deleting || projectForm.saving}
+            onClick={inboxForm.handleDelete}
+            disabled={inboxForm.deleting || inboxForm.saving}
           >
             <TrashIcon className="h-4 w-4" />
-            {projectForm.deleting ? 'Deleting...' : 'Delete Project'}
+            {inboxForm.deleting ? 'Deleting...' : 'Delete Inbox'}
           </Button>
         </div>
       </div>

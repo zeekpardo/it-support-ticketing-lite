@@ -10,18 +10,18 @@ import {
   CurrencyDollarIcon,
 } from '@heroicons/react/24/outline'
 import { useTabbedPage } from '../../hooks/useTabbedPage'
-import { useProjectSoftwareCatalog } from '../../hooks/useProjectSoftwareCatalog'
-import { ProjectSoftwareTab } from '../../components/software/ProjectSoftwareTab'
+import { useInboxSoftwareCatalog } from '../../hooks/useInboxSoftwareCatalog'
+import { InboxSoftwareTab } from '../../components/software/InboxSoftwareTab'
 import { CatalogBrowserTab } from '../../components/software/CatalogBrowserTab'
 import { BudgetTab } from '../../components/software/BudgetTab'
 
-type TabType = 'project' | 'catalog' | 'budget'
+type TabType = 'inbox' | 'catalog' | 'budget'
 
-export default function ProjectSoftwareCatalog() {
-  const { projectId } = useParams<{ projectId: string }>()
+export default function InboxSoftwareCatalog() {
+  const { inboxId } = useParams<{ inboxId: string }>()
   const navigate = useNavigate()
-  const tabs = useTabbedPage<TabType>({ tabs: ['project', 'catalog', 'budget'], defaultTab: 'project' })
-  const catalog = useProjectSoftwareCatalog(projectId)
+  const tabs = useTabbedPage<TabType>({ tabs: ['inbox', 'catalog', 'budget'], defaultTab: 'inbox' })
+  const catalog = useInboxSoftwareCatalog(inboxId)
 
   useEffect(() => {
     if (tabs.is('catalog')) catalog.loadGlobalCatalog()
@@ -43,7 +43,7 @@ export default function ProjectSoftwareCatalog() {
     </button>
   )
 
-  if (catalog.loadingProject && catalog.projectSoftware.length === 0) {
+  if (catalog.loadingInbox && catalog.inboxSoftware.length === 0) {
     return (
       <div className="flex h-full items-center justify-center">
         <Text>Loading...</Text>
@@ -55,13 +55,13 @@ export default function ProjectSoftwareCatalog() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button plain onClick={() => navigate(`/admin/projects/${projectId}`)}>
+        <Button plain onClick={() => navigate(`/admin/inboxes/${inboxId}`)}>
           <ArrowLeftIcon className="h-4 w-4" />
         </Button>
         <div>
           <Heading>Software Catalog</Heading>
           <Text className="mt-1 text-zinc-500">
-            {catalog.project?.name || 'Project'} - {catalog.project?.projectCode}
+            {catalog.inbox?.name || 'Inbox'} - {catalog.inbox?.inboxCode}
           </Text>
         </div>
       </div>
@@ -69,16 +69,16 @@ export default function ProjectSoftwareCatalog() {
       {/* Tabs */}
       <div className="border-b border-zinc-200 dark:border-zinc-700">
         <nav className="-mb-px flex gap-2">
-          <TabButton tab="project" label="Project Software" icon={FolderIcon} />
+          <TabButton tab="inbox" label="Inbox Software" icon={FolderIcon} />
           <TabButton tab="catalog" label="Browse Global Catalog" icon={GlobeAltIcon} />
           <TabButton tab="budget" label="Budget Overview" icon={CurrencyDollarIcon} />
         </nav>
       </div>
 
-      {tabs.is('project') && (
-        <ProjectSoftwareTab
-          projectId={projectId!}
-          projectSoftware={catalog.projectSoftware}
+      {tabs.is('inbox') && (
+        <InboxSoftwareTab
+          inboxId={inboxId!}
+          inboxSoftware={catalog.inboxSoftware}
           onSwitchToCatalog={() => tabs.set('catalog')}
         />
       )}
@@ -87,14 +87,14 @@ export default function ProjectSoftwareCatalog() {
         <CatalogBrowserTab
           globalSoftware={catalog.globalSoftware}
           categories={catalog.categories}
-          projectSoftwareIds={catalog.projectSoftwareIds}
+          inboxSoftwareIds={catalog.inboxSoftwareIds}
           loadingCatalog={catalog.loadingCatalog}
           searchQuery={catalog.searchQuery}
           onSearchQueryChange={catalog.setSearchQuery}
           categoryFilter={catalog.categoryFilter}
           onCategoryFilterChange={catalog.setCategoryFilter}
           onSearch={catalog.loadGlobalCatalog}
-          onAddToProject={catalog.addToProject}
+          onAddToInbox={catalog.addToInbox}
         />
       )}
 

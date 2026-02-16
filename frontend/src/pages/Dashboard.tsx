@@ -12,10 +12,10 @@ import { Select } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { PlusIcon } from '@heroicons/react/24/outline'
 
-interface Project {
+interface Inbox {
   id: string
   name: string
-  projectCode: string
+  inboxCode: string
 }
 
 interface StaffMember {
@@ -27,9 +27,9 @@ interface StaffMember {
 interface Client {
   id: string
   user: { id: string; name: string; email: string }
-  projectAssignments: Array<{
+  inboxAssignments: Array<{
     id: string
-    project: { id: string; name: string; projectCode: string; isActive: boolean }
+    inbox: { id: string; name: string; inboxCode: string; isActive: boolean }
   }>
 }
 
@@ -41,10 +41,10 @@ interface Ticket {
   status: 'NEW_REQUEST' | 'IN_PROGRESS' | 'WAITING_FOR_INFO' | 'REVIEW' | 'RESOLVED'
   priorityLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
   dueDate?: string | null
-  project?: {
+  inbox?: {
     id: string
     name: string
-    projectCode: string
+    inboxCode: string
   } | null
   owner?: {
     id: string
@@ -57,9 +57,9 @@ interface Ticket {
 }
 
 interface PendingSoftwareRequest extends SoftwareAccessRequest {
-  projectSoftware: {
+  inboxSoftware: {
     software: { id: string; name: string; iconUrl?: string }
-    project: { id: string; name: string; projectCode: string; defaultAssigneeId?: string }
+    inbox: { id: string; name: string; inboxCode: string; defaultAssigneeId?: string }
   }
 }
 
@@ -67,7 +67,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const { currentOrg, membership, isClient } = useOrganization()
   const [tickets, setTickets] = useState<Ticket[]>([])
-  const [projects, setProjects] = useState<Project[]>([])
+  const [inboxes, setInboxes] = useState<Inbox[]>([])
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [pendingRequests, setPendingRequests] = useState<PendingSoftwareRequest[]>([])
@@ -75,7 +75,7 @@ export default function Dashboard() {
   const [isNewTicketOpen, setIsNewTicketOpen] = useState(false)
 
   const {
-    filterProject, setFilterProject,
+    filterInbox, setFilterInbox,
     filterAssignee, setFilterAssignee,
     filterPriority, setFilterPriority,
     hasActiveFilters, clearFilters, filterParams,
@@ -91,26 +91,26 @@ export default function Dashboard() {
     if (currentOrg && !isClient) {
       loadTickets()
     }
-  }, [filterProject, filterAssignee, filterPriority])
+  }, [filterInbox, filterAssignee, filterPriority])
 
   useEffect(() => {
     if (currentOrg && !isClient) {
       loadPendingRequests()
     }
-  }, [currentOrg, isClient, filterProject])
+  }, [currentOrg, isClient, filterInbox])
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const [ticketsData, projectsData, staffData, clientsData, requestsData] = await Promise.all([
+      const [ticketsData, inboxesData, staffData, clientsData, requestsData] = await Promise.all([
         api.getTickets(filterParams),
-        api.getProjects(),
+        api.getInboxes(),
         api.getStaffMembers(),
         api.getClients(),
         api.getAllPendingAccessRequests()
       ])
       setTickets(ticketsData)
-      setProjects(projectsData)
+      setInboxes(inboxesData)
       setStaffMembers(staffData)
       setClients(clientsData)
       setPendingRequests(requestsData)
@@ -123,7 +123,7 @@ export default function Dashboard() {
 
   const loadPendingRequests = async () => {
     try {
-      const requestsData = await api.getAllPendingAccessRequests(filterProject || undefined)
+      const requestsData = await api.getAllPendingAccessRequests(filterInbox || undefined)
       setPendingRequests(requestsData)
     } catch (error) {
       console.error('Failed to load pending requests:', error)
@@ -151,8 +151,8 @@ export default function Dashboard() {
   }
 
   const handleTicketClick = (ticket: Ticket) => {
-    if (ticket.project) {
-      navigate(`/projects/${ticket.project.id}/tickets/${ticket.id}`)
+    if (ticket.inbox) {
+      navigate(`/inboxes/${ticket.inbox.id}/tickets/${ticket.id}`)
     }
   }
 
@@ -230,13 +230,13 @@ export default function Dashboard() {
       <div className="flex flex-wrap gap-4 rounded-lg bg-white p-4 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
         <div className="w-48">
           <Select
-            value={filterProject}
-            onChange={(e) => setFilterProject(e.target.value)}
+            value={filterInbox}
+            onChange={(e) => setFilterInbox(e.target.value)}
           >
-            <option value="">All Projects</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
+            <option value="">All Inboxes</option>
+            {inboxes.map((inbox) => (
+              <option key={inbox.id} value={inbox.id}>
+                {inbox.name}
               </option>
             ))}
           </Select>
@@ -291,7 +291,7 @@ export default function Dashboard() {
       {tickets.length === 0 && !hasActiveFilters ? (
         <div className="rounded-xl bg-white p-12 text-center shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
           <Text className="text-zinc-500">
-            No tickets yet. Create tickets from project pages to see them here.
+            No tickets yet. Create tickets from inbox pages to see them here.
           </Text>
         </div>
       ) : (
@@ -310,7 +310,7 @@ export default function Dashboard() {
       <NewTicketDialog
         open={isNewTicketOpen}
         onClose={() => setIsNewTicketOpen(false)}
-        projects={projects}
+        inboxes={inboxes}
         clients={clients}
       />
     </div>

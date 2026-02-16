@@ -30,7 +30,7 @@ interface ReportSummary {
   }
   groupedBy: string
   data: Array<{
-    project?: { id: string; name: string; projectCode: string }
+    inbox?: { id: string; name: string; inboxCode: string }
     user?: { id: string; name: string; email: string }
     date?: string
     totalMinutes: number
@@ -39,16 +39,16 @@ interface ReportSummary {
   }>
 }
 
-interface Project {
+interface Inbox {
   id: string
   name: string
-  projectCode: string
+  inboxCode: string
 }
 
 export default function Reports() {
   const { currentOrg, isAdmin } = useOrganization()
   const [report, setReport] = useState<ReportSummary | null>(null)
-  const [projects, setProjects] = useState<Project[]>([])
+  const [inboxes, setInboxes] = useState<Inbox[]>([])
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
 
@@ -61,12 +61,12 @@ export default function Reports() {
   const [endDate, setEndDate] = useState(() => {
     return new Date().toISOString().split('T')[0]
   })
-  const [projectId, setProjectId] = useState('')
-  const [groupBy, setGroupBy] = useState<'project' | 'user' | 'date'>('project')
+  const [inboxId, setInboxId] = useState('')
+  const [groupBy, setGroupBy] = useState<'inbox' | 'user' | 'date'>('inbox')
 
   useEffect(() => {
     if (currentOrg) {
-      loadProjects()
+      loadInboxes()
     }
   }, [currentOrg])
 
@@ -74,14 +74,14 @@ export default function Reports() {
     if (currentOrg) {
       loadReport()
     }
-  }, [currentOrg, startDate, endDate, projectId, groupBy])
+  }, [currentOrg, startDate, endDate, inboxId, groupBy])
 
-  const loadProjects = async () => {
+  const loadInboxes = async () => {
     try {
-      const data = await api.getProjects()
-      setProjects(data)
+      const data = await api.getInboxes()
+      setInboxes(data)
     } catch (error) {
-      console.error('Failed to load projects:', error)
+      console.error('Failed to load inboxes:', error)
     }
   }
 
@@ -91,7 +91,7 @@ export default function Reports() {
       const data = await api.getReportSummary({
         startDate,
         endDate,
-        projectId: projectId || undefined,
+        inboxId: inboxId || undefined,
         groupBy
       })
       setReport(data)
@@ -108,7 +108,7 @@ export default function Reports() {
       const blob = await api.exportTimeEntries({
         startDate,
         endDate,
-        projectId: projectId || undefined
+        inboxId: inboxId || undefined
       })
 
       // Download the CSV
@@ -168,15 +168,15 @@ export default function Reports() {
           </Field>
 
           <Field>
-            <Label>Project</Label>
+            <Label>Inbox</Label>
             <Select
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
+              value={inboxId}
+              onChange={(e) => setInboxId(e.target.value)}
             >
-              <option value="">All Projects</option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  [{project.projectCode}] {project.name}
+              <option value="">All Inboxes</option>
+              {inboxes.map((inbox) => (
+                <option key={inbox.id} value={inbox.id}>
+                  [{inbox.inboxCode}] {inbox.name}
                 </option>
               ))}
             </Select>
@@ -186,9 +186,9 @@ export default function Reports() {
             <Label>Group By</Label>
             <Select
               value={groupBy}
-              onChange={(e) => setGroupBy(e.target.value as 'project' | 'user' | 'date')}
+              onChange={(e) => setGroupBy(e.target.value as 'inbox' | 'user' | 'date')}
             >
-              <option value="project">Project</option>
+              <option value="inbox">Inbox</option>
               {isAdmin && <option value="user">User</option>}
               <option value="date">Date</option>
             </Select>
@@ -240,7 +240,7 @@ export default function Reports() {
             <TableHead>
               <TableRow>
                 <TableHeader>
-                  {groupBy === 'project' && 'Project'}
+                  {groupBy === 'inbox' && 'Inbox'}
                   {groupBy === 'user' && 'User'}
                   {groupBy === 'date' && 'Date'}
                 </TableHeader>
@@ -254,12 +254,12 @@ export default function Reports() {
               {report.data.map((row, index) => (
                 <TableRow key={index}>
                   <TableCell className="font-medium">
-                    {groupBy === 'project' && row.project && (
+                    {groupBy === 'inbox' && row.inbox && (
                       <>
                         <Badge color="blue" className="mr-2">
-                          {row.project.projectCode}
+                          {row.inbox.inboxCode}
                         </Badge>
-                        {row.project.name}
+                        {row.inbox.name}
                       </>
                     )}
                     {groupBy === 'user' && row.user && row.user.name}

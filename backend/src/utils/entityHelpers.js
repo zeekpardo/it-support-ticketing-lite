@@ -2,13 +2,13 @@ import { prisma } from '../lib/auth.js';
 import { NotFoundError } from './errors.js';
 import { uploadFile, generateAttachmentKey } from '../lib/storage.js';
 
-export async function findProjectOrFail(projectId, organizationId, options = {}) {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, organizationId },
+export async function findInboxOrFail(inboxId, organizationId, options = {}) {
+  const inbox = await prisma.inbox.findFirst({
+    where: { id: inboxId, organizationId },
     ...options,
   });
-  if (!project) throw new NotFoundError('Project not found');
-  return project;
+  if (!inbox) throw new NotFoundError('Inbox not found');
+  return inbox;
 }
 
 export async function findTicketOrFail(ticketId, organizationId, options = {}) {
@@ -29,10 +29,10 @@ export async function findMemberOrFail(memberId, organizationId, options = {}) {
   return member;
 }
 
-export async function createProjectAssignments(memberId, projectIds) {
-  if (!projectIds?.length) return;
-  await prisma.projectAssignment.createMany({
-    data: projectIds.map(projectId => ({ memberId, projectId })),
+export async function createInboxAssignments(memberId, inboxIds) {
+  if (!inboxIds?.length) return;
+  await prisma.inboxAssignment.createMany({
+    data: inboxIds.map(inboxId => ({ memberId, inboxId })),
   });
 }
 
@@ -45,12 +45,12 @@ export async function findTimeEntryOrFail(entryId, organizationId, options = {})
   return entry;
 }
 
-export async function findStageOrFail(stageId, projectId, organizationId, options = {}) {
+export async function findStageOrFail(stageId, inboxId, organizationId, options = {}) {
   const stage = await prisma.ticketStage.findFirst({
     where: {
       id: stageId,
-      projectId,
-      project: { organizationId },
+      inboxId,
+      inbox: { organizationId },
     },
     ...options,
   });
@@ -58,33 +58,33 @@ export async function findStageOrFail(stageId, projectId, organizationId, option
   return stage;
 }
 
-// Find ticket and verify the member has access to its project
+// Find ticket and verify the member has access to its inbox
 export async function findTicketWithAccess(ticketId, organizationId, membership, options = {}) {
   const ticket = await findTicketOrFail(ticketId, organizationId, options);
-  if (!await hasProjectAccess(ticket.projectId, membership.id, membership.role)) {
+  if (!await hasInboxAccess(ticket.inboxId, membership.id, membership.role)) {
     throw new NotFoundError('Ticket not found');
   }
   return ticket;
 }
 
-// Check if user has access to a project (assigned or admin)
-export async function hasProjectAccess(projectId, memberId, memberRole) {
+// Check if user has access to an inbox (assigned or admin)
+export async function hasInboxAccess(inboxId, memberId, memberRole) {
   if (memberRole === 'owner' || memberRole === 'manager') {
     return true;
   }
-  const assignment = await prisma.projectAssignment.findUnique({
-    where: { memberId_projectId: { memberId, projectId } }
+  const assignment = await prisma.inboxAssignment.findUnique({
+    where: { memberId_inboxId: { memberId, inboxId } }
   });
   return !!assignment;
 }
 
-// Get all project IDs a member is assigned to (for filtering queries)
-export async function getAssignedProjectIds(memberId) {
-  const assignments = await prisma.projectAssignment.findMany({
+// Get all inbox IDs a member is assigned to (for filtering queries)
+export async function getAssignedInboxIds(memberId) {
+  const assignments = await prisma.inboxAssignment.findMany({
     where: { memberId },
-    select: { projectId: true },
+    select: { inboxId: true },
   });
-  return assignments.map(a => a.projectId);
+  return assignments.map(a => a.inboxId);
 }
 
 export async function createTicketAttachments(ticketId, uploadedById, files, commentId = null, options = {}) {
@@ -110,18 +110,18 @@ export async function createTicketAttachments(ticketId, uploadedById, files, com
   );
 }
 
-// Check if user is a software owner for a project software
-export async function isSoftwareOwner(projectSoftwareId, memberId) {
-  const admin = await prisma.projectSoftwareAdmin.findFirst({
-    where: { projectSoftwareId, memberId, role: 'OWNER' }
+// Check if user is a software owner for an inbox software
+export async function isSoftwareOwner(inboxSoftwareId, memberId) {
+  const admin = await prisma.inboxSoftwareAdmin.findFirst({
+    where: { inboxSoftwareId, memberId, role: 'OWNER' }
   });
   return !!admin;
 }
 
 // Check if user is a software admin (owner or admin role)
-export async function isSoftwareAdmin(projectSoftwareId, memberId) {
-  const admin = await prisma.projectSoftwareAdmin.findFirst({
-    where: { projectSoftwareId, memberId }
+export async function isSoftwareAdmin(inboxSoftwareId, memberId) {
+  const admin = await prisma.inboxSoftwareAdmin.findFirst({
+    where: { inboxSoftwareId, memberId }
   });
   return !!admin;
 }

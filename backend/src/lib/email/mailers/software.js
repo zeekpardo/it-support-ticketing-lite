@@ -2,8 +2,8 @@ import { escapeHtml } from '../../../utils/sanitize.js';
 import { sendEmail, FRONTEND_URL } from '../client.js';
 import { buildHtmlEmail, buildTextEmail } from '../templates.js';
 
-export async function sendAccessRequestEmail({ to, recipientName, requesterName, softwareName, projectId, projectSoftwareId, branding = {} }) {
-  const requestUrl = `${FRONTEND_URL}/admin/projects/${projectId}/software/${projectSoftwareId}`;
+export async function sendAccessRequestEmail({ to, recipientName, requesterName, softwareName, inboxId, inboxSoftwareId, branding = {} }) {
+  const requestUrl = `${FRONTEND_URL}/admin/inboxes/${inboxId}/software/${inboxSoftwareId}`;
 
   return sendEmail({
     to,
@@ -58,13 +58,13 @@ export async function sendAccessStatusEmail({ to, recipientName, softwareName, s
 
 export async function sendRenewalReminderEmail({
   to, recipientName, softwareName, daysUntilRenewal, renewalDate,
-  cost, billingCycle, projectName, projectId, projectSoftwareId, branding = {}
+  cost, billingCycle, inboxName, inboxId, inboxSoftwareId, branding = {}
 }) {
-  const softwareUrl = `${FRONTEND_URL}/admin/projects/${projectId}/software/${projectSoftwareId}`;
+  const softwareUrl = `${FRONTEND_URL}/admin/inboxes/${inboxId}/software/${inboxSoftwareId}`;
   const urgencyColor = daysUntilRenewal <= 3 ? '#ef4444' : '#f59e0b';
 
   const paragraphs = [
-    { html: `<p><strong>${escapeHtml(softwareName)}</strong> for project <strong>${escapeHtml(projectName)}</strong> renews on <span style="color: ${urgencyColor}; font-weight: 600;">${escapeHtml(renewalDate)}</span> (in ${daysUntilRenewal} day${daysUntilRenewal === 1 ? '' : 's'}).</p>` }
+    { html: `<p><strong>${escapeHtml(softwareName)}</strong> for inbox <strong>${escapeHtml(inboxName)}</strong> renews on <span style="color: ${urgencyColor}; font-weight: 600;">${escapeHtml(renewalDate)}</span> (in ${daysUntilRenewal} day${daysUntilRenewal === 1 ? '' : 's'}).</p>` }
   ];
 
   if (cost) {
@@ -72,7 +72,7 @@ export async function sendRenewalReminderEmail({
   }
 
   const textParagraphs = [
-    `${softwareName} for project ${projectName} renews on ${renewalDate} (in ${daysUntilRenewal} day${daysUntilRenewal === 1 ? '' : 's'}).`
+    `${softwareName} for inbox ${inboxName} renews on ${renewalDate} (in ${daysUntilRenewal} day${daysUntilRenewal === 1 ? '' : 's'}).`
   ];
 
   if (cost) {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { admin } from '../../../lib/auth-client'
 import { api } from '../../../api/client'
-import type { SuperAdminAccount, SuperAdminAccountMember, AccountProject } from '../../../api/client'
+import type { SuperAdminAccount, SuperAdminAccountMember, AccountInbox } from '../../../api/client'
 import { useModalForm } from '../../../hooks/useModalForm'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -53,7 +53,7 @@ function MembersPanel({
   onBan: (userId: string) => void
   onUnban: (userId: string) => void
   onImpersonate: (userId: string) => void
-  onEditProjects: (member: SuperAdminAccountMember) => void
+  onEditInboxes: (member: SuperAdminAccountMember) => void
   onRemoveMember: (member: SuperAdminAccountMember) => void
   impersonatingUserId: string | null
 }) {
@@ -80,7 +80,7 @@ function MembersPanel({
           <TableRow>
             <TableHeader>User</TableHeader>
             <TableHeader>Role</TableHeader>
-            <TableHeader>Projects</TableHeader>
+            <TableHeader>Inboxes</TableHeader>
             <TableHeader>Status</TableHeader>
             <TableHeader className="w-[200px]">Actions</TableHeader>
           </TableRow>
@@ -107,12 +107,12 @@ function MembersPanel({
                 </Select>
               </TableCell>
               <TableCell>
-                {member.projectAssignments.length > 0 ? (
+                {member.inboxAssignments.length > 0 ? (
                   <span className="text-sm text-zinc-500">
-                    {member.projectAssignments.map(pa => pa.project.name).join(', ')}
+                    {member.inboxAssignments.map(ia => ia.inbox.name).join(', ')}
                   </span>
                 ) : (
-                  <span className="text-sm text-zinc-400">No projects</span>
+                  <span className="text-sm text-zinc-400">No inboxes</span>
                 )}
               </TableCell>
               <TableCell>
@@ -124,8 +124,8 @@ function MembersPanel({
               </TableCell>
               <TableCell>
                 <div className="flex gap-1">
-                  <Tooltip content="Assign projects">
-                    <Button plain onClick={() => onEditProjects(member)}>
+                  <Tooltip content="Assign inboxes">
+                    <Button plain onClick={() => onEditInboxes(member)}>
                       <FolderIcon className="h-4 w-4 text-zinc-400 hover:text-blue-500" />
                     </Button>
                   </Tooltip>
@@ -214,12 +214,12 @@ export function AccountsTab() {
   // Impersonation
   const [impersonating, setImpersonating] = useState<string | null>(null)
 
-  // Project assignment modal
-  const [showProjectsModal, setShowProjectsModal] = useState(false)
-  const [projectsMember, setProjectsMember] = useState<SuperAdminAccountMember | null>(null)
-  const [accountProjects, setAccountProjects] = useState<AccountProject[]>([])
-  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([])
-  const [savingProjects, setSavingProjects] = useState(false)
+  // Inbox assignment modal
+  const [showInboxesModal, setShowInboxesModal] = useState(false)
+  const [inboxesMember, setInboxesMember] = useState<SuperAdminAccountMember | null>(null)
+  const [accountInboxes, setAccountInboxes] = useState<AccountInbox[]>([])
+  const [selectedInboxIds, setSelectedInboxIds] = useState<string[]>([])
+  const [savingInboxes, setSavingInboxes] = useState(false)
 
   // Remove member confirmation
   const [showRemoveMemberModal, setShowRemoveMemberModal] = useState(false)
@@ -352,42 +352,42 @@ export function AccountsTab() {
   }
 
   // ==========================================
-  // Project assignments
+  // Inbox assignments
   // ==========================================
 
-  const openProjectsModal = async (member: SuperAdminAccountMember) => {
+  const openInboxesModal = async (member: SuperAdminAccountMember) => {
     if (!expandedAccountId) return
-    setProjectsMember(member)
-    setSelectedProjectIds(member.projectAssignments.map(pa => pa.project.id))
+    setInboxesMember(member)
+    setSelectedInboxIds(member.inboxAssignments.map(ia => ia.inbox.id))
     try {
-      const projects = await api.getSuperAdminAccountProjects(expandedAccountId)
-      setAccountProjects(projects)
+      const inboxes = await api.getSuperAdminAccountInboxes(expandedAccountId)
+      setAccountInboxes(inboxes)
     } catch (error) {
-      console.error('Failed to load projects:', error)
+      console.error('Failed to load inboxes:', error)
     }
-    setShowProjectsModal(true)
+    setShowInboxesModal(true)
   }
 
-  const toggleProjectSelection = (projectId: string) => {
-    setSelectedProjectIds(prev =>
-      prev.includes(projectId)
-        ? prev.filter(id => id !== projectId)
-        : [...prev, projectId]
+  const toggleInboxSelection = (inboxId: string) => {
+    setSelectedInboxIds(prev =>
+      prev.includes(inboxId)
+        ? prev.filter(id => id !== inboxId)
+        : [...prev, inboxId]
     )
   }
 
-  const handleSaveProjects = async () => {
-    if (!expandedAccountId || !projectsMember) return
-    setSavingProjects(true)
+  const handleSaveInboxes = async () => {
+    if (!expandedAccountId || !inboxesMember) return
+    setSavingInboxes(true)
     try {
-      await api.updateSuperAdminMemberProjects(expandedAccountId, projectsMember.id, selectedProjectIds)
-      setShowProjectsModal(false)
-      setProjectsMember(null)
+      await api.updateSuperAdminMemberInboxes(expandedAccountId, inboxesMember.id, selectedInboxIds)
+      setShowInboxesModal(false)
+      setInboxesMember(null)
       await refreshMembers()
     } catch (error) {
-      console.error('Failed to update projects:', error)
+      console.error('Failed to update inboxes:', error)
     } finally {
-      setSavingProjects(false)
+      setSavingInboxes(false)
     }
   }
 
@@ -511,7 +511,7 @@ export function AccountsTab() {
               <TableHeader>Name</TableHeader>
               <TableHeader>Slug</TableHeader>
               <TableHeader>Members</TableHeader>
-              <TableHeader>Projects</TableHeader>
+              <TableHeader>Inboxes</TableHeader>
               <TableHeader>Created</TableHeader>
               <TableHeader className="w-[160px]">Actions</TableHeader>
             </TableRow>
@@ -526,7 +526,7 @@ export function AccountsTab() {
                     <Badge color="zinc">{account._count.members}</Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge color="zinc">{account._count.projects}</Badge>
+                    <Badge color="zinc">{account._count.inboxes}</Badge>
                   </TableCell>
                   <TableCell className="text-zinc-500">
                     {new Date(account.createdAt).toLocaleDateString()}
@@ -565,7 +565,7 @@ export function AccountsTab() {
                         onBan={openBanModal}
                         onUnban={handleUnbanUser}
                         onImpersonate={handleImpersonate}
-                        onEditProjects={openProjectsModal}
+                        onEditInboxes={openInboxesModal}
                         onRemoveMember={openRemoveMemberModal}
                         impersonatingUserId={impersonating}
                       />
@@ -692,7 +692,7 @@ export function AccountsTab() {
           <DialogBody>
             <ul className="mb-4 list-disc pl-5 space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
               <li>{deletingAccount._count.members} member{deletingAccount._count.members !== 1 ? 's' : ''}</li>
-              <li>{deletingAccount._count.projects} project{deletingAccount._count.projects !== 1 ? 's' : ''}</li>
+              <li>{deletingAccount._count.inboxes} inbox{deletingAccount._count.inboxes !== 1 ? 'es' : ''}</li>
               <li>{deletingAccount._count.tickets} ticket{deletingAccount._count.tickets !== 1 ? 's' : ''}</li>
               <li>{deletingAccount._count.timeEntries} time entr{deletingAccount._count.timeEntries !== 1 ? 'ies' : 'y'}</li>
               <li>All attachments, comments, and associated files</li>
@@ -772,34 +772,34 @@ export function AccountsTab() {
         </Dialog>
       )}
 
-      {/* Project Assignment Modal */}
-      {showProjectsModal && projectsMember && (
-        <Dialog open={true} onClose={() => setShowProjectsModal(false)} size="md">
-          <DialogTitle>Assign Projects</DialogTitle>
+      {/* Inbox Assignment Modal */}
+      {showInboxesModal && inboxesMember && (
+        <Dialog open={true} onClose={() => setShowInboxesModal(false)} size="md">
+          <DialogTitle>Assign Inboxes</DialogTitle>
           <DialogDescription>
-            Select projects for <strong>{projectsMember.user.name}</strong>
+            Select inboxes for <strong>{inboxesMember.user.name}</strong>
           </DialogDescription>
 
           <DialogBody>
-            {accountProjects.length === 0 ? (
-              <Text className="text-zinc-400 py-4 text-center">No projects in this account</Text>
+            {accountInboxes.length === 0 ? (
+              <Text className="text-zinc-400 py-4 text-center">No inboxes in this account</Text>
             ) : (
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {accountProjects.map((project) => (
+                {accountInboxes.map((inbox) => (
                   <label
-                    key={project.id}
+                    key={inbox.id}
                     className="flex items-center gap-3 rounded-lg p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
                   >
                     <input
                       type="checkbox"
-                      checked={selectedProjectIds.includes(project.id)}
-                      onChange={() => toggleProjectSelection(project.id)}
+                      checked={selectedInboxIds.includes(inbox.id)}
+                      onChange={() => toggleInboxSelection(inbox.id)}
                       className="h-4 w-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-500"
                     />
                     <div>
-                      <span className="font-medium text-sm">{project.name}</span>
-                      <span className="text-xs text-zinc-400 ml-2">{project.projectCode}</span>
-                      {!project.isActive && (
+                      <span className="font-medium text-sm">{inbox.name}</span>
+                      <span className="text-xs text-zinc-400 ml-2">{inbox.inboxCode}</span>
+                      {!inbox.isActive && (
                         <Badge color="zinc" className="ml-2">Inactive</Badge>
                       )}
                     </div>
@@ -810,11 +810,11 @@ export function AccountsTab() {
           </DialogBody>
 
           <DialogActions>
-            <Button plain onClick={() => setShowProjectsModal(false)} disabled={savingProjects}>
+            <Button plain onClick={() => setShowInboxesModal(false)} disabled={savingInboxes}>
               Cancel
             </Button>
-            <Button color="blue" onClick={handleSaveProjects} disabled={savingProjects}>
-              {savingProjects ? 'Saving...' : 'Save Projects'}
+            <Button color="blue" onClick={handleSaveInboxes} disabled={savingInboxes}>
+              {savingInboxes ? 'Saving...' : 'Save Inboxes'}
             </Button>
           </DialogActions>
         </Dialog>
@@ -826,7 +826,7 @@ export function AccountsTab() {
           <DialogTitle>Remove Member</DialogTitle>
           <DialogDescription>
             Are you sure you want to remove <strong>{removingMember.user.name}</strong> ({removingMember.user.email}) from this account?
-            This will remove their membership, project assignments, and associated data within this organization.
+            This will remove their membership, inbox assignments, and associated data within this organization.
           </DialogDescription>
 
           <DialogActions>

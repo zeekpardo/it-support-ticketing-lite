@@ -42,14 +42,14 @@ interface ImportSummary {
 }
 
 interface ClientImportWizardProps {
-  projectId: string
-  projectName: string
+  inboxId: string
+  inboxName: string
   isOpen: boolean
   onClose: () => void
   onComplete: () => void
 }
 
-export function ClientImportWizard({ projectId, projectName, isOpen, onClose, onComplete }: ClientImportWizardProps) {
+export function ClientImportWizard({ inboxId, inboxName, isOpen, onClose, onComplete }: ClientImportWizardProps) {
   const [step, setStep] = useState<WizardStep>('upload')
   const [rawCsvData, setRawCsvData] = useState<Record<string, string>[]>([])
   const [csvHeaders, setCsvHeaders] = useState<string[]>([])
@@ -189,7 +189,7 @@ export function ClientImportWizard({ projectId, projectName, isOpen, onClose, on
     setError('')
 
     try {
-      const response = await api.importClients(projectId, clientsToImport)
+      const response = await api.importClients(inboxId, clientsToImport)
       setImportResults(response.results)
       setImportSummary(response.summary)
       setStep('results')
@@ -223,7 +223,7 @@ export function ClientImportWizard({ projectId, projectName, isOpen, onClose, on
         {step === 'upload' && (
           <div className="space-y-4">
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Upload a CSV file with client information to import into <strong>{projectName}</strong>.
+              Upload a CSV file with client information to import into <strong>{inboxName}</strong>.
               The CSV should contain columns for first name, last name, email, and optionally phone.
             </p>
 

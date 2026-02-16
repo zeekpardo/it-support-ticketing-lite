@@ -8,10 +8,10 @@ interface CategoryFilterProps {
   showMySoftware?: boolean
   mySoftwareFilter?: boolean
   onMySoftwareChange?: (value: boolean) => void
-  showProjectFilter?: boolean
-  projects?: Array<{ id: string; name: string }>
-  selectedProject?: string
-  onProjectChange?: (projectId: string) => void
+  showInboxFilter?: boolean
+  inboxes?: Array<{ id: string; name: string }>
+  selectedInbox?: string
+  onInboxChange?: (inboxId: string) => void
 }
 
 export function CategoryFilter({
@@ -21,23 +21,23 @@ export function CategoryFilter({
   showMySoftware = false,
   mySoftwareFilter = false,
   onMySoftwareChange,
-  showProjectFilter = false,
-  projects = [],
-  selectedProject = '',
-  onProjectChange
+  showInboxFilter = false,
+  inboxes = [],
+  selectedInbox = '',
+  onInboxChange
 }: CategoryFilterProps) {
   return (
     <div className="flex flex-wrap items-center gap-3">
-      {showProjectFilter && projects.length > 0 && onProjectChange && (
+      {showInboxFilter && inboxes.length > 0 && onInboxChange && (
         <div className="w-48">
           <Select
-            value={selectedProject}
-            onChange={(e) => onProjectChange(e.target.value)}
+            value={selectedInbox}
+            onChange={(e) => onInboxChange(e.target.value)}
           >
-            <option value="">All Projects</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
+            <option value="">All Inboxes</option>
+            {inboxes.map((inbox) => (
+              <option key={inbox.id} value={inbox.id}>
+                {inbox.name}
               </option>
             ))}
           </Select>

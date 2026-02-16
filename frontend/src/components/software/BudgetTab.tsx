@@ -15,7 +15,7 @@ import {
   CalendarDaysIcon,
 } from '@heroicons/react/24/outline'
 import type { SoftwareBudgetSummary } from '../../api/client'
-import { getDaysUntilRenewal } from '../../hooks/useProjectSoftwareCatalog'
+import { getDaysUntilRenewal } from '../../hooks/useInboxSoftwareCatalog'
 
 interface BudgetTabProps {
   budgetData: SoftwareBudgetSummary | null
