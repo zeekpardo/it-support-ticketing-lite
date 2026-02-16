@@ -1,3 +1,3 @@
-export { default as InboxGeneralTab } from './InboxGeneralTab'
-export { default as InboxEmailRulesTab } from './InboxEmailRulesTab'
-export { default as InboxAutoReplyTab } from './InboxAutoReplyTab'
+export { InboxGeneralTab } from './InboxGeneralTab'
+export { InboxEmailRulesTab } from './InboxEmailRulesTab'
+export { InboxAutoReplyTab } from './InboxAutoReplyTab'
