@@ -14,6 +14,7 @@ import Dashboard from './pages/Dashboard'
 import AcceptInvitation from './pages/AcceptInvitation'
 import ResetPassword from './pages/ResetPassword'
 import ClientSignup from './pages/ClientSignup'
+import PublicTicketForm from './pages/PublicTicketForm'
 
 // Lazy-loaded staff pages
 const Inboxes = lazy(() => import('./pages/Inboxes'))
@@ -187,6 +188,7 @@ function AppRoutes() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/accept-invitation" element={<AcceptInvitation />} />
       <Route path="/join/:token" element={<ClientSignup />} />
+      <Route path="/submit/:token" element={<PublicTicketForm />} />
 
       {/* Protected routes */}
       <Route

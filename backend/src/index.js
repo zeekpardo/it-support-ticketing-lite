@@ -23,6 +23,7 @@ import inboundEmailWebhook from './routes/webhooks/inbound-email.js';
 import emailRulesRoutes from './routes/email-rules.js';
 import brandingRoutes from './routes/branding.js';
 import clientSignupRoutes from './routes/clientSignup.js';
+import publicTicketRoutes from './routes/publicTicket.js';
 import { startCronJobs } from './services/cronService.js';
 
 const app = express();
@@ -114,6 +115,12 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/email-rules', emailRulesRoutes);
 app.use('/api/branding', brandingRoutes);
 app.use('/api/client-signup', clientSignupRoutes);
+
+// Public ticket submission (no auth, allow iframe embedding)
+app.use('/api/public/submit', (req, res, next) => {
+  res.setHeader('Content-Security-Policy', "frame-ancestors *");
+  next();
+}, publicTicketRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

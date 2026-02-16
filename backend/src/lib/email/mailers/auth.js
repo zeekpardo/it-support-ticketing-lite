@@ -23,6 +23,26 @@ export function consumeWelcomeContext(email) {
 }
 
 // ==========================================
+// Public Ticket Email Context Bridge
+// ==========================================
+
+// When a public ticket is submitted, we stash context here so that
+// the sendMagicLink callback in auth.js can send a combined confirmation
+// email instead of the generic "Sign in" email.
+const pendingTicketEmails = new Map();
+
+export function markPublicTicketEmail(email, context) {
+  pendingTicketEmails.set(email.toLowerCase(), context);
+}
+
+export function consumePublicTicketContext(email) {
+  const key = email.toLowerCase();
+  const ctx = pendingTicketEmails.get(key);
+  if (ctx) pendingTicketEmails.delete(key);
+  return ctx;
+}
+
+// ==========================================
 // Auth Emails
 // ==========================================
 

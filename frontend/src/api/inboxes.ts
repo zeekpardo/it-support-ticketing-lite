@@ -24,6 +24,7 @@ export async function createInbox(data: {
   dueDateMediumDays?: number | null
   dueDateHighDays?: number | null
   dueDateUrgentDays?: number | null
+  allowedEmailDomains?: string[]
 }) {
   return request<any>('/inboxes', {
     method: 'POST',
@@ -44,6 +45,7 @@ export async function updateInbox(id: string, data: {
   dueDateUrgentDays?: number | null
   autoReplyEnabled?: boolean
   autoReplyHtml?: string | null
+  allowedEmailDomains?: string[]
 }) {
   return request<any>(`/inboxes/${id}`, {
     method: 'PUT',
@@ -145,6 +147,32 @@ export async function getSignupInfo(token: string) {
 
 export async function submitClientSignup(token: string, data: { name: string; email: string; password: string }) {
   return publicRequest<{ success: boolean; message?: string }>(`/client-signup/${token}`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+// ==========================================
+// Public Ticket Form
+// ==========================================
+
+export async function getPublicFormInfo(token: string) {
+  return publicRequest<{
+    inboxId: string
+    inboxName: string
+    allowedEmailDomains: string[]
+    branding: { appName: string; primaryColor: string; logoUrl: string | null }
+  }>(`/public/submit/${token}`)
+}
+
+export async function submitPublicTicket(token: string, data: {
+  firstName: string
+  lastName: string
+  email: string
+  subject: string
+  description: string
+}) {
+  return publicRequest<{ success: boolean; ticketId: string }>(`/public/submit/${token}`, {
     method: 'POST',
     body: JSON.stringify(data),
   })

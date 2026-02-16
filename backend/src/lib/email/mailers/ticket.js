@@ -249,6 +249,55 @@ export async function sendNewTicketAssignedEmail({ to, recipientName, clientName
 }
 
 // ==========================================
+// Public Ticket Confirmation Email
+// ==========================================
+
+export async function sendPublicTicketConfirmationEmail({ to, recipientName, inboxName, ticketSubject, description, ticketId, magicLinkUrl, branding = {} }) {
+  const displayDescription = truncateDescription(description);
+  const { messageId, references, inReplyTo } = await buildThreadingChain(ticketId, { type: 'submitted' });
+
+  const result = await sendEmail({
+    to,
+    subject: `Request received: ${ticketSubject}`,
+    fromName: branding.appName,
+    messageId,
+    references,
+    inReplyTo,
+    html: buildHtmlEmail({
+      greeting: recipientName,
+      paragraphs: [
+        `Your request for <strong>${escapeHtml(inboxName)}</strong> has been submitted and is under review.`,
+        '<strong>Description</strong>',
+      ],
+      quote: { content: displayDescription },
+      button: { text: 'View Your Ticket', url: magicLinkUrl },
+      showLinkFallback: true,
+      branding,
+    }),
+    text: buildTextEmail({
+      greeting: recipientName,
+      paragraphs: [
+        `Your request for ${inboxName} has been submitted and is under review.`,
+        'Description:',
+      ],
+      quote: { content: displayDescription },
+      buttonText: 'View your ticket',
+      buttonUrl: magicLinkUrl,
+    })
+  });
+
+  if (result.success && !result.mock) {
+    await storeOutboundEmail({
+      messageId, ticketId, to,
+      subject: `Request received: ${ticketSubject}`,
+      emailType: 'ticket_submitted',
+    });
+  }
+
+  return result;
+}
+
+// ==========================================
 // Threaded Email Replies
 // ==========================================
 

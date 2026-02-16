@@ -84,6 +84,7 @@ export default function InboxNew() {
         dueDateMediumDays: parseDays(form.data.dueDateMediumDays),
         dueDateHighDays: parseDays(form.data.dueDateHighDays),
         dueDateUrgentDays: parseDays(form.data.dueDateUrgentDays),
+        allowedEmailDomains: [],
       })
       navigate('/admin/inboxes')
     })

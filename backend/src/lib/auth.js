@@ -3,7 +3,7 @@ import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { organization, admin, openAPI, magicLink } from 'better-auth/plugins';
 import { createAccessControl } from 'better-auth/plugins/access';
 import prisma from './prisma.js';
-import { sendVerificationEmail, sendPasswordResetEmail, sendInvitationEmail, sendMagicLinkEmail, sendWelcomeEmail, consumeWelcomeContext } from './email/index.js';
+import { sendVerificationEmail, sendPasswordResetEmail, sendInvitationEmail, sendMagicLinkEmail, sendWelcomeEmail, consumeWelcomeContext, consumePublicTicketContext, sendPublicTicketConfirmationEmail } from './email/index.js';
 
 // Environment configuration
 const isDev = process.env.NODE_ENV !== 'production';
@@ -195,7 +195,12 @@ export const auth = betterAuth({
     // Magic link for passwordless client onboarding
     magicLink({
       sendMagicLink: async ({ email, url }) => {
-        void sendMagicLinkEmail({ email, url });
+        const ticketCtx = consumePublicTicketContext(email);
+        if (ticketCtx) {
+          void sendPublicTicketConfirmationEmail({ ...ticketCtx, magicLinkUrl: url });
+        } else {
+          void sendMagicLinkEmail({ email, url });
+        }
       },
       expiresIn: 300 // 5 minutes
     }),

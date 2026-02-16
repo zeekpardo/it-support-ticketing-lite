@@ -29,6 +29,28 @@ export async function validateDefaultAssignee(assigneeId, organizationId) {
 }
 
 /**
+ * Validate and normalize an array of email domain strings.
+ * Each domain must contain a dot, no '@', and no spaces.
+ * Returns the cleaned, lowercased array.
+ */
+export function validateEmailDomains(domains) {
+  if (!Array.isArray(domains)) {
+    throw new ValidationError('allowedEmailDomains must be an array');
+  }
+  return domains.map((d, i) => {
+    if (typeof d !== 'string') {
+      throw new ValidationError(`Invalid domain at index ${i}`);
+    }
+    const domain = d.trim().toLowerCase();
+    if (!domain) return null;
+    if (domain.includes('@') || domain.includes(' ') || !domain.includes('.')) {
+      throw new ValidationError(`Invalid domain format: "${d}". Expected format: example.com`);
+    }
+    return domain;
+  }).filter(Boolean);
+}
+
+/**
  * Build a partial-update data object from req.body,
  * only including fields that were explicitly sent (not undefined).
  */

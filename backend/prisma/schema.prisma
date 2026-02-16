@@ -219,6 +219,9 @@ model Inbox {
   clientSignupToken   String?  @unique @map("client_signup_token")
   clientSignupEnabled Boolean  @default(false) @map("client_signup_enabled")
 
+  // Public form email domain restriction (empty = allow any)
+  allowedEmailDomains String[] @default([]) @map("allowed_email_domains")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

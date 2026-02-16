@@ -24,6 +24,8 @@ export {
   sendWelcomeEmail,
   markWelcomeEmail,
   consumeWelcomeContext,
+  markPublicTicketEmail,
+  consumePublicTicketContext,
 } from './mailers/auth.js';
 
 // Ticket mailers
@@ -33,6 +35,7 @@ export {
   sendMentionEmail,
   sendTicketSubmittedEmail,
   sendNewTicketAssignedEmail,
+  sendPublicTicketConfirmationEmail,
   sendThreadedTicketReply,
   sendAutoReplyEmail,
 } from './mailers/ticket.js';

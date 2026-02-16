@@ -6,7 +6,7 @@ import { asyncHandler } from '../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
 import { findInboxOrFail, getAssignedInboxIds, hasInboxAccess } from '../utils/entityHelpers.js';
 import { MEMBER_WITH_ROLE_AND_USER_BRIEF } from '../utils/prismaFragments.js';
-import { validateInboxCodeUnique, validateDefaultAssignee, pickDefined } from '../utils/inboxValidation.js';
+import { validateInboxCodeUnique, validateDefaultAssignee, validateEmailDomains, pickDefined } from '../utils/inboxValidation.js';
 
 const router = express.Router();
 
@@ -28,7 +28,7 @@ const DEFAULT_STAGES = [
 const INBOX_UPDATE_FIELDS = [
   'name', 'inboxCode', 'clientName', 'description', 'isActive',
   'defaultAssigneeId', 'dueDateLowDays', 'dueDateMediumDays', 'dueDateHighDays', 'dueDateUrgentDays',
-  'autoReplyEnabled', 'autoReplyHtml',
+  'autoReplyEnabled', 'autoReplyHtml', 'allowedEmailDomains',
 ];
 
 // Get all inboxes for organization (members only see assigned inboxes)
@@ -111,7 +111,8 @@ router.get('/:id', asyncHandler(async (req, res) => {
 // Create inbox
 router.post('/', asyncHandler(async (req, res) => {
   const { name, inboxCode, clientName, description, defaultAssigneeId,
-    dueDateLowDays, dueDateMediumDays, dueDateHighDays, dueDateUrgentDays } = req.body;
+    dueDateLowDays, dueDateMediumDays, dueDateHighDays, dueDateUrgentDays,
+    allowedEmailDomains } = req.body;
 
   if (!name || !inboxCode) {
     throw new ValidationError('Name and inbox code are required');
@@ -119,6 +120,7 @@ router.post('/', asyncHandler(async (req, res) => {
 
   await validateInboxCodeUnique(req.organization.id, inboxCode);
   await validateDefaultAssignee(defaultAssigneeId, req.organization.id);
+  const cleanedDomains = allowedEmailDomains ? validateEmailDomains(allowedEmailDomains) : [];
 
   const inbox = await prisma.$transaction(async (tx) => {
     const newInbox = await tx.inbox.create({
@@ -133,6 +135,7 @@ router.post('/', asyncHandler(async (req, res) => {
         dueDateMediumDays: dueDateMediumDays ?? null,
         dueDateHighDays: dueDateHighDays ?? null,
         dueDateUrgentDays: dueDateUrgentDays ?? null,
+        allowedEmailDomains: cleanedDomains,
       },
       include: INBOX_INCLUDE,
     });
@@ -151,12 +154,15 @@ router.post('/', asyncHandler(async (req, res) => {
 router.put('/:id', requireAdmin, asyncHandler(async (req, res) => {
   const inbox = await findInboxOrFail(req.params.id, req.organization.id);
 
-  const { inboxCode, defaultAssigneeId } = req.body;
+  const { inboxCode, defaultAssigneeId, allowedEmailDomains } = req.body;
 
   if (inboxCode && inboxCode !== inbox.inboxCode) {
     await validateInboxCodeUnique(req.organization.id, inboxCode, req.params.id);
   }
   await validateDefaultAssignee(defaultAssigneeId, req.organization.id);
+  if (allowedEmailDomains !== undefined) {
+    req.body.allowedEmailDomains = validateEmailDomains(allowedEmailDomains);
+  }
 
   const updated = await prisma.inbox.update({
     where: { id: req.params.id },

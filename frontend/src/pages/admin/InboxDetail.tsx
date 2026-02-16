@@ -18,6 +18,7 @@ import {
   LinkIcon,
   ClipboardIcon,
   ArrowPathIcon,
+  CodeBracketIcon,
 } from '@heroicons/react/24/outline'
 import { ClientImportWizard } from '@/components/import/ClientImportWizard'
 
@@ -66,6 +67,7 @@ export default function InboxDetail() {
   const [showImportWizard, setShowImportWizard] = useState(false)
   const [signupLinkLoading, setSignupLinkLoading] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [embedCopied, setEmbedCopied] = useState(false)
 
   useEffect(() => {
     if (currentOrg && id) {
@@ -91,11 +93,27 @@ export default function InboxDetail() {
     ? `${window.location.origin}/join/${inbox.clientSignupToken}`
     : null
 
+  const embedFormUrl = inbox?.clientSignupToken
+    ? `${window.location.origin}/submit/${inbox.clientSignupToken}?embed=true`
+    : null
+
+  const embedSnippet = embedFormUrl
+    ? `<iframe src="${embedFormUrl}" width="100%" height="700" frameborder="0" style="border: none; border-radius: 12px;"></iframe>`
+    : null
+
   const handleCopyLink = () => {
     if (signupUrl) {
       navigator.clipboard.writeText(signupUrl)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const handleCopyEmbed = () => {
+    if (embedSnippet) {
+      navigator.clipboard.writeText(embedSnippet)
+      setEmbedCopied(true)
+      setTimeout(() => setEmbedCopied(false), 2000)
     }
   }
 
@@ -453,6 +471,59 @@ export default function InboxDetail() {
               </div>
             )}
           </div>
+
+          {/* Embeddable Ticket Form */}
+          {inbox.clientSignupToken && inbox.clientSignupEnabled && (
+            <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
+              <div className="flex items-center gap-2">
+                <CodeBracketIcon className="h-5 w-5 text-zinc-400" />
+                <Subheading>Embeddable Ticket Form</Subheading>
+              </div>
+              <Text className="mt-1 text-sm text-zinc-500">
+                Embed a public ticket submission form on any website using the snippet below.
+              </Text>
+
+              <div className="mt-4 space-y-3">
+                <div>
+                  <Text className="text-xs font-medium text-zinc-500 mb-1">Direct link</Text>
+                  <div className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-2 text-xs dark:border-zinc-700 dark:bg-zinc-900">
+                    <span className="min-w-0 flex-1 truncate font-mono">{embedFormUrl}</span>
+                    <Button
+                      plain
+                      onClick={() => {
+                        if (embedFormUrl) {
+                          navigator.clipboard.writeText(embedFormUrl.replace('?embed=true', ''))
+                          setEmbedCopied(true)
+                          setTimeout(() => setEmbedCopied(false), 2000)
+                        }
+                      }}
+                      title="Copy link"
+                      className="shrink-0"
+                    >
+                      <ClipboardIcon className="h-4 w-4 text-zinc-400 hover:text-blue-500" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <Text className="text-xs font-medium text-zinc-500 mb-1">Iframe embed code</Text>
+                  <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-700 dark:bg-zinc-900">
+                    <pre className="whitespace-pre-wrap break-all text-xs font-mono text-zinc-700 dark:text-zinc-300">
+                      {embedSnippet}
+                    </pre>
+                  </div>
+                  <Button
+                    outline
+                    className="mt-2 w-full"
+                    onClick={handleCopyEmbed}
+                  >
+                    <ClipboardIcon className="h-4 w-4" />
+                    {embedCopied ? 'Copied!' : 'Copy Embed Code'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

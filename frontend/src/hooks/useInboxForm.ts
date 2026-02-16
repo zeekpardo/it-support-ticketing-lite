@@ -15,6 +15,7 @@ interface InboxFormData {
   isActive: boolean
   autoReplyEnabled: boolean
   autoReplyHtml: string
+  allowedEmailDomains: string[]
 }
 
 const INITIAL_FORM: InboxFormData = {
@@ -30,6 +31,7 @@ const INITIAL_FORM: InboxFormData = {
   isActive: true,
   autoReplyEnabled: false,
   autoReplyHtml: '',
+  allowedEmailDomains: [],
 }
 
 interface Inbox {
@@ -46,6 +48,7 @@ interface Inbox {
   dueDateUrgentDays?: number | null
   autoReplyEnabled?: boolean
   autoReplyHtml?: string | null
+  allowedEmailDomains?: string[]
   _count?: { timeEntries: number }
 }
 
@@ -76,6 +79,7 @@ export function useInboxForm(inboxId: string | undefined) {
       isActive: data.isActive,
       autoReplyEnabled: data.autoReplyEnabled ?? false,
       autoReplyHtml: data.autoReplyHtml || '',
+      allowedEmailDomains: data.allowedEmailDomains || [],
     })
   }, [])
 
@@ -100,6 +104,7 @@ export function useInboxForm(inboxId: string | undefined) {
         isActive: form.isActive,
         autoReplyEnabled: form.autoReplyEnabled,
         autoReplyHtml: form.autoReplyHtml || null,
+        allowedEmailDomains: form.allowedEmailDomains,
       })
       navigate('/admin/inboxes')
     } catch (err) {
