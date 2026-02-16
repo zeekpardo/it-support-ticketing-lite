@@ -258,7 +258,7 @@ export async function sendPublicTicketConfirmationEmail({ to, recipientName, inb
 
   const result = await sendEmail({
     to,
-    subject: `Request received: ${ticketSubject}`,
+    subject: `Re: ${ticketSubject}`,
     fromName: branding.appName,
     messageId,
     references,
@@ -289,7 +289,7 @@ export async function sendPublicTicketConfirmationEmail({ to, recipientName, inb
   if (result.success && !result.mock) {
     await storeOutboundEmail({
       messageId, ticketId, to,
-      subject: `Request received: ${ticketSubject}`,
+      subject: `Re: ${ticketSubject}`,
       emailType: 'ticket_submitted',
     });
   }

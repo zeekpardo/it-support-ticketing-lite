@@ -4,7 +4,7 @@ import { prisma, auth } from '../lib/auth.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
 import { resolveFileUrl } from '../lib/storage.js';
-import { markPublicTicketEmail, getOrgBranding } from '../lib/email/index.js';
+import { markPublicTicketEmail, consumePublicTicketContext, sendPublicTicketConfirmationEmail, getOrgBranding } from '../lib/email/index.js';
 import { createNotification } from '../services/notificationService.js';
 
 const router = express.Router();
@@ -154,9 +154,9 @@ router.post('/:token', asyncHandler(async (req, res) => {
     },
   });
 
-  // Send confirmation email via magic link context bridge
+  // Send confirmation email with magic link
   const branding = await getOrgBranding(orgId);
-  markPublicTicketEmail(email, {
+  const emailContext = {
     to: email,
     recipientName: firstName,
     inboxName: inbox.name,
@@ -164,7 +164,10 @@ router.post('/:token', asyncHandler(async (req, res) => {
     description,
     ticketId: ticket.id,
     branding,
-  });
+  };
+
+  // Stash context so the magic link callback sends the confirmation email
+  markPublicTicketEmail(email, emailContext);
 
   try {
     await auth.api.signInMagicLink({
@@ -175,6 +178,10 @@ router.post('/:token', asyncHandler(async (req, res) => {
     });
   } catch (err) {
     console.error('Failed to send magic link for public ticket:', err);
+    // Magic link failed — consume any stale context and send confirmation directly
+    consumePublicTicketContext(email);
+    const portalUrl = (process.env.FRONTEND_URL || 'http://localhost:5173') + `/portal/tickets/${ticket.id}`;
+    void sendPublicTicketConfirmationEmail({ ...emailContext, magicLinkUrl: portalUrl });
   }
 
   // Notify staff (default assignee)

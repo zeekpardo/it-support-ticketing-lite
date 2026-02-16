@@ -102,9 +102,6 @@ export default function PublicTicketForm() {
       <div className="w-full max-w-2xl">
         <div className="rounded-xl bg-white p-8 shadow-lg ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
           <div className="text-center mb-8">
-            {info?.branding.logoUrl && (
-              <img src={info.branding.logoUrl} alt="" className="mx-auto mb-4 h-12" />
-            )}
             <Heading>{info?.inboxName}</Heading>
             <Text className="mt-1 text-zinc-600 dark:text-zinc-400">
               Submit a request
