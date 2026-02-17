@@ -96,6 +96,12 @@ class ApiClient {
   toggleSignupLink = inboxesApi.toggleSignupLink
   deleteSignupLink = inboxesApi.deleteSignupLink
 
+  // === Organization Public Form ===
+  getOrgPublicForm = inboxesApi.getOrgPublicForm
+  generateOrgPublicForm = inboxesApi.generateOrgPublicForm
+  toggleOrgPublicForm = inboxesApi.toggleOrgPublicForm
+  deleteOrgPublicForm = inboxesApi.deleteOrgPublicForm
+
   // === Inbox Stages ===
   getInboxStages = inboxesApi.getInboxStages
   createStage = inboxesApi.createStage

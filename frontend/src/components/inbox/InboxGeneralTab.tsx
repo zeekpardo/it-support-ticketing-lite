@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useInboxForm } from '../../hooks/useInboxForm'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -6,8 +6,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
+import { Text } from '@/components/ui/text'
 import { Field, FieldGroup, Label, Description } from '@/components/ui/fieldset'
 import { XMarkIcon } from '@heroicons/react/20/solid'
+import type { EmailDomain } from '../../api/emailDomains'
 
 interface StaffMember {
   id: string
@@ -18,6 +20,7 @@ interface StaffMember {
 interface InboxGeneralTabProps {
   inboxForm: ReturnType<typeof useInboxForm>
   staffMembers: StaffMember[]
+  emailDomains?: EmailDomain[]
 }
 
 const DUE_DATE_CONFIG = [
@@ -27,7 +30,7 @@ const DUE_DATE_CONFIG = [
   { key: 'dueDateUrgentDays' as const, label: 'Urgent Priority', placeholder: 'e.g. 1' },
 ]
 
-export function InboxGeneralTab({ inboxForm, staffMembers }: InboxGeneralTabProps) {
+export function InboxGeneralTab({ inboxForm, staffMembers, emailDomains = [] }: InboxGeneralTabProps) {
   const { form, setField, saving } = inboxForm
   const [domainInput, setDomainInput] = useState('')
   const [domainError, setDomainError] = useState('')
@@ -51,6 +54,19 @@ export function InboxGeneralTab({ inboxForm, staffMembers }: InboxGeneralTabProp
   const removeDomain = (domain: string) => {
     setField('allowedEmailDomains', form.allowedEmailDomains.filter(d => d !== domain))
   }
+
+  const selectedDomain = useMemo(
+    () => emailDomains.find(d => d.id === form.emailDomainId),
+    [emailDomains, form.emailDomainId]
+  )
+
+  const senderPreview = useMemo(() => {
+    if (!selectedDomain) return null
+    const user = form.fromUser || 'support'
+    const name = form.fromName || ''
+    const address = `${user}@${selectedDomain.domain}`
+    return name ? `${name} <${address}>` : address
+  }, [selectedDomain, form.fromUser, form.fromName])
 
   return (
     <div className="bg-white dark:bg-zinc-800 rounded-xl p-6 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10">
@@ -155,6 +171,92 @@ export function InboxGeneralTab({ inboxForm, staffMembers }: InboxGeneralTabProp
               />
             </div>
           </Field>
+
+          {/* Sender Identity */}
+          <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4 mt-4">
+            <p className="text-sm font-medium text-zinc-950 dark:text-white">Sender Identity</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-3">
+              Override the sender address for emails sent from this inbox. Falls back to organization defaults if not set.
+            </p>
+
+            {emailDomains.length === 0 ? (
+              <div className="rounded-lg bg-zinc-50 px-4 py-3 dark:bg-zinc-900">
+                <Text className="text-sm text-zinc-500">
+                  No verified email domains available. Add and verify a domain in{' '}
+                  <a href="/admin/email-domains" className="text-blue-600 hover:underline dark:text-blue-400">
+                    Email Domain Settings
+                  </a>{' '}
+                  to customize sender identity per inbox.
+                </Text>
+              </div>
+            ) : (
+              <FieldGroup>
+                <Field>
+                  <Label>Sending Domain</Label>
+                  <Select
+                    value={form.emailDomainId}
+                    onChange={(e) => {
+                      setField('emailDomainId', e.target.value)
+                      if (!e.target.value) {
+                        setField('fromUser', '')
+                        setField('fromName', '')
+                      }
+                    }}
+                  >
+                    <option value="">Use organization default</option>
+                    {emailDomains.map((domain) => (
+                      <option key={domain.id} value={domain.id}>
+                        {domain.domain}
+                      </option>
+                    ))}
+                  </Select>
+                  <Description>Select which verified domain to send from for this inbox</Description>
+                </Field>
+
+                {form.emailDomainId && (
+                  <>
+                    <Field>
+                      <Label>From Address (local part)</Label>
+                      <Input
+                        type="text"
+                        value={form.fromUser}
+                        onChange={(e) => setField('fromUser', e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ''))}
+                        placeholder="support"
+                      />
+                      <Description>
+                        The part before the @ sign. For example, <code className="text-xs">support</code> in support@{selectedDomain?.domain || 'yourdomain.com'}
+                      </Description>
+                    </Field>
+
+                    <Field>
+                      <Label>Display Name</Label>
+                      <Input
+                        type="text"
+                        value={form.fromName}
+                        onChange={(e) => setField('fromName', e.target.value)}
+                        placeholder="Acme Support"
+                        maxLength={100}
+                      />
+                      <Description>
+                        The name recipients see in their inbox
+                      </Description>
+                    </Field>
+
+                    {senderPreview && (
+                      <div className="rounded-lg bg-zinc-50 px-4 py-3 dark:bg-zinc-900">
+                        <Text className="text-sm">
+                          <span className="text-zinc-500">Preview: </span>
+                          <span className="font-medium text-zinc-950 dark:text-white">
+                            {senderPreview}
+                          </span>
+                        </Text>
+                      </div>
+                    )}
+                  </>
+                )}
+              </FieldGroup>
+            )}
+          </div>
 
           {/* Allowed Email Domains */}
           <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4 mt-4">

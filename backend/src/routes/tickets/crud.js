@@ -234,6 +234,7 @@ router.post('/', requireStaff, asyncHandler(async (req, res) => {
           priorityLevel: priorityLevel || 'MEDIUM',
           description,
           clientName: `${firstName} ${lastName}`.trim(),
+          projectId: inbox.id,
         },
         entityType: 'ticket',
         entityId: ticket.id,
@@ -370,6 +371,7 @@ router.put('/:id/assign', requireStaff, asyncHandler(async (req, res) => {
         data: {
           ticketId: ticket.id,
           ticketSubject: ticket.subject,
+          projectId: ticket.inboxId,
         },
         entityType: 'ticket',
         entityId: ticket.id,

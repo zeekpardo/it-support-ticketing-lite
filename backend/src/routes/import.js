@@ -5,7 +5,7 @@ import { authenticate, requireOrganization, requireAdmin } from '../middleware/a
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { ValidationError } from '../utils/errors.js';
 import { findInboxOrFail } from '../utils/entityHelpers.js';
-import { sendMagicLinkEmail } from '../lib/email/index.js';
+import { sendMagicLinkEmail, getFrontendUrl } from '../lib/email/index.js';
 
 const router = express.Router();
 
@@ -202,7 +202,7 @@ router.post('/clients', authenticate, requireOrganization, requireAdmin, asyncHa
 
       // Send magic link email (non-blocking per item)
       try {
-        const callbackUrl = (process.env.FRONTEND_URL || 'http://localhost:5173') + '/dashboard';
+        const callbackUrl = (await getFrontendUrl(req.organization.id)) + '/dashboard';
 
         // Use Better Auth's magic link API to send the email
         await auth.api.signInMagicLink({

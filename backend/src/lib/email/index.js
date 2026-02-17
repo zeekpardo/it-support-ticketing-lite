@@ -12,7 +12,7 @@
  */
 
 // Core
-export { sendEmail } from './client.js';
+export { sendEmail, getFrontendUrl } from './client.js';
 export { getOrgBranding } from './branding.js';
 
 // Auth mailers

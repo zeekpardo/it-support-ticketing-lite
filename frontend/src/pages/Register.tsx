@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Field, FieldGroup, Label } from '@/components/ui/fieldset'
 import { Heading } from '@/components/ui/heading'
 import { Text, TextLink } from '@/components/ui/text'
-import { useBranding } from '../context/BrandingContext'
+import { useTenant } from '../context/TenantContext'
 
 export default function Register() {
   const [name, setName] = useState('')
@@ -16,8 +16,8 @@ export default function Register() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { register } = useAuth()
+  const { tenant } = useTenant()
   const navigate = useNavigate()
-  const { branding } = useBranding()
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -50,8 +50,11 @@ export default function Register() {
       <div className="w-full max-w-sm">
         <div className="rounded-xl bg-white p-8 shadow-lg ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
           <div className="text-center">
+            {tenant?.logo && (
+              <img src={tenant.logo} alt={tenant.appName} className="mx-auto mb-4 h-12 w-auto" />
+            )}
             <Heading>Create account</Heading>
-            <Text className="mt-1">Get started with {branding.appName}</Text>
+            <Text className="mt-1">Get started with {tenant?.appName || 'Groovi Support'}</Text>
           </div>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-6">

@@ -201,6 +201,7 @@ router.post('/', asyncHandler(async (req, res) => {
       priorityLevel: effectivePriority,
       description,
       clientName: user.name || user.email,
+      projectId: inboxId,
     };
 
     await createNotification(prisma, {

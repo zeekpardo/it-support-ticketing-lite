@@ -1,14 +1,24 @@
 import { escapeHtml } from '../../../utils/sanitize.js';
-import { sendEmail, FRONTEND_URL } from '../client.js';
+import { sendEmail, getFrontendUrl } from '../client.js';
 import { buildHtmlEmail, buildTextEmail } from '../templates.js';
+import { getFromAddress } from '../../../services/emailDomainService.js';
 
-export async function sendAccessRequestEmail({ to, recipientName, requesterName, softwareName, inboxId, inboxSoftwareId, branding = {} }) {
-  const requestUrl = `${FRONTEND_URL}/admin/inboxes/${inboxId}/software/${inboxSoftwareId}`;
+async function resolveSender(organizationId, projectId) {
+  if (!organizationId) return null;
+  const sender = await getFromAddress(organizationId, projectId);
+  return sender.domain ? sender : null;
+}
+
+export async function sendAccessRequestEmail({ to, recipientName, requesterName, softwareName, inboxId, inboxSoftwareId, branding = {}, organizationId, projectId }) {
+  const baseUrl = await getFrontendUrl(organizationId);
+  const requestUrl = `${baseUrl}/admin/inboxes/${inboxId}/software/${inboxSoftwareId}`;
+  const sender = await resolveSender(organizationId, projectId);
 
   return sendEmail({
     to,
     subject: `Software access request: ${softwareName}`,
     fromName: branding.appName,
+    ...(sender && { from: sender.from }),
     html: buildHtmlEmail({
       greeting: recipientName,
       paragraphs: [`<strong>${escapeHtml(requesterName)}</strong> has requested access to <strong>${escapeHtml(softwareName)}</strong>.`],
@@ -24,8 +34,10 @@ export async function sendAccessRequestEmail({ to, recipientName, requesterName,
   });
 }
 
-export async function sendAccessStatusEmail({ to, recipientName, softwareName, status, branding = {} }) {
-  const requestsUrl = `${FRONTEND_URL}/portal/software/requests`;
+export async function sendAccessStatusEmail({ to, recipientName, softwareName, status, branding = {}, organizationId, projectId }) {
+  const baseUrl = await getFrontendUrl(organizationId);
+  const requestsUrl = `${baseUrl}/portal/software/requests`;
+  const sender = await resolveSender(organizationId, projectId);
 
   const statusMessages = {
     APPROVED: { verb: 'approved', color: '#22c55e' },
@@ -39,6 +51,7 @@ export async function sendAccessStatusEmail({ to, recipientName, softwareName, s
     to,
     subject: `Software access ${verb}: ${softwareName}`,
     fromName: branding.appName,
+    ...(sender && { from: sender.from }),
     html: buildHtmlEmail({
       greeting: recipientName,
       paragraphs: [
@@ -58,9 +71,12 @@ export async function sendAccessStatusEmail({ to, recipientName, softwareName, s
 
 export async function sendRenewalReminderEmail({
   to, recipientName, softwareName, daysUntilRenewal, renewalDate,
-  cost, billingCycle, inboxName, inboxId, inboxSoftwareId, branding = {}
+  cost, billingCycle, inboxName, inboxId, inboxSoftwareId, branding = {},
+  organizationId, projectId
 }) {
-  const softwareUrl = `${FRONTEND_URL}/admin/inboxes/${inboxId}/software/${inboxSoftwareId}`;
+  const baseUrl = await getFrontendUrl(organizationId);
+  const softwareUrl = `${baseUrl}/admin/inboxes/${inboxId}/software/${inboxSoftwareId}`;
+  const sender = await resolveSender(organizationId, projectId);
   const urgencyColor = daysUntilRenewal <= 3 ? '#ef4444' : '#f59e0b';
 
   const paragraphs = [
@@ -83,6 +99,7 @@ export async function sendRenewalReminderEmail({
     to,
     subject: `Software renewal in ${daysUntilRenewal} day${daysUntilRenewal === 1 ? '' : 's'}: ${softwareName}`,
     fromName: branding.appName,
+    ...(sender && { from: sender.from }),
     html: buildHtmlEmail({
       greeting: recipientName,
       paragraphs,

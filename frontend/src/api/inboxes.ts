@@ -46,6 +46,9 @@ export async function updateInbox(id: string, data: {
   autoReplyEnabled?: boolean
   autoReplyHtml?: string | null
   allowedEmailDomains?: string[]
+  emailDomainId?: string | null
+  fromUser?: string | null
+  fromName?: string | null
 }) {
   return request<any>(`/inboxes/${id}`, {
     method: 'PUT',
@@ -183,4 +186,65 @@ export async function uploadPublicTicketAttachments(token: string, ticketId: str
   const formData = new FormData()
   files.forEach(file => formData.append('attachments', file))
   return publicUpload<any[]>(`/public/submit/${token}/attachments/${ticketId}`, formData)
+}
+
+// ==========================================
+// Organization Public Form (admin)
+// ==========================================
+
+export async function getOrgPublicForm() {
+  return request<{ token: string | null; enabled: boolean }>('/org-public-form')
+}
+
+export async function generateOrgPublicForm() {
+  return request<{ token: string; enabled: boolean }>('/org-public-form', {
+    method: 'POST',
+  })
+}
+
+export async function toggleOrgPublicForm(enabled: boolean) {
+  return request<{ token: string; enabled: boolean }>('/org-public-form', {
+    method: 'PATCH',
+    body: JSON.stringify({ enabled }),
+  })
+}
+
+export async function deleteOrgPublicForm() {
+  return request<{ success: boolean }>('/org-public-form', {
+    method: 'DELETE',
+  })
+}
+
+// ==========================================
+// Organization Public Form (public-facing)
+// ==========================================
+
+export async function getOrgFormInfo(token: string) {
+  return publicRequest<{
+    organizationName: string
+    inboxes: { id: string; name: string }[]
+    branding: { appName: string; primaryColor: string; logoUrl: string | null }
+  }>(`/public/org-form/${token}`)
+}
+
+export async function submitOrgFormTicket(token: string, data: {
+  firstName: string
+  lastName: string
+  email: string
+  subject: string
+  description: string
+  priorityLevel?: string
+  inboxId: string
+  screenRecordingLink?: string
+}) {
+  return publicRequest<{ success: boolean; ticketId: string }>(`/public/org-form/${token}`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function uploadOrgFormAttachments(token: string, ticketId: string, files: File[]) {
+  const formData = new FormData()
+  files.forEach(file => formData.append('attachments', file))
+  return publicUpload<any[]>(`/public/org-form/${token}/attachments/${ticketId}`, formData)
 }

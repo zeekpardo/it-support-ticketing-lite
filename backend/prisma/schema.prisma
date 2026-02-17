@@ -102,6 +102,19 @@ model Organization {
   primaryColor String? @map("primary_color")
   favicon      String?
 
+  // Email domain (Phase 2 whitelabel)
+  defaultEmailDomainId String?      @map("default_email_domain_id")
+  defaultEmailDomain   EmailDomain? @relation("OrgDefaultEmailDomain", fields: [defaultEmailDomainId], references: [id], onDelete: SetNull)
+  defaultFromUser      String?      @map("default_from_user")
+  defaultFromName      String?      @map("default_from_name")
+
+  // Subdomain routing (Phase 3 whitelabel)
+  subdomainEnabled Boolean @default(false) @map("subdomain_enabled")
+
+  // Organization-level public ticket form
+  publicFormToken   String?  @unique @map("public_form_token")
+  publicFormEnabled Boolean  @default(false) @map("public_form_enabled")
+
   members       Member[]
   invitations   Invitation[]
   inboxes       Inbox[]
@@ -109,6 +122,7 @@ model Organization {
   tickets       SupportTicket[]
   notifications Notification[]
   emailRules    EmailRule[]
+  emailDomains  EmailDomain[] @relation("OrgEmailDomains")
 
   @@map("organizations")
 }
@@ -222,6 +236,12 @@ model Inbox {
   // Public form email domain restriction (empty = allow any)
   allowedEmailDomains String[] @default([]) @map("allowed_email_domains")
 
+  // Email domain (Phase 2 whitelabel) — per-inbox sender identity
+  emailDomainId String?      @map("email_domain_id")
+  emailDomain   EmailDomain? @relation(fields: [emailDomainId], references: [id], onDelete: SetNull)
+  fromUser      String?      @map("from_user")
+  fromName      String?      @map("from_name")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -237,6 +257,37 @@ model Inbox {
 
   @@unique([organizationId, inboxCode])
   @@map("projects")
+}
+
+// ==========================================
+// Email Domain (Phase 2 Whitelabel)
+// ==========================================
+
+enum EmailDomainStatus {
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+model EmailDomain {
+  id             String            @id @default(cuid())
+  organizationId String            @map("organization_id")
+  organization   Organization      @relation("OrgEmailDomains", fields: [organizationId], references: [id], onDelete: Cascade)
+  domain         String // e.g., "bikebakersfield.com"
+  resendDomainId String            @map("resend_domain_id")
+  status         EmailDomainStatus @default(PENDING)
+  dnsRecords     Json?             @map("dns_records") // DNS records from Resend for admin UI
+  verifiedAt     DateTime?         @map("verified_at")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  // Reverse relations
+  defaultForOrgs Organization[] @relation("OrgDefaultEmailDomain")
+  inboxes        Inbox[]
+
+  @@unique([organizationId, domain])
+  @@index([organizationId])
+  @@map("email_domains")
 }
 
 // ==========================================

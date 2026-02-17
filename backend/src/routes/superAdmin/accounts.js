@@ -32,6 +32,7 @@ router.get('/', asyncHandler(async (req, res) => {
         appName: true,
         primaryColor: true,
         favicon: true,
+        subdomainEnabled: true,
         createdAt: true,
         _count: {
           select: {
@@ -99,7 +100,7 @@ router.get('/:id/members', asyncHandler(async (req, res) => {
 // ==========================================
 router.put('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, slug, appName, primaryColor } = req.body;
+  const { name, slug, appName, primaryColor, subdomainEnabled } = req.body;
 
   const existing = await prisma.organization.findUnique({ where: { id } });
   if (!existing) throw new NotFoundError('Account not found');
@@ -116,6 +117,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
   if (slug) data.slug = slug;
   if (appName !== undefined) data.appName = appName || null;
   if (primaryColor !== undefined) data.primaryColor = primaryColor || null;
+  if (subdomainEnabled !== undefined) data.subdomainEnabled = Boolean(subdomainEnabled);
 
   const account = await prisma.organization.update({
     where: { id },
@@ -126,6 +128,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
       slug: true,
       appName: true,
       primaryColor: true,
+      subdomainEnabled: true,
       createdAt: true,
       _count: {
         select: { members: true, inboxes: true, tickets: true, timeEntries: true }

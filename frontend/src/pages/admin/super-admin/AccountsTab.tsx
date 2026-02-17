@@ -19,6 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip } from '@/components/ui/tooltip'
+import { Switch } from '@/components/ui/switch'
 import {
   MagnifyingGlassIcon,
   ArrowPathIcon,
@@ -30,7 +31,10 @@ import {
   CheckCircleIcon,
   UserIcon,
   FolderIcon,
+  GlobeAltIcon,
 } from '@heroicons/react/24/outline'
+
+const BASE_DOMAIN = 'groovi.support'
 
 // ==========================================
 // Members Sub-Table (inline expansion)
@@ -186,15 +190,16 @@ export function AccountsTab() {
 
   // Edit account modal (reuses useModalForm)
   const modal = useModalForm<
-    { name: string; slug: string; appName: string; primaryColor: string },
+    { name: string; slug: string; appName: string; primaryColor: string; subdomainEnabled: boolean },
     SuperAdminAccount
   >({
-    initialData: { name: '', slug: '', appName: '', primaryColor: '' },
+    initialData: { name: '', slug: '', appName: '', primaryColor: '', subdomainEnabled: false },
     mapEditItem: (account) => ({
       name: account.name,
       slug: account.slug,
       appName: account.appName || '',
       primaryColor: account.primaryColor || '',
+      subdomainEnabled: account.subdomainEnabled,
     }),
   })
 
@@ -430,6 +435,24 @@ export function AccountsTab() {
   }
 
   // ==========================================
+  // Toggle subdomain
+  // ==========================================
+
+  const handleToggleSubdomain = async (account: SuperAdminAccount) => {
+    try {
+      await api.updateSuperAdminAccount(account.id, {
+        name: account.name,
+        subdomainEnabled: !account.subdomainEnabled,
+      })
+      setAccounts(prev => prev.map(a =>
+        a.id === account.id ? { ...a, subdomainEnabled: !a.subdomainEnabled } : a
+      ))
+    } catch (error) {
+      console.error('Failed to toggle subdomain:', error)
+    }
+  }
+
+  // ==========================================
   // Delete account
   // ==========================================
 
@@ -509,7 +532,7 @@ export function AccountsTab() {
           <TableHead>
             <TableRow>
               <TableHeader>Name</TableHeader>
-              <TableHeader>Slug</TableHeader>
+              <TableHeader>Subdomain</TableHeader>
               <TableHeader>Members</TableHeader>
               <TableHeader>Inboxes</TableHeader>
               <TableHeader>Created</TableHeader>
@@ -521,7 +544,27 @@ export function AccountsTab() {
               <>
                 <TableRow key={account.id}>
                   <TableCell className="font-medium">{account.name}</TableCell>
-                  <TableCell className="text-zinc-500">{account.slug}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={account.subdomainEnabled}
+                        onChange={() => handleToggleSubdomain(account)}
+                        className="shrink-0"
+                      />
+                      {account.subdomainEnabled ? (
+                        <a
+                          href={`https://${account.slug}.${BASE_DOMAIN}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+                        >
+                          {account.slug}.{BASE_DOMAIN}
+                        </a>
+                      ) : (
+                        <span className="text-sm text-zinc-400">{account.slug}.{BASE_DOMAIN}</span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <Badge color="zinc">{account._count.members}</Badge>
                   </TableCell>
@@ -664,6 +707,21 @@ export function AccountsTab() {
                     onChange={(e) => modal.setField('primaryColor', e.target.value)}
                     placeholder="#3B82F6"
                   />
+                </Field>
+
+                <Field>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>Subdomain Routing</Label>
+                      <p className="text-sm text-zinc-500">
+                        Enable <span className="font-mono text-xs">{modal.formData.slug || 'slug'}.{BASE_DOMAIN}</span>
+                      </p>
+                    </div>
+                    <Switch
+                      checked={modal.formData.subdomainEnabled}
+                      onChange={(checked) => modal.setField('subdomainEnabled', checked)}
+                    />
+                  </div>
                 </Field>
               </FieldGroup>
             </DialogBody>

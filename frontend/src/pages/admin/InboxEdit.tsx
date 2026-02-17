@@ -5,6 +5,7 @@ import { useTabbedPage } from '../../hooks/useTabbedPage'
 import { api } from '../../api/client'
 import { useInboxForm } from '../../hooks/useInboxForm'
 import { useStageManager } from '../../hooks/useStageManager'
+import { getEmailDomains, type EmailDomain } from '../../api/emailDomains'
 import StageManager from '../../components/StageManager'
 import { InboxGeneralTab, InboxEmailRulesTab, InboxAutoReplyTab } from '../../components/inbox'
 import { Heading } from '@/components/ui/heading'
@@ -31,6 +32,7 @@ export default function InboxEdit() {
   const { id } = useParams<{ id: string }>()
   const { currentOrg } = useOrganization()
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
+  const [emailDomains, setEmailDomains] = useState<EmailDomain[]>([])
   const [loading, setLoading] = useState(true)
   const tabs = useTabbedPage({ tabs: ['general', 'email-rules', 'auto-reply', 'stages'] as const, defaultTab: 'general' as TabId })
 
@@ -46,12 +48,14 @@ export default function InboxEdit() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [inboxData, staffData] = await Promise.all([
+      const [inboxData, staffData, emailDomainsData] = await Promise.all([
         api.getInbox(id!),
         api.getStaffMembers(),
+        getEmailDomains().catch(() => ({ domains: [], orgDefaults: {} })),
       ])
       inboxForm.populateFromInbox(inboxData)
       setStaffMembers(staffData)
+      setEmailDomains(emailDomainsData.domains.filter(d => d.status === 'VERIFIED'))
       await stageManager.loadStages()
     } catch (error) {
       console.error('Failed to load data:', error)
@@ -119,7 +123,7 @@ export default function InboxEdit() {
       </div>
 
       {tabs.active === 'general' && (
-        <InboxGeneralTab inboxForm={inboxForm} staffMembers={staffMembers} />
+        <InboxGeneralTab inboxForm={inboxForm} staffMembers={staffMembers} emailDomains={emailDomains} />
       )}
 
       {tabs.active === 'email-rules' && (

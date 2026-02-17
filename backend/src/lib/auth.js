@@ -3,7 +3,7 @@ import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { organization, admin, openAPI, magicLink } from 'better-auth/plugins';
 import { createAccessControl } from 'better-auth/plugins/access';
 import prisma from './prisma.js';
-import { sendVerificationEmail, sendPasswordResetEmail, sendInvitationEmail, sendMagicLinkEmail, sendWelcomeEmail, consumeWelcomeContext, consumePublicTicketContext, sendPublicTicketConfirmationEmail } from './email/index.js';
+import { sendVerificationEmail, sendPasswordResetEmail, sendInvitationEmail, sendMagicLinkEmail, sendWelcomeEmail, consumeWelcomeContext, consumePublicTicketContext, sendPublicTicketConfirmationEmail, getFrontendUrl } from './email/index.js';
 
 // Environment configuration
 const isDev = process.env.NODE_ENV !== 'production';
@@ -219,7 +219,8 @@ export const auth = betterAuth({
       creatorRole: 'owner',
       membershipLimit: 100,
       sendInvitationEmail: async (data) => {
-        const inviteUrl = (process.env.FRONTEND_URL || 'http://localhost:5173') + '/accept-invitation?id=' + data.id;
+        const baseUrl = await getFrontendUrl(data.organization.id);
+        const inviteUrl = baseUrl + '/accept-invitation?id=' + data.id;
         // Use void to prevent timing attacks (don't await email sending)
         void sendInvitationEmail({
           email: data.email,
@@ -241,14 +242,29 @@ export const auth = betterAuth({
     ...(isDev ? [openAPI()] : [])
   ],
 
-  // Trusted origins for CORS
-  trustedOrigins: [
-    'http://localhost:5173', // Vite dev server
-    'http://localhost:3000',
-    process.env.FRONTEND_URL, // Production frontend (app.groovi.support)
-    'https://app.groovi.support', // Production custom domain
-    'chrome-extension://cjcjnghodjkdjpilglboecgfellnnnfi' // Chrome extension
-  ].map(normalizeOrigin).filter(Boolean)
+  // Trusted origins for CORS — supports *.groovi.support subdomains dynamically
+  trustedOrigins: (request) => {
+    const BASE_DOMAIN = process.env.BASE_DOMAIN || 'groovi.support';
+    const subdomainPattern = new RegExp(`^https://[a-z0-9-]+\\.${BASE_DOMAIN.replace(/\./g, '\\.')}$`);
+
+    const staticOrigins = [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      process.env.FRONTEND_URL,
+      'chrome-extension://cjcjnghodjkdjpilglboecgfellnnnfi'
+    ].map(normalizeOrigin).filter(Boolean);
+
+    // Check if the request origin is a valid subdomain
+    const origin = request?.headers?.get?.('origin') || request?.headers?.origin;
+    if (origin) {
+      const normalized = normalizeOrigin(origin);
+      if (normalized && subdomainPattern.test(normalized)) {
+        staticOrigins.push(normalized);
+      }
+    }
+
+    return staticOrigins;
+  }
 });
 
 export { prisma };

@@ -54,6 +54,7 @@ export interface SuperAdminAccount {
   appName?: string | null
   primaryColor?: string | null
   favicon?: string | null
+  subdomainEnabled: boolean
   createdAt: string
   _count: {
     members: number
@@ -100,7 +101,7 @@ export async function getSuperAdminAccountMembers(accountId: string) {
   return request<SuperAdminAccountMember[]>(`/super-admin/accounts/${accountId}/members`)
 }
 
-export async function updateSuperAdminAccount(id: string, data: { name: string; slug?: string; appName?: string; primaryColor?: string }) {
+export async function updateSuperAdminAccount(id: string, data: { name: string; slug?: string; appName?: string; primaryColor?: string; subdomainEnabled?: boolean }) {
   return request<SuperAdminAccount>(`/super-admin/accounts/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),

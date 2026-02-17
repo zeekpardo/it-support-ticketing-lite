@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useTenant } from '../context/TenantContext'
 import { signIn } from '../lib/auth-client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +17,7 @@ export default function Login() {
   const [mode, setMode] = useState<'password' | 'magicLink'>('password')
   const [magicLinkSent, setMagicLinkSent] = useState(false)
   const { login } = useAuth()
+  const { tenant } = useTenant()
   const navigate = useNavigate()
 
   const handlePasswordSubmit = async (e: FormEvent) => {
@@ -62,8 +64,13 @@ export default function Login() {
       <div className="w-full max-w-sm">
         <div className="rounded-xl bg-white p-8 shadow-lg ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
           <div className="text-center">
+            {tenant?.logo && (
+              <img src={tenant.logo} alt={tenant.appName} className="mx-auto mb-4 h-12 w-auto" />
+            )}
             <Heading>Welcome back</Heading>
-            <Text className="mt-1">Sign in to your account</Text>
+            <Text className="mt-1">
+              Sign in to {tenant?.appName || 'your account'}
+            </Text>
           </div>
 
           {mode === 'password' ? (

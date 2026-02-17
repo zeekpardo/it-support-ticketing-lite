@@ -34,6 +34,8 @@ export const NOTIFICATION_TYPES = {
       ticketSubject: data.ticketSubject,
       ticketId: data.ticketId,
       branding: data.branding || {},
+      organizationId: data.organizationId,
+      projectId: data.projectId,
     }),
   },
 
@@ -53,6 +55,8 @@ export const NOTIFICATION_TYPES = {
       commentContentHtml: data.commentContentHtml || null,
       isPortal: false,
       branding: data.branding || {},
+      organizationId: data.organizationId,
+      projectId: data.projectId,
     }),
   },
 
@@ -72,6 +76,8 @@ export const NOTIFICATION_TYPES = {
       commentContentHtml: data.commentContentHtml || null,
       isPortal: true,
       branding: data.branding || {},
+      organizationId: data.organizationId,
+      projectId: data.projectId,
     }),
   },
 
@@ -91,6 +97,8 @@ export const NOTIFICATION_TYPES = {
       commentContentHtml: data.commentContentHtml || null,
       isPortal: false,
       branding: data.branding || {},
+      organizationId: data.organizationId,
+      projectId: data.projectId,
     }),
   },
 
@@ -110,6 +118,8 @@ export const NOTIFICATION_TYPES = {
       commentContentHtml: data.commentContentHtml || null,
       isPortal: true,
       branding: data.branding || {},
+      organizationId: data.organizationId,
+      projectId: data.projectId,
     }),
   },
 
@@ -138,6 +148,8 @@ export const NOTIFICATION_TYPES = {
       description: data.description,
       ticketId: data.ticketId,
       branding: data.branding || {},
+      organizationId: data.organizationId,
+      projectId: data.projectId,
     }),
   },
 
@@ -158,6 +170,8 @@ export const NOTIFICATION_TYPES = {
       description: data.description,
       ticketId: data.ticketId,
       branding: data.branding || {},
+      organizationId: data.organizationId,
+      projectId: data.projectId,
     }),
   },
 
@@ -176,6 +190,8 @@ export const NOTIFICATION_TYPES = {
       inboxId: data.inboxId,
       inboxSoftwareId: data.inboxSoftwareId,
       branding: data.branding || {},
+      organizationId: data.organizationId,
+      projectId: data.inboxId,
     }),
   },
 
@@ -191,6 +207,8 @@ export const NOTIFICATION_TYPES = {
       softwareName: data.softwareName,
       status: 'APPROVED',
       branding: data.branding || {},
+      organizationId: data.organizationId,
+      projectId: data.inboxId,
     }),
   },
 
@@ -206,6 +224,8 @@ export const NOTIFICATION_TYPES = {
       softwareName: data.softwareName,
       status: 'DECLINED',
       branding: data.branding || {},
+      organizationId: data.organizationId,
+      projectId: data.inboxId,
     }),
   },
 
@@ -221,6 +241,8 @@ export const NOTIFICATION_TYPES = {
       softwareName: data.softwareName,
       status: 'REVOKED',
       branding: data.branding || {},
+      organizationId: data.organizationId,
+      projectId: data.inboxId,
     }),
   },
 
@@ -243,6 +265,8 @@ export const NOTIFICATION_TYPES = {
       inboxId: data.inboxId,
       inboxSoftwareId: data.inboxSoftwareId,
       branding: data.branding || {},
+      organizationId: data.organizationId,
+      projectId: data.inboxId,
     }),
   },
 };

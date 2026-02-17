@@ -5,10 +5,10 @@ import { EMAIL_DOMAIN } from './client.js';
  * Generate a unique Message-ID for email threading
  * Format: <ticketId.timestamp.random@domain>
  */
-export function generateMessageId(ticketId, type = 'ticket') {
+export function generateMessageId(ticketId, type = 'ticket', domain) {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(7);
-  return `<${ticketId}.${timestamp}.${random}@${EMAIL_DOMAIN}>`;
+  return `<${ticketId}.${timestamp}.${random}@${domain || EMAIL_DOMAIN}>`;
 }
 
 /**
@@ -21,8 +21,8 @@ export function generateMessageId(ticketId, type = 'ticket') {
  * @param {string} [options.type] - Type label for the new Message-ID (e.g. 'reply', 'auto-reply', 'submitted')
  * @returns {Promise<{ messageId: string, references: string|undefined, inReplyTo: string|undefined }>}
  */
-export async function buildThreadingChain(ticketId, { extraMessageIds = [], type = 'ticket' } = {}) {
-  const messageId = generateMessageId(ticketId, type);
+export async function buildThreadingChain(ticketId, { extraMessageIds = [], type = 'ticket', domain } = {}) {
+  const messageId = generateMessageId(ticketId, type, domain);
 
   // Fetch the initial inbound email that created the ticket
   const initialInbound = await prisma.inboundEmail.findUnique({

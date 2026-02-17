@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useOrganization } from '../context/OrganizationContext'
 import { useBranding } from '../context/BrandingContext'
+import { useTenant } from '../context/TenantContext'
 import {
   Sidebar,
   SidebarBody,
@@ -33,6 +34,8 @@ import {
   UserCircleIcon,
   EnvelopeIcon,
   PaintBrushIcon,
+  GlobeAltIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline'
 import { NotificationBell } from './notifications'
 import { Button } from '@/components/ui/button'
@@ -47,6 +50,7 @@ export function Layout({ children }: LayoutProps) {
   const { user, logout, isSuperAdmin, isImpersonating, stopImpersonating } = useAuth()
   const { currentOrg, organizations, isAdmin, selectOrganization } = useOrganization()
   const { branding } = useBranding()
+  const { isSubdomain } = useTenant()
 
   const handleLogout = async () => {
     await logout()
@@ -66,7 +70,9 @@ export function Layout({ children }: LayoutProps) {
       { href: '/admin/members', label: 'Users', icon: UsersIcon },
       { href: '/admin/inboxes', label: 'Manage Inboxes', icon: Cog6ToothIcon },
       { href: '/admin/email-rules', label: 'Email Rules', icon: EnvelopeIcon },
+      { href: '/admin/email-domains', label: 'Email Domains', icon: GlobeAltIcon },
       { href: '/admin/branding', label: 'Branding', icon: PaintBrushIcon },
+      { href: '/admin/public-form', label: 'Public Form', icon: DocumentTextIcon },
     ] : []),
     ...(isSuperAdmin ? [
       { href: '/super-admin', label: 'Super Admin', icon: ShieldCheckIcon },
@@ -78,8 +84,8 @@ export function Layout({ children }: LayoutProps) {
       sidebar={
         <Sidebar>
           <SidebarHeader>
-            <Dropdown>
-              <DropdownButton as={SidebarItem}>
+            {isSubdomain ? (
+              <SidebarItem>
                 {branding.logoUrl ? (
                   <img src={branding.logoUrl} alt={currentOrg?.name || ''} className="h-6 w-6 rounded object-contain" />
                 ) : (
@@ -88,27 +94,41 @@ export function Layout({ children }: LayoutProps) {
                     className="bg-primary text-white"
                   />
                 )}
-                <SidebarLabel>{currentOrg?.name || 'Select Organization'}</SidebarLabel>
-                <ChevronUpIcon className="h-4 w-4" />
-              </DropdownButton>
-              <DropdownMenu anchor="top start" className="min-w-64">
-                <DropdownLabel>Organizations</DropdownLabel>
-                {organizations.map((org) => (
-                  <DropdownItem
-                    key={org.id}
-                    onClick={() => selectOrganization(org)}
-                  >
-                    <BuildingOfficeIcon className="h-4 w-4" />
-                    <DropdownLabel>{org.name}</DropdownLabel>
+                <SidebarLabel>{currentOrg?.name}</SidebarLabel>
+              </SidebarItem>
+            ) : (
+              <Dropdown>
+                <DropdownButton as={SidebarItem}>
+                  {branding.logoUrl ? (
+                    <img src={branding.logoUrl} alt={currentOrg?.name || ''} className="h-6 w-6 rounded object-contain" />
+                  ) : (
+                    <Avatar
+                      initials={currentOrg?.name?.charAt(0) || '?'}
+                      className="bg-primary text-white"
+                    />
+                  )}
+                  <SidebarLabel>{currentOrg?.name || 'Select Organization'}</SidebarLabel>
+                  <ChevronUpIcon className="h-4 w-4" />
+                </DropdownButton>
+                <DropdownMenu anchor="top start" className="min-w-64">
+                  <DropdownLabel>Organizations</DropdownLabel>
+                  {organizations.map((org) => (
+                    <DropdownItem
+                      key={org.id}
+                      onClick={() => selectOrganization(org)}
+                    >
+                      <BuildingOfficeIcon className="h-4 w-4" />
+                      <DropdownLabel>{org.name}</DropdownLabel>
+                    </DropdownItem>
+                  ))}
+                  <DropdownDivider />
+                  <DropdownItem onClick={() => navigate('/onboarding')}>
+                    <PlusIcon className="h-4 w-4" />
+                    <DropdownLabel>Create Organization</DropdownLabel>
                   </DropdownItem>
-                ))}
-                <DropdownDivider />
-                <DropdownItem onClick={() => navigate('/onboarding')}>
-                  <PlusIcon className="h-4 w-4" />
-                  <DropdownLabel>Create Organization</DropdownLabel>
-                </DropdownItem>
-              </DropdownMenu>
-            </Dropdown>
+                </DropdownMenu>
+              </Dropdown>
+            )}
           </SidebarHeader>
 
           <SidebarBody>

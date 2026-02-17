@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { organization } from '../lib/auth-client'
 import { useAuth } from './AuthContext'
+import { useTenant } from './TenantContext'
 import { api } from '../api/client'
 
 interface Organization {
@@ -38,6 +39,7 @@ const OrganizationContext = createContext<OrganizationContextType | null>(null)
 
 export function OrganizationProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth()
+  const { tenant } = useTenant()
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null)
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [membership, setMembership] = useState<Membership | null>(null)
@@ -68,6 +70,15 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
       if (result.data) {
         setOrganizations(result.data as Organization[])
+
+        // On a subdomain, auto-select the tenant's org (highest priority)
+        if (tenant?.organizationId) {
+          const tenantOrg = result.data.find((o: Organization) => o.id === tenant.organizationId)
+          if (tenantOrg) {
+            await selectOrganization(tenantOrg as Organization)
+            return
+          }
+        }
 
         // Try to restore previously selected org from localStorage
         const savedOrgId = localStorage.getItem('currentOrgId')

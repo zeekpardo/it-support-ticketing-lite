@@ -16,6 +16,9 @@ interface InboxFormData {
   autoReplyEnabled: boolean
   autoReplyHtml: string
   allowedEmailDomains: string[]
+  emailDomainId: string
+  fromUser: string
+  fromName: string
 }
 
 const INITIAL_FORM: InboxFormData = {
@@ -32,6 +35,9 @@ const INITIAL_FORM: InboxFormData = {
   autoReplyEnabled: false,
   autoReplyHtml: '',
   allowedEmailDomains: [],
+  emailDomainId: '',
+  fromUser: '',
+  fromName: '',
 }
 
 interface Inbox {
@@ -49,6 +55,9 @@ interface Inbox {
   autoReplyEnabled?: boolean
   autoReplyHtml?: string | null
   allowedEmailDomains?: string[]
+  emailDomainId?: string | null
+  fromUser?: string | null
+  fromName?: string | null
   _count?: { timeEntries: number }
 }
 
@@ -80,6 +89,9 @@ export function useInboxForm(inboxId: string | undefined) {
       autoReplyEnabled: data.autoReplyEnabled ?? false,
       autoReplyHtml: data.autoReplyHtml || '',
       allowedEmailDomains: data.allowedEmailDomains || [],
+      emailDomainId: data.emailDomainId || '',
+      fromUser: data.fromUser || '',
+      fromName: data.fromName || '',
     })
   }, [])
 
@@ -105,6 +117,9 @@ export function useInboxForm(inboxId: string | undefined) {
         autoReplyEnabled: form.autoReplyEnabled,
         autoReplyHtml: form.autoReplyHtml || null,
         allowedEmailDomains: form.allowedEmailDomains,
+        emailDomainId: form.emailDomainId || null,
+        fromUser: form.fromUser || null,
+        fromName: form.fromName || null,
       })
       navigate('/admin/inboxes')
     } catch (err) {

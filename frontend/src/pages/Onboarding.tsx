@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useOrganization } from '../context/OrganizationContext'
+import { useTenant } from '../context/TenantContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Field, FieldGroup, Label, Description } from '@/components/ui/fieldset'
@@ -12,7 +13,9 @@ import { useBranding } from '../context/BrandingContext'
 type Step = 'choice' | 'create' | 'join'
 
 export default function Onboarding() {
-  const [step, setStep] = useState<Step>('choice')
+  const { isSubdomain, tenant } = useTenant()
+  // On a subdomain, skip straight to "join" — the org already exists
+  const [step, setStep] = useState<Step>(isSubdomain ? 'join' : 'choice')
   const [orgName, setOrgName] = useState('')
   const [orgSlug, setOrgSlug] = useState('')
   const [error, setError] = useState('')
@@ -166,20 +169,26 @@ export default function Onboarding() {
   }
 
   if (step === 'join') {
+    const orgName = tenant?.appName || 'an organization'
     return (
       <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-900">
         <div className="w-full max-w-md">
           <div className="rounded-xl bg-white p-8 shadow-lg ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
-            <Button
-              plain
-              onClick={() => setStep('choice')}
-              className="mb-4"
-            >
-              ← Back
-            </Button>
+            {!isSubdomain && (
+              <Button
+                plain
+                onClick={() => setStep('choice')}
+                className="mb-4"
+              >
+                ← Back
+              </Button>
+            )}
 
             <div className="text-center">
-              <Heading>Join Organization</Heading>
+              {tenant?.logo && (
+                <img src={tenant.logo} alt={orgName} className="mx-auto mb-4 h-12 w-auto" />
+              )}
+              <Heading>Join {isSubdomain ? orgName : 'Organization'}</Heading>
               <Text className="mt-1">
                 Check your email for an invite link from your team admin
               </Text>
@@ -188,7 +197,7 @@ export default function Onboarding() {
             <div className="mt-8 rounded-lg bg-zinc-50 p-4 dark:bg-zinc-700/50">
               <Text>
                 When your team admin invites you, you'll receive an email with a
-                link to join their organization.
+                link to join {isSubdomain ? orgName : 'their organization'}.
               </Text>
               <Text className="mt-3">
                 If you've already accepted an invite, try refreshing the page.

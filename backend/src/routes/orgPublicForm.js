@@ -1,49 +1,115 @@
 import express from 'express';
 import crypto from 'crypto';
 import { prisma, auth } from '../lib/auth.js';
-import { asyncHandler } from '../middleware/asyncHandler.js';
+import { authenticate, requireOrganization, requireOwner } from '../middleware/auth.js';
+import { asyncHandler, withUpload } from '../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
 import { resolveFileUrl } from '../lib/storage.js';
 import { markPublicTicketEmail, consumePublicTicketContext, sendPublicTicketConfirmationEmail, getOrgBranding, getFrontendUrl } from '../lib/email/index.js';
 import { createTicketAttachments } from '../utils/entityHelpers.js';
 import { uploadAttachments } from '../middleware/upload.js';
-import { withUpload } from '../middleware/asyncHandler.js';
 import { createNotification } from '../services/notificationService.js';
 
-const router = express.Router();
-
 const generateId = () => crypto.randomBytes(16).toString('hex');
+const generateToken = () => crypto.randomBytes(16).toString('hex');
 
 const DEFAULT_APP_NAME = process.env.APP_NAME || 'Groovi Support';
 const DEFAULT_PRIMARY_COLOR = '#2563eb';
 
-// Find inbox by signup token (must be enabled and active)
-async function findInboxByToken(token) {
-  const inbox = await prisma.inbox.findUnique({
-    where: { clientSignupToken: token },
-    include: {
-      organization: {
-        select: { id: true, name: true, appName: true, primaryColor: true, logo: true },
+// ==========================================
+// Admin routes (authenticated, org-scoped)
+// ==========================================
+
+export const adminRouter = express.Router();
+
+adminRouter.use(authenticate);
+adminRouter.use(requireOrganization);
+adminRouter.use(requireOwner);
+
+// GET /api/org-public-form — Get current form status
+adminRouter.get('/', asyncHandler(async (req, res) => {
+  const org = await prisma.organization.findUnique({
+    where: { id: req.organization.id },
+    select: { publicFormToken: true, publicFormEnabled: true },
+  });
+  res.json({
+    token: org.publicFormToken,
+    enabled: org.publicFormEnabled,
+  });
+}));
+
+// POST /api/org-public-form — Generate a new token
+adminRouter.post('/', asyncHandler(async (req, res) => {
+  const token = generateToken();
+  const updated = await prisma.organization.update({
+    where: { id: req.organization.id },
+    data: { publicFormToken: token, publicFormEnabled: true },
+    select: { publicFormToken: true, publicFormEnabled: true },
+  });
+  res.json({ token: updated.publicFormToken, enabled: updated.publicFormEnabled });
+}));
+
+// PATCH /api/org-public-form — Enable/disable
+adminRouter.patch('/', asyncHandler(async (req, res) => {
+  const { enabled } = req.body;
+  if (typeof enabled !== 'boolean') {
+    throw new ValidationError('"enabled" must be a boolean');
+  }
+  const updated = await prisma.organization.update({
+    where: { id: req.organization.id },
+    data: { publicFormEnabled: enabled },
+    select: { publicFormToken: true, publicFormEnabled: true },
+  });
+  res.json({ token: updated.publicFormToken, enabled: updated.publicFormEnabled });
+}));
+
+// DELETE /api/org-public-form — Revoke token
+adminRouter.delete('/', asyncHandler(async (req, res) => {
+  await prisma.organization.update({
+    where: { id: req.organization.id },
+    data: { publicFormToken: null, publicFormEnabled: false },
+  });
+  res.json({ success: true });
+}));
+
+// ==========================================
+// Public routes (no auth required)
+// ==========================================
+
+export const publicRouter = express.Router();
+
+async function findOrgByFormToken(token) {
+  const org = await prisma.organization.findUnique({
+    where: { publicFormToken: token },
+    select: {
+      id: true,
+      name: true,
+      appName: true,
+      primaryColor: true,
+      logo: true,
+      publicFormEnabled: true,
+      inboxes: {
+        where: { isActive: true },
+        select: { id: true, name: true, inboxCode: true, defaultAssigneeId: true, dueDateLowDays: true, dueDateMediumDays: true, dueDateHighDays: true, dueDateUrgentDays: true },
+        orderBy: { name: 'asc' },
       },
     },
   });
 
-  if (!inbox || !inbox.clientSignupEnabled || !inbox.isActive) {
+  if (!org || !org.publicFormEnabled) {
     throw new NotFoundError('This form is no longer available');
   }
 
-  return inbox;
+  return org;
 }
 
-// GET /:token — Form config + branding
-router.get('/:token', asyncHandler(async (req, res) => {
-  const inbox = await findInboxByToken(req.params.token);
-  const org = inbox.organization;
+// GET /api/public/org-form/:token — Form config + branding + inboxes
+publicRouter.get('/:token', asyncHandler(async (req, res) => {
+  const org = await findOrgByFormToken(req.params.token);
 
   res.json({
-    inboxId: inbox.id,
-    inboxName: inbox.name,
-    allowedEmailDomains: inbox.allowedEmailDomains || [],
+    organizationName: org.name,
+    inboxes: org.inboxes.map(i => ({ id: i.id, name: i.name })),
     branding: {
       appName: org.appName || DEFAULT_APP_NAME,
       primaryColor: org.primaryColor || DEFAULT_PRIMARY_COLOR,
@@ -52,27 +118,23 @@ router.get('/:token', asyncHandler(async (req, res) => {
   });
 }));
 
-// POST /:token — Submit ticket
-router.post('/:token', asyncHandler(async (req, res) => {
-  const { firstName, lastName, email, subject, description, priorityLevel: rawPriority } = req.body;
+// POST /api/public/org-form/:token — Submit ticket
+publicRouter.post('/:token', asyncHandler(async (req, res) => {
+  const { firstName, lastName, email, subject, description, priorityLevel: rawPriority, inboxId, screenRecordingLink } = req.body;
   const VALID_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
   const priorityLevel = VALID_PRIORITIES.includes(rawPriority) ? rawPriority : 'MEDIUM';
 
-  // Validate required fields
-  if (!firstName || !lastName || !email || !subject || !description) {
-    throw new ValidationError('First name, last name, email, subject, and description are required');
+  if (!firstName || !lastName || !email || !subject || !description || !inboxId) {
+    throw new ValidationError('First name, last name, email, subject, description, and inbox are required');
   }
 
-  const inbox = await findInboxByToken(req.params.token);
-  const orgId = inbox.organizationId;
-
-  // Validate email domain
-  if (inbox.allowedEmailDomains && inbox.allowedEmailDomains.length > 0) {
-    const emailDomain = email.toLowerCase().split('@')[1];
-    if (!inbox.allowedEmailDomains.includes(emailDomain)) {
-      throw new ValidationError(`Email domain "${emailDomain}" is not allowed. Accepted domains: ${inbox.allowedEmailDomains.join(', ')}`);
-    }
+  const org = await findOrgByFormToken(req.params.token);
+  const inbox = org.inboxes.find(i => i.id === inboxId);
+  if (!inbox) {
+    throw new ValidationError('Selected inbox is not available');
   }
+
+  const orgId = org.id;
 
   // Find or create user
   const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -100,7 +162,6 @@ router.post('/:token', asyncHandler(async (req, res) => {
         });
       }
     } else {
-      // Existing user, not in org — create client member + inbox assignment
       const member = await prisma.member.create({
         data: { id: generateId(), organizationId: orgId, userId, role: 'client' },
       });
@@ -111,7 +172,6 @@ router.post('/:token', asyncHandler(async (req, res) => {
       });
     }
   } else {
-    // New user — create without password (passwordless)
     userId = generateId();
     const txResult = await prisma.$transaction(async (tx) => {
       await tx.user.create({
@@ -156,6 +216,7 @@ router.post('/:token', asyncHandler(async (req, res) => {
       requestType: 'GENERAL_SUPPORT',
       priorityLevel,
       description,
+      screenRecordingLink: screenRecordingLink || null,
       dueDate,
     },
   });
@@ -172,22 +233,17 @@ router.post('/:token', asyncHandler(async (req, res) => {
     branding,
   };
 
-  // Stash context so the magic link callback sends the confirmation email
   markPublicTicketEmail(email, emailContext);
 
   try {
     const baseUrl = await getFrontendUrl(orgId);
     const callbackUrl = baseUrl + `/portal/tickets/${ticket.id}`;
     await auth.api.signInMagicLink({
-      body: {
-        email,
-        callbackURL: callbackUrl,
-      },
+      body: { email, callbackURL: callbackUrl },
       headers: req.headers,
     });
   } catch (err) {
-    console.error('Failed to send magic link for public ticket:', err);
-    // Magic link failed — consume any stale context and send confirmation directly
+    console.error('Failed to send magic link for org public form ticket:', err);
     consumePublicTicketContext(email);
     const baseUrl = await getFrontendUrl(orgId);
     const portalUrl = baseUrl + `/portal/tickets/${ticket.id}`;
@@ -222,19 +278,19 @@ router.post('/:token', asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, ticketId: ticket.id });
 }));
 
-// POST /:token/attachments/:ticketId — Upload attachments to a public ticket
-router.post('/:token/attachments/:ticketId', withUpload(uploadAttachments, async (req, res) => {
+// POST /api/public/org-form/:token/attachments/:ticketId — Upload attachments
+publicRouter.post('/:token/attachments/:ticketId', withUpload(uploadAttachments, async (req, res) => {
   if (!req.files || req.files.length === 0) {
     throw new ValidationError('No files provided');
   }
 
-  const inbox = await findInboxByToken(req.params.token);
+  const org = await findOrgByFormToken(req.params.token);
 
-  // Verify ticket belongs to this inbox
+  // Verify ticket belongs to this org
   const ticket = await prisma.supportTicket.findFirst({
     where: {
       id: req.params.ticketId,
-      inboxId: inbox.id,
+      organizationId: org.id,
     },
   });
 
@@ -248,5 +304,3 @@ router.post('/:token/attachments/:ticketId', withUpload(uploadAttachments, async
 
   res.status(201).json(attachments);
 }));
-
-export default router;

@@ -1,8 +1,19 @@
 import prisma from '../../prisma.js';
 import { escapeHtml } from '../../../utils/sanitize.js';
-import { sendEmail, FRONTEND_URL, EMAIL_DOMAIN } from '../client.js';
+import { sendEmail, EMAIL_DOMAIN, getFrontendUrl } from '../client.js';
 import { buildHtmlEmail, buildTextEmail, baseTemplate } from '../templates.js';
 import { buildThreadingChain, storeOutboundEmail } from '../threading.js';
+import { getFromAddress } from '../../../services/emailDomainService.js';
+
+/**
+ * Resolve custom sender for an org/inbox.
+ * Returns { from, domain } if a custom domain is active, otherwise null.
+ */
+async function resolveSender(organizationId, projectId) {
+  if (!organizationId) return null;
+  const sender = await getFromAddress(organizationId, projectId);
+  return sender.domain ? sender : null;
+}
 
 // ==========================================
 // Shared Helpers
@@ -19,10 +30,11 @@ function prepareCommentContent(content, contentHtml = null, maxLength = 500) {
   return { text: truncatedText, html: contentHtml || null };
 }
 
-function getTicketUrl(ticketId, isPortal = false) {
+async function getTicketUrl(ticketId, isPortal = false, organizationId = null) {
+  const baseUrl = await getFrontendUrl(organizationId);
   return isPortal
-    ? `${FRONTEND_URL}/portal/tickets/${ticketId}`
-    : `${FRONTEND_URL}/admin/tickets/${ticketId}`;
+    ? `${baseUrl}/portal/tickets/${ticketId}`
+    : `${baseUrl}/admin/tickets/${ticketId}`;
 }
 
 /**
@@ -83,13 +95,15 @@ function ticketDetailsTable({ subject, requestType, priority }) {
 // Ticket Notification Emails
 // ==========================================
 
-export async function sendTicketCommentEmail({ to, recipientName, authorName, ticketSubject, ticketId, commentContent, commentContentHtml, isPortal = false, branding = {} }) {
-  const ticketUrl = getTicketUrl(ticketId, isPortal);
+export async function sendTicketCommentEmail({ to, recipientName, authorName, ticketSubject, ticketId, commentContent, commentContentHtml, isPortal = false, branding = {}, organizationId, projectId }) {
+  const sender = await resolveSender(organizationId, projectId);
+  const ticketUrl = await getTicketUrl(ticketId, isPortal, organizationId);
   const { text: displayText, html: displayHtml } = prepareCommentContent(commentContent, commentContentHtml);
 
   return sendEmail({
     to,
     subject: `Re: ${ticketSubject}`,
+    ...(sender ? { from: sender.from } : {}),
     fromName: branding.appName,
     html: buildHtmlEmail({
       greeting: recipientName,
@@ -110,12 +124,14 @@ export async function sendTicketCommentEmail({ to, recipientName, authorName, ti
   });
 }
 
-export async function sendTicketAssignmentEmail({ to, recipientName, ticketSubject, ticketId, branding = {} }) {
-  const ticketUrl = getTicketUrl(ticketId, false);
+export async function sendTicketAssignmentEmail({ to, recipientName, ticketSubject, ticketId, branding = {}, organizationId, projectId }) {
+  const sender = await resolveSender(organizationId, projectId);
+  const ticketUrl = await getTicketUrl(ticketId, false, organizationId);
 
   return sendEmail({
     to,
     subject: `Ticket assigned: ${ticketSubject}`,
+    ...(sender ? { from: sender.from } : {}),
     fromName: branding.appName,
     html: buildHtmlEmail({
       greeting: recipientName,
@@ -133,13 +149,15 @@ export async function sendTicketAssignmentEmail({ to, recipientName, ticketSubje
   });
 }
 
-export async function sendMentionEmail({ to, recipientName, authorName, ticketSubject, ticketId, commentContent, commentContentHtml, isPortal = false, branding = {} }) {
-  const ticketUrl = getTicketUrl(ticketId, isPortal);
+export async function sendMentionEmail({ to, recipientName, authorName, ticketSubject, ticketId, commentContent, commentContentHtml, isPortal = false, branding = {}, organizationId, projectId }) {
+  const sender = await resolveSender(organizationId, projectId);
+  const ticketUrl = await getTicketUrl(ticketId, isPortal, organizationId);
   const { text: displayText, html: displayHtml } = prepareCommentContent(commentContent, commentContentHtml);
 
   return sendEmail({
     to,
     subject: `${authorName} mentioned you in: ${ticketSubject}`,
+    ...(sender ? { from: sender.from } : {}),
     fromName: branding.appName,
     html: buildHtmlEmail({
       greeting: recipientName,
@@ -160,17 +178,20 @@ export async function sendMentionEmail({ to, recipientName, authorName, ticketSu
   });
 }
 
-export async function sendTicketSubmittedEmail({ to, recipientName, inboxName, ticketSubject, requestType, priorityLevel, description, ticketId, branding = {} }) {
-  const ticketUrl = `${FRONTEND_URL}/portal/tickets/${ticketId}`;
+export async function sendTicketSubmittedEmail({ to, recipientName, inboxName, ticketSubject, requestType, priorityLevel, description, ticketId, branding = {}, organizationId, projectId }) {
+  const sender = await resolveSender(organizationId, projectId);
+  const baseUrl = await getFrontendUrl(organizationId);
+  const ticketUrl = `${baseUrl}/portal/tickets/${ticketId}`;
   const displayDescription = truncateDescription(description);
   const formattedRequestType = formatRequestType(requestType);
   const formattedPriority = formatPriority(priorityLevel);
 
-  const { messageId, references, inReplyTo } = await buildThreadingChain(ticketId, { type: 'submitted' });
+  const { messageId, references, inReplyTo } = await buildThreadingChain(ticketId, { type: 'submitted', domain: sender?.domain });
 
   const result = await sendEmail({
     to,
     subject: `Request received: ${ticketSubject}`,
+    ...(sender ? { from: sender.from } : {}),
     fromName: branding.appName,
     messageId,
     references,
@@ -211,8 +232,10 @@ export async function sendTicketSubmittedEmail({ to, recipientName, inboxName, t
   return result;
 }
 
-export async function sendNewTicketAssignedEmail({ to, recipientName, clientName, inboxName, ticketSubject, requestType, priorityLevel, description, ticketId, branding = {} }) {
-  const ticketUrl = `${FRONTEND_URL}/admin/tickets/${ticketId}`;
+export async function sendNewTicketAssignedEmail({ to, recipientName, clientName, inboxName, ticketSubject, requestType, priorityLevel, description, ticketId, branding = {}, organizationId, projectId }) {
+  const sender = await resolveSender(organizationId, projectId);
+  const baseUrl = await getFrontendUrl(organizationId);
+  const ticketUrl = `${baseUrl}/admin/tickets/${ticketId}`;
   const displayDescription = truncateDescription(description);
   const formattedRequestType = formatRequestType(requestType);
   const formattedPriority = formatPriority(priorityLevel);
@@ -220,6 +243,7 @@ export async function sendNewTicketAssignedEmail({ to, recipientName, clientName
   return sendEmail({
     to,
     subject: `New ticket: ${ticketSubject}`,
+    ...(sender ? { from: sender.from } : {}),
     fromName: branding.appName,
     html: buildHtmlEmail({
       greeting: recipientName,
@@ -252,13 +276,15 @@ export async function sendNewTicketAssignedEmail({ to, recipientName, clientName
 // Public Ticket Confirmation Email
 // ==========================================
 
-export async function sendPublicTicketConfirmationEmail({ to, recipientName, inboxName, ticketSubject, description, ticketId, magicLinkUrl, branding = {} }) {
+export async function sendPublicTicketConfirmationEmail({ to, recipientName, inboxName, ticketSubject, description, ticketId, magicLinkUrl, branding = {}, organizationId, projectId }) {
+  const sender = await resolveSender(organizationId, projectId);
   const displayDescription = truncateDescription(description);
-  const { messageId, references, inReplyTo } = await buildThreadingChain(ticketId, { type: 'submitted' });
+  const { messageId, references, inReplyTo } = await buildThreadingChain(ticketId, { type: 'submitted', domain: sender?.domain });
 
   const result = await sendEmail({
     to,
     subject: `Re: ${ticketSubject}`,
+    ...(sender ? { from: sender.from } : {}),
     fromName: branding.appName,
     messageId,
     references,
@@ -302,10 +328,11 @@ export async function sendPublicTicketConfirmationEmail({ to, recipientName, inb
 // ==========================================
 
 export async function sendThreadedTicketReply({
-  ticketId, to, recipientName, ticketSubject, commentContent, commentContentHtml, commentId, branding = {}
+  ticketId, to, recipientName, ticketSubject, commentContent, commentContentHtml, commentId, branding = {}, organizationId, projectId
 }) {
+  const sender = await resolveSender(organizationId, projectId);
   const { text: displayText, html: displayHtml } = prepareCommentContent(commentContent, commentContentHtml);
-  const { messageId, references, inReplyTo } = await buildThreadingChain(ticketId, { type: 'reply' });
+  const { messageId, references, inReplyTo } = await buildThreadingChain(ticketId, { type: 'reply', domain: sender?.domain });
 
   // Get all email participants for this ticket (CC them on the reply)
   const participants = await prisma.ticketEmailParticipant.findMany({
@@ -325,6 +352,7 @@ export async function sendThreadedTicketReply({
     to,
     cc: ccAddresses.length > 0 ? ccAddresses : undefined,
     subject: `Re: ${ticketSubject}`,
+    ...(sender ? { from: sender.from } : {}),
     fromName: branding.appName,
     messageId,
     references,
@@ -353,15 +381,18 @@ export async function sendThreadedTicketReply({
   return result;
 }
 
-export async function sendAutoReplyEmail({ ticketId, to, ticketSubject, autoReplyHtml, inboundMessageId, branding = {} }) {
+export async function sendAutoReplyEmail({ ticketId, to, ticketSubject, autoReplyHtml, inboundMessageId, branding = {}, organizationId, projectId }) {
+  const sender = await resolveSender(organizationId, projectId);
   const { messageId, references, inReplyTo } = await buildThreadingChain(ticketId, {
     type: 'auto-reply',
     extraMessageIds: inboundMessageId ? [inboundMessageId] : [],
+    domain: sender?.domain,
   });
 
   const result = await sendEmail({
     to,
     subject: `Re: ${ticketSubject}`,
+    ...(sender ? { from: sender.from } : {}),
     fromName: branding.appName,
     messageId,
     references,

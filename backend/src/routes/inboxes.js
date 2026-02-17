@@ -7,6 +7,7 @@ import { NotFoundError, ValidationError } from '../utils/errors.js';
 import { findInboxOrFail, getAssignedInboxIds, hasInboxAccess } from '../utils/entityHelpers.js';
 import { MEMBER_WITH_ROLE_AND_USER_BRIEF } from '../utils/prismaFragments.js';
 import { validateInboxCodeUnique, validateDefaultAssignee, validateEmailDomains, pickDefined } from '../utils/inboxValidation.js';
+import { invalidateSenderCache } from '../services/emailDomainService.js';
 
 const router = express.Router();
 
@@ -29,6 +30,7 @@ const INBOX_UPDATE_FIELDS = [
   'name', 'inboxCode', 'clientName', 'description', 'isActive',
   'defaultAssigneeId', 'dueDateLowDays', 'dueDateMediumDays', 'dueDateHighDays', 'dueDateUrgentDays',
   'autoReplyEnabled', 'autoReplyHtml', 'allowedEmailDomains',
+  'emailDomainId', 'fromUser', 'fromName',
 ];
 
 // Get all inboxes for organization (members only see assigned inboxes)
@@ -154,7 +156,7 @@ router.post('/', asyncHandler(async (req, res) => {
 router.put('/:id', requireAdmin, asyncHandler(async (req, res) => {
   const inbox = await findInboxOrFail(req.params.id, req.organization.id);
 
-  const { inboxCode, defaultAssigneeId, allowedEmailDomains } = req.body;
+  const { inboxCode, defaultAssigneeId, allowedEmailDomains, emailDomainId } = req.body;
 
   if (inboxCode && inboxCode !== inbox.inboxCode) {
     await validateInboxCodeUnique(req.organization.id, inboxCode, req.params.id);
@@ -164,11 +166,29 @@ router.put('/:id', requireAdmin, asyncHandler(async (req, res) => {
     req.body.allowedEmailDomains = validateEmailDomains(allowedEmailDomains);
   }
 
+  // Validate emailDomainId belongs to this org and is verified
+  if (emailDomainId) {
+    const domain = await prisma.emailDomain.findFirst({
+      where: { id: emailDomainId, organizationId: req.organization.id },
+    });
+    if (!domain) {
+      throw new ValidationError('Email domain not found');
+    }
+    if (domain.status !== 'VERIFIED') {
+      throw new ValidationError('Email domain must be verified before use');
+    }
+  }
+
   const updated = await prisma.inbox.update({
     where: { id: req.params.id },
     data: pickDefined(req.body, INBOX_UPDATE_FIELDS),
     include: INBOX_INCLUDE,
   });
+
+  // Invalidate sender cache if email identity fields changed
+  if ('emailDomainId' in req.body || 'fromUser' in req.body || 'fromName' in req.body) {
+    invalidateSenderCache(req.organization.id);
+  }
 
   res.json(updated);
 }));

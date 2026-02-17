@@ -106,6 +106,7 @@ export async function createTicketFromEmail(inboundEmail, emailRule, attachments
           priorityLevel: 'MEDIUM',
           description,
           clientName: `${firstName} ${lastName}`.trim(),
+          projectId: inbox.id,
         },
         entityType: 'ticket',
         entityId: ticket.id,
@@ -126,6 +127,8 @@ export async function createTicketFromEmail(inboundEmail, emailRule, attachments
         autoReplyHtml: inbox.autoReplyHtml,
         inboundMessageId: inboundEmail.messageId,
         branding,
+        organizationId: inbox.organizationId,
+        projectId: inbox.id,
       });
     } catch (autoReplyError) {
       console.error('[InboundEmail] Error sending auto-reply:', autoReplyError);

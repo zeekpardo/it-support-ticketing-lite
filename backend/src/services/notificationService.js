@@ -59,7 +59,7 @@ export async function createNotification(prisma, { type, recipientId, organizati
         const branding = await getOrgBranding(organizationId);
         await config.sendEmail(
           { email: recipient.user.email, name: recipient.user.name },
-          { ...data, branding }
+          { ...data, branding, organizationId }
         );
       }
     } catch (emailError) {
@@ -154,7 +154,7 @@ export async function notifyMultiple(prisma, { type, recipientIds, organizationI
     const config = NOTIFICATION_TYPES[type];
     if (config?.sendEmail) {
       getOrgBranding(organizationId).then((branding) => {
-        const dataWithBranding = { ...data, branding };
+        const dataWithBranding = { ...data, branding, organizationId };
         return prisma.member.findMany({
           where: { id: { in: filteredIds } },
           include: { user: { select: { email: true, name: true } } },
@@ -251,6 +251,7 @@ export async function sendCommentNotifications(prisma, {
     commentContent: content,
     commentContentHtml: contentHtml || null,
     branding,
+    projectId: ticket.inboxId,
   };
 
   const mentionedMemberIds = parseMentions(content);
@@ -296,6 +297,8 @@ export async function sendCommentNotifications(prisma, {
               commentContentHtml: contentHtml,
               commentId: comment.id,
               branding,
+              organizationId,
+              projectId: ticket.inboxId,
             });
           }
         }
@@ -359,6 +362,9 @@ export async function sendCommentNotifications(prisma, {
           commentContent: content,
           commentContentHtml: contentHtml,
           commentId: comment.id,
+          branding,
+          organizationId,
+          projectId: ticket.inboxId,
         });
       }
     }

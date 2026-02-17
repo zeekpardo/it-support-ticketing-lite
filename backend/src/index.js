@@ -22,8 +22,12 @@ import notificationsRoutes from './routes/notifications.js';
 import inboundEmailWebhook from './routes/webhooks/inbound-email.js';
 import emailRulesRoutes from './routes/email-rules.js';
 import brandingRoutes from './routes/branding.js';
+import emailDomainRoutes from './routes/email-domains.js';
 import clientSignupRoutes from './routes/clientSignup.js';
 import publicTicketRoutes from './routes/publicTicket.js';
+import { adminRouter as orgPublicFormAdminRoutes, publicRouter as orgPublicFormPublicRoutes } from './routes/orgPublicForm.js';
+import tenantRoutes from './routes/tenant.js';
+import { tenantDetection } from './middleware/tenantDetection.js';
 import { startCronJobs } from './services/cronService.js';
 
 const app = express();
@@ -55,6 +59,7 @@ app.use(helmet({
 }));
 
 // CORS configuration
+const BASE_DOMAIN = process.env.BASE_DOMAIN || 'groovi.support';
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
@@ -65,15 +70,22 @@ const allowedOrigins = [
 
 const allowedOriginSet = new Set(allowedOrigins);
 
-// Allow Chrome extension origins (matches any extension ID for development)
+// Match any *.groovi.support subdomain origin
+const subdomainPattern = new RegExp(`^https://[a-z0-9-]+\\.${BASE_DOMAIN.replace(/\./g, '\\.')}$`);
+
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
 
-    // Allow listed origins
+    // Allow listed origins (localhost, FRONTEND_URL)
     const normalizedOrigin = normalizeOrigin(origin);
     if (normalizedOrigin && allowedOriginSet.has(normalizedOrigin)) {
+      return callback(null, true);
+    }
+
+    // Allow any *.groovi.support subdomain
+    if (normalizedOrigin && subdomainPattern.test(normalizedOrigin)) {
       return callback(null, true);
     }
 
@@ -82,11 +94,14 @@ app.use(cors({
       return callback(null, true);
     }
 
-    console.error('CORS blocked origin:', origin, 'Allowed origins:', Array.from(allowedOriginSet));
+    console.error('CORS blocked origin:', origin);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true
 }));
+
+// Tenant detection — resolve org from subdomain (e.g., acme.groovi.support)
+app.use(tenantDetection);
 
 // Better Auth handler - must be before express.json() for auth routes
 app.all('/api/auth/*', toNodeHandler(auth));
@@ -114,13 +129,24 @@ app.use('/api/import', importRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/email-rules', emailRulesRoutes);
 app.use('/api/branding', brandingRoutes);
+app.use('/api/email-domains', emailDomainRoutes);
 app.use('/api/client-signup', clientSignupRoutes);
+app.use('/api/org-public-form', orgPublicFormAdminRoutes);
+
+// Public tenant info (no auth — used by frontend to resolve subdomain → org)
+app.use('/api/tenant', tenantRoutes);
 
 // Public ticket submission (no auth, allow iframe embedding)
 app.use('/api/public/submit', (req, res, next) => {
   res.setHeader('Content-Security-Policy', "frame-ancestors *");
   next();
 }, publicTicketRoutes);
+
+// Public org-level ticket form (no auth, allow iframe embedding)
+app.use('/api/public/org-form', (req, res, next) => {
+  res.setHeader('Content-Security-Policy', "frame-ancestors *");
+  next();
+}, orgPublicFormPublicRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

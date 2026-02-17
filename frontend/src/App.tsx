@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { OrganizationProvider, useOrganization } from './context/OrganizationContext'
 import { BrandingProvider } from './context/BrandingContext'
 import { NotificationProvider } from './context/NotificationContext'
+import { TenantProvider, useTenant } from './context/TenantContext'
 import { Layout } from './components/Layout'
 import { PortalLayout } from './components/PortalLayout'
 // Static imports — always needed on first load
@@ -15,6 +16,7 @@ import AcceptInvitation from './pages/AcceptInvitation'
 import ResetPassword from './pages/ResetPassword'
 import ClientSignup from './pages/ClientSignup'
 import PublicTicketForm from './pages/PublicTicketForm'
+import OrgPublicTicketForm from './pages/OrgPublicTicketForm'
 
 // Lazy-loaded staff pages
 const Inboxes = lazy(() => import('./pages/Inboxes'))
@@ -37,6 +39,8 @@ const InboxSoftwareDetail = lazy(() => import('./pages/admin/InboxSoftwareDetail
 const InboxEmailRules = lazy(() => import('./pages/admin/InboxEmailRules'))
 const InboundEmailLogs = lazy(() => import('./pages/admin/InboundEmailLogs'))
 const AdminBranding = lazy(() => import('./pages/admin/Branding'))
+const AdminEmailDomains = lazy(() => import('./pages/admin/EmailDomainSettings'))
+const AdminOrgPublicForm = lazy(() => import('./pages/admin/OrgPublicForm'))
 
 // Lazy-loaded portal pages
 const PortalDashboard = lazy(() => import('./pages/portal/PortalDashboard'))
@@ -137,8 +141,9 @@ function SuperAdminRoute({ children }: { children: React.ReactNode }) {
 
 function AuthRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth()
+  const { loading: tenantLoading } = useTenant()
 
-  if (isLoading) {
+  if (isLoading || tenantLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-zinc-500">Loading...</div>
@@ -189,6 +194,7 @@ function AppRoutes() {
       <Route path="/accept-invitation" element={<AcceptInvitation />} />
       <Route path="/join/:token" element={<ClientSignup />} />
       <Route path="/submit/:token" element={<PublicTicketForm />} />
+      <Route path="/org-form/:token" element={<OrgPublicTicketForm />} />
 
       {/* Protected routes */}
       <Route
@@ -433,6 +439,26 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/admin/email-domains"
+        element={
+          <ProtectedRoute>
+            <AdminRoute>
+              <AdminEmailDomains />
+            </AdminRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/public-form"
+        element={
+          <ProtectedRoute>
+            <AdminRoute>
+              <AdminOrgPublicForm />
+            </AdminRoute>
+          </ProtectedRoute>
+        }
+      />
       {/* Super Admin routes */}
       <Route
         path="/super-admin"
@@ -455,15 +481,17 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <OrganizationProvider>
-          <BrandingProvider>
+      <TenantProvider>
+        <AuthProvider>
+          <OrganizationProvider>
+            <BrandingProvider>
               <NotificationProvider>
                 <AppRoutes />
               </NotificationProvider>
-          </BrandingProvider>
-        </OrganizationProvider>
-      </AuthProvider>
+            </BrandingProvider>
+          </OrganizationProvider>
+        </AuthProvider>
+      </TenantProvider>
     </BrowserRouter>
   )
 }
