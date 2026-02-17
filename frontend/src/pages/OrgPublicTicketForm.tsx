@@ -20,7 +20,6 @@ const PRIORITY_LEVELS = [
 
 interface OrgFormInfo {
   organizationName: string
-  inboxes: { id: string; name: string }[]
   branding: { appName: string; primaryColor: string; logoUrl: string | null }
 }
 
@@ -39,7 +38,6 @@ export default function OrgPublicTicketForm() {
     subject: '',
     priorityLevel: 'MEDIUM',
     description: '',
-    inboxId: '',
     screenRecordingLink: '',
   })
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([])
@@ -54,9 +52,6 @@ export default function OrgPublicTicketForm() {
     getOrgFormInfo(token)
       .then((data) => {
         setInfo(data)
-        if (data.inboxes.length === 1) {
-          setFormData(prev => ({ ...prev, inboxId: data.inboxes[0].id }))
-        }
         setStatus('ready')
       })
       .catch(() => setStatus('invalid'))
@@ -74,7 +69,6 @@ export default function OrgPublicTicketForm() {
       subject: '',
       priorityLevel: 'MEDIUM',
       description: '',
-      inboxId: info?.inboxes.length === 1 ? info.inboxes[0].id : '',
       screenRecordingLink: '',
     })
     setAttachmentFiles([])
@@ -86,7 +80,7 @@ export default function OrgPublicTicketForm() {
     e.preventDefault()
     setError(null)
 
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.subject || !formData.description || !formData.inboxId) {
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.subject || !formData.description) {
       setError('Please fill in all required fields')
       return
     }
@@ -100,7 +94,6 @@ export default function OrgPublicTicketForm() {
         subject: formData.subject,
         description: formData.description,
         priorityLevel: formData.priorityLevel,
-        inboxId: formData.inboxId,
         screenRecordingLink: formData.screenRecordingLink || undefined,
       })
 
@@ -233,25 +226,6 @@ export default function OrgPublicTicketForm() {
             <div>
               <h3 className="text-sm font-semibold text-zinc-900 dark:text-white mb-4">Request Details</h3>
               <FieldGroup>
-                {info && info.inboxes.length > 1 && (
-                  <Field>
-                    <Label>Inbox *</Label>
-                    <Description>Select the team to handle your request</Description>
-                    <Select
-                      value={formData.inboxId}
-                      onChange={e => handleChange('inboxId', e.target.value)}
-                      required
-                    >
-                      <option value="">Select an inbox</option>
-                      {info.inboxes.map(inbox => (
-                        <option key={inbox.id} value={inbox.id}>
-                          {inbox.name}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                )}
-
                 <Field>
                   <Label>Subject *</Label>
                   <Description>Short subject of your request</Description>

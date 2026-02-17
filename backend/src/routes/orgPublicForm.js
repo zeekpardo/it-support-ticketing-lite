@@ -88,11 +88,6 @@ async function findOrgByFormToken(token) {
       primaryColor: true,
       logo: true,
       publicFormEnabled: true,
-      inboxes: {
-        where: { isActive: true },
-        select: { id: true, name: true, inboxCode: true, defaultAssigneeId: true, dueDateLowDays: true, dueDateMediumDays: true, dueDateHighDays: true, dueDateUrgentDays: true },
-        orderBy: { name: 'asc' },
-      },
     },
   });
 
@@ -103,13 +98,52 @@ async function findOrgByFormToken(token) {
   return org;
 }
 
-// GET /api/public/org-form/:token — Form config + branding + inboxes
+/**
+ * Resolve inbox from email rules using the submitter's email domain.
+ * Matches DOMAIN rules first, then falls back to CATCH_ALL.
+ */
+async function resolveInboxFromEmail(orgId, submitterEmail) {
+  const fromDomain = '@' + submitterEmail.toLowerCase().split('@')[1];
+
+  const rules = await prisma.emailRule.findMany({
+    where: { organizationId: orgId, isActive: true },
+    orderBy: { priority: 'desc' },
+    include: {
+      inbox: {
+        select: {
+          id: true,
+          name: true,
+          isActive: true,
+          defaultAssigneeId: true,
+          dueDateLowDays: true,
+          dueDateMediumDays: true,
+          dueDateHighDays: true,
+          dueDateUrgentDays: true,
+        },
+      },
+    },
+  });
+
+  // Try DOMAIN match on submitter's email domain
+  for (const rule of rules) {
+    if (rule.matchType === 'DOMAIN' && rule.matchValue && rule.inbox.isActive) {
+      if (rule.matchValue.toLowerCase() === fromDomain) {
+        return rule.inbox;
+      }
+    }
+  }
+
+  // Fall back to CATCH_ALL
+  const catchAll = rules.find(r => r.matchType === 'CATCH_ALL' && r.inbox.isActive);
+  return catchAll ? catchAll.inbox : null;
+}
+
+// GET /api/public/org-form/:token — Form config + branding
 publicRouter.get('/:token', asyncHandler(async (req, res) => {
   const org = await findOrgByFormToken(req.params.token);
 
   res.json({
     organizationName: org.name,
-    inboxes: org.inboxes.map(i => ({ id: i.id, name: i.name })),
     branding: {
       appName: org.appName || DEFAULT_APP_NAME,
       primaryColor: org.primaryColor || DEFAULT_PRIMARY_COLOR,
@@ -120,21 +154,22 @@ publicRouter.get('/:token', asyncHandler(async (req, res) => {
 
 // POST /api/public/org-form/:token — Submit ticket
 publicRouter.post('/:token', asyncHandler(async (req, res) => {
-  const { firstName, lastName, email, subject, description, priorityLevel: rawPriority, inboxId, screenRecordingLink } = req.body;
+  const { firstName, lastName, email, subject, description, priorityLevel: rawPriority, screenRecordingLink } = req.body;
   const VALID_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
   const priorityLevel = VALID_PRIORITIES.includes(rawPriority) ? rawPriority : 'MEDIUM';
 
-  if (!firstName || !lastName || !email || !subject || !description || !inboxId) {
-    throw new ValidationError('First name, last name, email, subject, description, and inbox are required');
+  if (!firstName || !lastName || !email || !subject || !description) {
+    throw new ValidationError('First name, last name, email, subject, and description are required');
   }
 
   const org = await findOrgByFormToken(req.params.token);
-  const inbox = org.inboxes.find(i => i.id === inboxId);
-  if (!inbox) {
-    throw new ValidationError('Selected inbox is not available');
-  }
-
   const orgId = org.id;
+
+  // Route to inbox via email rules (DOMAIN match → CATCH_ALL fallback)
+  const inbox = await resolveInboxFromEmail(orgId, email);
+  if (!inbox) {
+    throw new ValidationError('Unable to route your request. Please contact support directly.');
+  }
 
   // Find or create user
   const existingUser = await prisma.user.findUnique({ where: { email } });

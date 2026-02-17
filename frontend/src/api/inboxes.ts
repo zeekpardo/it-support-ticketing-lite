@@ -222,7 +222,6 @@ export async function deleteOrgPublicForm() {
 export async function getOrgFormInfo(token: string) {
   return publicRequest<{
     organizationName: string
-    inboxes: { id: string; name: string }[]
     branding: { appName: string; primaryColor: string; logoUrl: string | null }
   }>(`/public/org-form/${token}`)
 }
@@ -234,7 +233,6 @@ export async function submitOrgFormTicket(token: string, data: {
   subject: string
   description: string
   priorityLevel?: string
-  inboxId: string
   screenRecordingLink?: string
 }) {
   return publicRequest<{ success: boolean; ticketId: string }>(`/public/org-form/${token}`, {
