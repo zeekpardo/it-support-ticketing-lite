@@ -5,6 +5,7 @@ import { asyncHandler } from '../../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError } from '../../utils/errors.js';
 import { findTicketOrFail, findTicketWithAccess, getAssignedInboxIds } from '../../utils/entityHelpers.js';
 import { createNotification } from '../../services/notificationService.js';
+import { sendTicketSubmittedEmail, getOrgBranding } from '../../lib/email/index.js';
 import { sanitizeUrl } from '../../utils/sanitize.js';
 import { resolveS3ImageUrls, resolveAttachmentUrl } from '../../utils/resolveS3Urls.js';
 import {
@@ -242,6 +243,26 @@ router.post('/', requireStaff, asyncHandler(async (req, res) => {
     } catch (notifError) {
       console.error('Error sending new ticket notification:', notifError);
     }
+  }
+
+  // Email the client a confirmation (non-blocking)
+  try {
+    const branding = await getOrgBranding(req.organization.id);
+    await sendTicketSubmittedEmail({
+      to: email,
+      recipientName: `${firstName} ${lastName}`.trim(),
+      inboxName: inbox.name,
+      ticketSubject: subject,
+      requestType: requestType || 'GENERAL_INQUIRY',
+      priorityLevel: priorityLevel || 'MEDIUM',
+      description,
+      ticketId: ticket.id,
+      branding,
+      organizationId: req.organization.id,
+      projectId: inboxId,
+    });
+  } catch (emailError) {
+    console.error('[Ticket] Error sending confirmation email to client:', emailError);
   }
 
   res.status(201).json(ticket);
