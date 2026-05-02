@@ -1,6 +1,7 @@
 import { prisma } from '../lib/auth.js';
 import { sanitizeEmailBody } from '../utils/htmlSanitizer.js';
 import { findOrCreateClient, parseFullName } from './emailParticipantManager.js';
+import { sendCommentNotifications } from './notificationService.js';
 
 /**
  * Fetch full email content from Resend's Received Emails API.
@@ -108,6 +109,21 @@ export async function handleEmailReply(inboundEmail, inReplyToMessageId) {
     data: { status: 'IN_PROGRESS' },
   });
 
+  // Notify assignee (in-app + email)
+  try {
+    await sendCommentNotifications(prisma, {
+      ticket,
+      comment,
+      authorName: inboundEmail.fromName || inboundEmail.from,
+      authorMemberId: client.id,
+      content,
+      isInternal: false,
+      organizationId: ticket.organizationId,
+    });
+  } catch (notifError) {
+    console.error('[InboundEmail] Error sending comment notifications:', notifError);
+  }
+
   console.log('[InboundEmail] Created comment from reply:', comment.id, 'on ticket:', ticket.id);
   return true;
 }
@@ -165,6 +181,21 @@ async function handleParticipantReply(inboundEmail, ticket, memberId) {
     where: { id: ticket.id },
     data: { status: 'IN_PROGRESS' },
   });
+
+  // Notify assignee (in-app + email)
+  try {
+    await sendCommentNotifications(prisma, {
+      ticket,
+      comment,
+      authorName: inboundEmail.fromName || inboundEmail.from,
+      authorMemberId: client.id,
+      content,
+      isInternal: false,
+      organizationId: ticket.organizationId,
+    });
+  } catch (notifError) {
+    console.error('[InboundEmail] Error sending comment notifications:', notifError);
+  }
 
   console.log('[InboundEmail] Created comment from participant reply:', comment.id, 'on ticket:', ticket.id);
   return true;
