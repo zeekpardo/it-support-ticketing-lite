@@ -90,9 +90,18 @@ export async function processInboundEmail(payload) {
       }
     }
 
-    // Also check References header for threading
-    if (!inReplyTo && references) {
-      const referencedIds = references.split(/\s+/).filter(Boolean);
+    // Also check References header — runs even when inReplyTo is set but didn't resolve,
+    // because some clients (e.g. Outlook) set In-Reply-To to their own previous message
+    // rather than our outbound email, while our message ID appears in References.
+    if (references) {
+      // Resend returns References as a JSON array string; fall back to space-split for plain format
+      let referencedIds;
+      try {
+        const parsed = JSON.parse(references);
+        referencedIds = Array.isArray(parsed) ? parsed : references.split(/\s+/).filter(Boolean);
+      } catch {
+        referencedIds = references.split(/\s+/).filter(Boolean);
+      }
       for (const refId of referencedIds.reverse()) {
         const handled = await handleEmailReply(inboundEmail, refId);
         if (handled) {
