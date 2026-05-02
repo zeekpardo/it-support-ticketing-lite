@@ -254,14 +254,25 @@ export const auth = betterAuth({
       'chrome-extension://cjcjnghodjkdjpilglboecgfellnnnfi'
     ].map(normalizeOrigin).filter(Boolean);
 
-    // Check if the request origin is a valid subdomain
-    const origin = request?.headers?.get?.('origin') || request?.headers?.origin;
-    if (origin) {
-      const normalized = normalizeOrigin(origin);
+    const trustIfSubdomain = (value) => {
+      if (!value) return;
+      const normalized = normalizeOrigin(value);
       if (normalized && subdomainPattern.test(normalized)) {
         staticOrigins.push(normalized);
       }
-    }
+    };
+
+    // CORS requests include an Origin header
+    trustIfSubdomain(request?.headers?.get?.('origin') || request?.headers?.origin);
+
+    // Magic link verify is a GET with no Origin header — extract origin from callbackURL query param
+    try {
+      const reqUrl = typeof request?.url === 'string' ? request.url : null;
+      if (reqUrl) {
+        const parsed = new URL(reqUrl, 'https://placeholder.invalid');
+        trustIfSubdomain(parsed.searchParams.get('callbackURL'));
+      }
+    } catch {}
 
     return staticOrigins;
   }
