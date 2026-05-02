@@ -33,12 +33,13 @@ export async function fetchReceivedEmail(emailId) {
 export async function handleEmailReply(inboundEmail, inReplyToMessageId) {
   if (!inReplyToMessageId) return false;
 
-  // Clean up the message ID (remove angle brackets if present)
-  const cleanMessageId = inReplyToMessageId.replace(/[<>]/g, '');
+  // Normalize the message ID — ensure angle brackets are present to match stored format
+  const trimmed = inReplyToMessageId.trim();
+  const normalizedMessageId = trimmed.startsWith('<') ? trimmed : `<${trimmed}>`;
 
   // Look up this Message-ID in our outbound emails
   const outboundEmail = await prisma.outboundEmail.findUnique({
-    where: { messageId: cleanMessageId },
+    where: { messageId: normalizedMessageId },
     include: { ticket: true },
   });
 
