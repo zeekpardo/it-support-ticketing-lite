@@ -44,19 +44,7 @@ export async function handleEmailReply(inboundEmail, inReplyToMessageId) {
   });
 
   if (!outboundEmail?.ticket) {
-    // Not a reply to our outbound email — also check if sender is a known participant
-    const participant = await prisma.ticketEmailParticipant.findFirst({
-      where: { email: inboundEmail.from.toLowerCase() },
-      include: { ticket: true },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    if (!participant?.ticket) {
-      return false;
-    }
-
-    // Found by participant lookup — continue with that ticket
-    return handleParticipantReply(inboundEmail, participant.ticket, participant.memberId);
+    return false;
   }
 
   const ticket = outboundEmail.ticket;
@@ -125,8 +113,21 @@ export async function handleEmailReply(inboundEmail, inReplyToMessageId) {
 }
 
 /**
- * Handle a reply from a known email participant (fallback when threading headers don't match outbound emails)
+ * Last-resort fallback: find the most recent ticket where the sender is a known participant
+ * and add their email as a comment. Only used after all threading header lookups fail.
  */
+export async function handleReplyAsParticipant(inboundEmail) {
+  const participant = await prisma.ticketEmailParticipant.findFirst({
+    where: { email: inboundEmail.from.toLowerCase() },
+    include: { ticket: true },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (!participant?.ticket) return false;
+
+  return handleParticipantReply(inboundEmail, participant.ticket, participant.memberId);
+}
+
 async function handleParticipantReply(inboundEmail, ticket, memberId) {
   let client;
 

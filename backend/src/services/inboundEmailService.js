@@ -1,7 +1,7 @@
 import { prisma } from '../lib/auth.js';
 import { findMatchingEmailRule } from './emailRuleMatcher.js';
 import { createTicketFromEmail } from './ticketFromEmailFactory.js';
-import { handleEmailReply, fetchReceivedEmail } from './emailReplyHandler.js';
+import { handleEmailReply, handleReplyAsParticipant, fetchReceivedEmail } from './emailReplyHandler.js';
 import { parseEmailAddress, parseEmailName } from './emailParticipantManager.js';
 
 /**
@@ -109,6 +109,13 @@ export async function processInboundEmail(payload) {
           return;
         }
       }
+    }
+
+    // Last resort: sender is a known participant on an existing ticket
+    const handledByParticipant = await handleReplyAsParticipant(inboundEmail);
+    if (handledByParticipant) {
+      console.log('[InboundEmail] Processed as reply via participant fallback');
+      return;
     }
 
     // Find matching email rule for routing
