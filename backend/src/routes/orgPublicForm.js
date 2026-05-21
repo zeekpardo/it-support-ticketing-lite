@@ -6,6 +6,7 @@ import { asyncHandler, withUpload } from '../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
 import { resolveFileUrl } from '../lib/storage.js';
 import { markPublicTicketEmail, consumePublicTicketContext, sendPublicTicketConfirmationEmail, getOrgBranding, getFrontendUrl } from '../lib/email/index.js';
+import { sanitizeCommentHtml } from '../utils/htmlSanitizer.js';
 import { createTicketAttachments } from '../utils/entityHelpers.js';
 import { uploadAttachments, uploadPublicFormFiles } from '../middleware/upload.js';
 import { createNotification } from '../services/notificationService.js';
@@ -154,7 +155,7 @@ publicRouter.get('/:token', asyncHandler(async (req, res) => {
 
 // POST /api/public/org-form/:token — Submit ticket (accepts multipart with optional file attachments)
 publicRouter.post('/:token', withUpload(uploadPublicFormFiles, async (req, res) => {
-  const { firstName, lastName, email, subject, description, priorityLevel: rawPriority, screenRecordingLink } = req.body;
+  const { firstName, lastName, email, subject, description, descriptionHtml: rawDescriptionHtml, priorityLevel: rawPriority, screenRecordingLink } = req.body;
   const VALID_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
   const priorityLevel = VALID_PRIORITIES.includes(rawPriority) ? rawPriority : 'MEDIUM';
 
@@ -251,6 +252,7 @@ publicRouter.post('/:token', withUpload(uploadPublicFormFiles, async (req, res) 
       requestType: 'GENERAL_SUPPORT',
       priorityLevel,
       description,
+      descriptionHtml: rawDescriptionHtml ? sanitizeCommentHtml(rawDescriptionHtml) : null,
       screenRecordingLink: screenRecordingLink || null,
       dueDate,
     },

@@ -232,6 +232,7 @@ export async function submitOrgFormTicket(token: string, data: {
   email: string
   subject: string
   description: string
+  descriptionHtml?: string
   priorityLevel?: string
   screenRecordingLink?: string
   files?: File[]
@@ -242,6 +243,7 @@ export async function submitOrgFormTicket(token: string, data: {
   formData.append('email', data.email)
   formData.append('subject', data.subject)
   formData.append('description', data.description)
+  if (data.descriptionHtml) formData.append('descriptionHtml', data.descriptionHtml)
   if (data.priorityLevel) formData.append('priorityLevel', data.priorityLevel)
   if (data.screenRecordingLink) formData.append('screenRecordingLink', data.screenRecordingLink)
   data.files?.forEach(file => formData.append('attachments', file))

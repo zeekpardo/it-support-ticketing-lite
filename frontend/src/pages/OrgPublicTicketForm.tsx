@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
 import { getOrgFormInfo, submitOrgFormTicket } from '../api/inboxes'
 import { Heading } from '@/components/ui/heading'
@@ -6,7 +6,8 @@ import { Text } from '@/components/ui/text'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
+import { RichTextEditor } from '@/components/ui/rich-text-editor'
+import type { RichTextEditorRef } from '@/components/ui/rich-text-editor'
 import { Field, FieldGroup, Label, Description } from '@/components/ui/fieldset'
 import { FileUpload } from '@/components/ui/file-upload'
 import { XCircleIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
@@ -30,6 +31,7 @@ export default function OrgPublicTicketForm() {
 
   const [info, setInfo] = useState<OrgFormInfo | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'submitted' | 'invalid'>('loading')
+  const editorRef = useRef<RichTextEditorRef>(null)
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -37,7 +39,6 @@ export default function OrgPublicTicketForm() {
     email: '',
     subject: '',
     priorityLevel: 'MEDIUM',
-    description: '',
     screenRecordingLink: '',
   })
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([])
@@ -68,9 +69,9 @@ export default function OrgPublicTicketForm() {
       email: '',
       subject: '',
       priorityLevel: 'MEDIUM',
-      description: '',
       screenRecordingLink: '',
     })
+    editorRef.current?.clear()
     setAttachmentFiles([])
     setError(null)
     setStatus('ready')
@@ -80,7 +81,10 @@ export default function OrgPublicTicketForm() {
     e.preventDefault()
     setError(null)
 
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.subject || !formData.description) {
+    const description = editorRef.current?.getText()?.trim() || ''
+    const descriptionHtml = editorRef.current?.isEmpty() ? '' : (editorRef.current?.getHTML() || '')
+
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.subject || !description) {
       setError('Please fill in all required fields')
       return
     }
@@ -92,7 +96,8 @@ export default function OrgPublicTicketForm() {
         lastName: formData.lastName,
         email: formData.email,
         subject: formData.subject,
-        description: formData.description,
+        description,
+        descriptionHtml: descriptionHtml || undefined,
         priorityLevel: formData.priorityLevel,
         screenRecordingLink: formData.screenRecordingLink || undefined,
         files: attachmentFiles.length > 0 ? attachmentFiles : undefined,
@@ -246,12 +251,10 @@ export default function OrgPublicTicketForm() {
                 <Field>
                   <Label>Describe Issue *</Label>
                   <Description>Describe the issue with as much information and detail as possible</Description>
-                  <Textarea
-                    value={formData.description}
-                    onChange={e => handleChange('description', e.target.value)}
-                    rows={5}
+                  <RichTextEditor
+                    ref={editorRef}
                     placeholder="Please provide details about your issue..."
-                    required
+                    disabled={submitting}
                   />
                 </Field>
 
