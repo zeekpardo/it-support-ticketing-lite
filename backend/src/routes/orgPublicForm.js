@@ -315,6 +315,8 @@ publicRouter.post('/:token', asyncHandler(async (req, res) => {
 
 // POST /api/public/org-form/:token/attachments/:ticketId — Upload attachments
 publicRouter.post('/:token/attachments/:ticketId', withUpload(uploadAttachments, async (req, res) => {
+  console.log('[FormAttachment] Upload request received, files:', req.files?.length ?? 0, 'ticketId:', req.params.ticketId);
+
   if (!req.files || req.files.length === 0) {
     throw new ValidationError('No files provided');
   }
@@ -337,5 +339,6 @@ publicRouter.post('/:token/attachments/:ticketId', withUpload(uploadAttachments,
     ticket.id, ticket.clientId, req.files
   );
 
+  console.log('[FormAttachment] Stored', attachments.length, 'attachment(s) for ticket:', ticket.id);
   res.status(201).json(attachments);
 }));
