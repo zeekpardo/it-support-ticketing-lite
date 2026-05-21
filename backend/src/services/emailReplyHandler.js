@@ -2,6 +2,7 @@ import { prisma } from '../lib/auth.js';
 import { sanitizeEmailBody, sanitizeEmailHtml } from '../utils/htmlSanitizer.js';
 import { findOrCreateClient, parseFullName } from './emailParticipantManager.js';
 import { sendCommentNotifications } from './notificationService.js';
+import { extractAndUploadDataUris } from './attachmentProcessor.js';
 
 /**
  * Fetch full email content from Resend's Received Emails API.
@@ -80,9 +81,12 @@ export async function handleEmailReply(inboundEmail, inReplyToMessageId) {
     }
   }
 
-  // Sanitize content
+  // Sanitize content — extract data URI images to S3 before sanitizing HTML
   const content = sanitizeEmailBody(inboundEmail.htmlBody || inboundEmail.textBody || '');
-  const contentHtml = inboundEmail.htmlBody ? sanitizeEmailHtml(inboundEmail.htmlBody) : null;
+  let rawHtml = inboundEmail.htmlBody
+    ? await extractAndUploadDataUris(inboundEmail.htmlBody, ticket.id, client.id)
+    : null;
+  const contentHtml = rawHtml ? sanitizeEmailHtml(rawHtml) : null;
 
   // Create comment
   const comment = await prisma.ticketComment.create({
@@ -159,7 +163,10 @@ async function handleParticipantReply(inboundEmail, ticket, memberId) {
   }
 
   const content = sanitizeEmailBody(inboundEmail.htmlBody || inboundEmail.textBody || '');
-  const contentHtml = inboundEmail.htmlBody ? sanitizeEmailHtml(inboundEmail.htmlBody) : null;
+  let rawHtml = inboundEmail.htmlBody
+    ? await extractAndUploadDataUris(inboundEmail.htmlBody, ticket.id, client.id)
+    : null;
+  const contentHtml = rawHtml ? sanitizeEmailHtml(rawHtml) : null;
 
   const comment = await prisma.ticketComment.create({
     data: {

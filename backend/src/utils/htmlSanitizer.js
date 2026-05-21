@@ -131,11 +131,21 @@ function stripQuotedHtml(html) {
   // Gmail: <div class="gmail_quote">...</div>
   cleaned = cleaned.replace(/<div[^>]*class="[^"]*gmail_quote[^"]*"[^>]*>[\s\S]*$/i, '');
 
-  // Outlook: <div id="appendonsend">
+  // Outlook desktop: <div id="appendonsend">
   cleaned = cleaned.replace(/<div[^>]*id="appendonsend"[^>]*>[\s\S]*$/i, '');
 
-  // Outlook: border-top separator pattern
+  // Outlook desktop: border-top separator pattern
   cleaned = cleaned.replace(/<div[^>]*style="[^"]*border-top:\s*solid[^"]*"[^>]*>[\s\S]*$/i, '');
+
+  // Outlook iOS: body separator line div (appears before signature + quoted content)
+  cleaned = cleaned.replace(/<div[^>]*id="ms-outlook-mobile-body-separator-line"[^>]*>[\s\S]*$/i, '');
+
+  // Outlook iOS: signature div
+  cleaned = cleaned.replace(/<div[^>]*id="ms-outlook-mobile-signature"[^>]*>[\s\S]*$/i, '');
+
+  // Outlook iOS: quoted reply div (divRplyFwdMsg) — preceded by <hr> separator
+  cleaned = cleaned.replace(/<hr[^>]*>[\s\S]*?<div[^>]*id="divRplyFwdMsg"[^>]*>[\s\S]*$/i, '');
+  cleaned = cleaned.replace(/<div[^>]*id="divRplyFwdMsg"[^>]*>[\s\S]*$/i, '');
 
   // Apple Mail: <blockquote type="cite">
   cleaned = cleaned.replace(/<blockquote[^>]*type="cite"[^>]*>[\s\S]*$/i, '');
@@ -143,12 +153,11 @@ function stripQuotedHtml(html) {
   // Generic "On ... wrote:" in a block element
   cleaned = cleaned.replace(/<(div|p)[^>]*>[^<]*On [^<]*wrote:\s*<\/(div|p)>[\s\S]*$/i, '');
 
-  // Signature divs
+  // Signature divs by class
   cleaned = cleaned.replace(/<div[^>]*class="[^"]*signature[^"]*"[^>]*>[\s\S]*$/i, '');
 
-  // Mobile signatures as block elements
-  cleaned = cleaned.replace(/<(div|p)[^>]*>[^<]*Sent from my [^<]*<\/(div|p)>[\s\S]*$/gi, '');
-  cleaned = cleaned.replace(/<(div|p)[^>]*>[^<]*Get Outlook for [^<]*<\/(div|p)>[\s\S]*$/gi, '');
+  // Mobile signatures — allow child tags (e.g. <a> inside <p>)
+  cleaned = cleaned.replace(/<(div|p)[^>]*>(?:[^<]|<(?!\/\1))*?Sent from my [\s\S]*?<\/(div|p)>[\s\S]*$/gi, '');
 
   return cleaned;
 }

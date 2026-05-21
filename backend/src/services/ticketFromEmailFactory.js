@@ -4,7 +4,7 @@ import { isStorageConfigured } from '../lib/storage.js';
 import { createNotification } from './notificationService.js';
 import { sendAutoReplyEmail, getOrgBranding } from '../lib/email/index.js';
 import { findOrCreateClient, storeEmailParticipants, parseFullName, parseEmailAddress } from './emailParticipantManager.js';
-import { downloadAndStoreAttachments } from './attachmentProcessor.js';
+import { downloadAndStoreAttachments, extractAndUploadDataUris } from './attachmentProcessor.js';
 
 /**
  * Create a support ticket from an inbound email
@@ -80,9 +80,10 @@ export async function createTicketFromEmail(inboundEmail, emailRule, attachments
     cidToS3Map = await downloadAndStoreAttachments(emailId, ticket.id, client.id);
   }
 
-  // Process HTML body: resolve CID inline images and sanitize
+  // Process HTML body: extract data URI images to S3, resolve CID refs, then sanitize
   if (htmlBody) {
-    const descriptionHtml = sanitizeEmailHtml(htmlBody, cidToS3Map);
+    const htmlWithS3 = await extractAndUploadDataUris(htmlBody, ticket.id, client.id);
+    const descriptionHtml = sanitizeEmailHtml(htmlWithS3, cidToS3Map);
     if (descriptionHtml) {
       await prisma.supportTicket.update({
         where: { id: ticket.id },

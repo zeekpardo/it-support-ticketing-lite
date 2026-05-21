@@ -1,5 +1,5 @@
 import { prisma } from '../lib/auth.js';
-import { uploadFile, generateAttachmentKey } from '../lib/storage.js';
+import { uploadFile, generateAttachmentKey, isStorageConfigured } from '../lib/storage.js';
 
 /**
  * Download attachments from Resend and upload to S3 bucket.
@@ -78,4 +78,54 @@ export async function downloadAndStoreAttachments(emailId, ticketId, uploadedByI
   }
 
   return cidToS3Map;
+}
+
+/**
+ * Extract data: URI images from HTML, upload them to S3, and replace with s3: keys.
+ * Handles Outlook iOS and other clients that embed images as base64 data URIs.
+ * Returns the modified HTML with s3: keys in place of data: URIs.
+ */
+export async function extractAndUploadDataUris(html, ticketId, uploadedById) {
+  if (!html || !isStorageConfigured()) return html;
+
+  // Match src="data:image/xxx;base64,..." — capture mime type and base64 data
+  const dataUriPattern = /src="(data:(image\/[a-zA-Z+]+);base64,([A-Za-z0-9+/=\s]+))"/g;
+  let processed = html;
+  let match;
+  const replacements = [];
+
+  while ((match = dataUriPattern.exec(html)) !== null) {
+    const [fullAttr, dataUri, mimeType, base64Data] = match;
+    const ext = mimeType.split('/')[1]?.replace(/[^a-z0-9]/g, '') || 'png';
+    replacements.push({ fullAttr, dataUri, mimeType, base64Data: base64Data.replace(/\s/g, ''), ext });
+  }
+
+  for (const { fullAttr, dataUri, mimeType, base64Data, ext } of replacements) {
+    try {
+      const buffer = Buffer.from(base64Data, 'base64');
+      const fileName = `inline-image.${ext}`;
+      const key = generateAttachmentKey(ticketId, fileName);
+
+      await uploadFile(buffer, key, mimeType);
+
+      await prisma.ticketAttachment.create({
+        data: {
+          ticketId,
+          fileName,
+          fileSize: buffer.length,
+          fileType: mimeType,
+          fileUrl: `s3:${key}`,
+          isInline: true,
+          uploadedById,
+        },
+      });
+
+      processed = processed.replace(dataUri, `s3:${key}`);
+      console.log('[InboundEmail] Uploaded data URI image to S3:', key);
+    } catch (err) {
+      console.error('[InboundEmail] Failed to upload data URI image:', err.message);
+    }
+  }
+
+  return processed;
 }
