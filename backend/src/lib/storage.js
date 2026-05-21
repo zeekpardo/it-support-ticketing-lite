@@ -7,7 +7,7 @@ let s3Client = null;
 function getS3Client() {
   if (s3Client) return s3Client;
 
-  const endpoint = process.env.BUCKET_ENDPOINT || process.env.ENDPOINT;
+  const endpoint = process.env.BUCKET_ENDPOINT || process.env.BUCKET_ENDPOINT_URL || process.env.ENDPOINT;
   const accessKeyId = process.env.BUCKET_ACCESS_KEY_ID || process.env.ACCESS_KEY_ID;
   const secretAccessKey = process.env.BUCKET_SECRET_ACCESS_KEY || process.env.SECRET_ACCESS_KEY;
   const region = process.env.BUCKET_REGION || process.env.REGION || 'auto';
@@ -32,7 +32,8 @@ const BUCKET_NAME = process.env.BUCKET_NAME || process.env.BUCKET || process.env
  * Check if S3 storage is configured
  */
 export function isStorageConfigured() {
-  return !!(process.env.BUCKET_ENDPOINT && process.env.BUCKET_ACCESS_KEY_ID && process.env.BUCKET_SECRET_ACCESS_KEY && BUCKET_NAME);
+  const endpoint = process.env.BUCKET_ENDPOINT || process.env.BUCKET_ENDPOINT_URL || process.env.ENDPOINT;
+  return !!(endpoint && process.env.BUCKET_ACCESS_KEY_ID && process.env.BUCKET_SECRET_ACCESS_KEY && BUCKET_NAME);
 }
 
 /**

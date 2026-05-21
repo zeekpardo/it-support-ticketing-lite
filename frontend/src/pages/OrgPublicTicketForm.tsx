@@ -99,11 +99,7 @@ export default function OrgPublicTicketForm() {
 
       // Upload attachments if any
       if (attachmentFiles.length > 0 && result.ticketId) {
-        try {
-          await uploadOrgFormAttachments(token!, result.ticketId, attachmentFiles)
-        } catch (attachErr) {
-          console.error('Attachment upload failed:', attachErr)
-        }
+        await uploadOrgFormAttachments(token!, result.ticketId, attachmentFiles)
       }
 
       setStatus('submitted')

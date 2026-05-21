@@ -1,6 +1,6 @@
 import { prisma } from '../lib/auth.js';
-import { NotFoundError } from './errors.js';
-import { uploadFile, generateAttachmentKey } from '../lib/storage.js';
+import { NotFoundError, ValidationError } from './errors.js';
+import { uploadFile, generateAttachmentKey, isStorageConfigured } from '../lib/storage.js';
 
 export async function findInboxOrFail(inboxId, organizationId, options = {}) {
   const inbox = await prisma.inbox.findFirst({
@@ -89,6 +89,9 @@ export async function getAssignedInboxIds(memberId) {
 
 export async function createTicketAttachments(ticketId, uploadedById, files, commentId = null, options = {}) {
   if (!files || files.length === 0) return [];
+  if (!isStorageConfigured()) {
+    throw new ValidationError('File storage is not configured. Contact your administrator.');
+  }
 
   return Promise.all(
     files.map(async (file) => {
