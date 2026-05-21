@@ -2,7 +2,8 @@ import { prisma } from '../lib/auth.js';
 import { sanitizeEmailBody, sanitizeEmailHtml } from '../utils/htmlSanitizer.js';
 import { findOrCreateClient, parseFullName } from './emailParticipantManager.js';
 import { sendCommentNotifications } from './notificationService.js';
-import { extractAndUploadDataUris } from './attachmentProcessor.js';
+import { extractAndUploadDataUris, downloadAndStoreAttachments } from './attachmentProcessor.js';
+import { isStorageConfigured } from '../lib/storage.js';
 
 /**
  * Fetch full email content from Resend's Received Emails API.
@@ -32,7 +33,7 @@ export async function fetchReceivedEmail(emailId) {
  * Handle email reply - add as comment to existing ticket
  * Returns true if successfully handled as a reply, false otherwise
  */
-export async function handleEmailReply(inboundEmail, inReplyToMessageId) {
+export async function handleEmailReply(inboundEmail, inReplyToMessageId, emailId = null) {
   if (!inReplyToMessageId) return false;
 
   // Normalize the message ID — ensure angle brackets are present to match stored format
@@ -109,6 +110,15 @@ export async function handleEmailReply(inboundEmail, inReplyToMessageId) {
     },
   });
 
+  // Download and store any file attachments from Resend, linked to this comment
+  if (emailId && isStorageConfigured()) {
+    try {
+      await downloadAndStoreAttachments(emailId, ticket.id, client.id, comment.id);
+    } catch (attErr) {
+      console.error('[InboundEmail] Error downloading reply attachments:', attErr);
+    }
+  }
+
   // Auto-update ticket status to IN_PROGRESS when client replies via email
   await prisma.supportTicket.update({
     where: { id: ticket.id },
@@ -138,7 +148,7 @@ export async function handleEmailReply(inboundEmail, inReplyToMessageId) {
  * Last-resort fallback: find the most recent ticket where the sender is a known participant
  * and add their email as a comment. Only used after all threading header lookups fail.
  */
-export async function handleReplyAsParticipant(inboundEmail) {
+export async function handleReplyAsParticipant(inboundEmail, emailId = null) {
   const participant = await prisma.ticketEmailParticipant.findFirst({
     where: { email: inboundEmail.from.toLowerCase() },
     include: { ticket: true },
@@ -147,10 +157,10 @@ export async function handleReplyAsParticipant(inboundEmail) {
 
   if (!participant?.ticket) return false;
 
-  return handleParticipantReply(inboundEmail, participant.ticket, participant.memberId);
+  return handleParticipantReply(inboundEmail, participant.ticket, participant.memberId, emailId);
 }
 
-async function handleParticipantReply(inboundEmail, ticket, memberId) {
+async function handleParticipantReply(inboundEmail, ticket, memberId, emailId = null) {
   let client;
 
   if (memberId) {
@@ -186,6 +196,15 @@ async function handleParticipantReply(inboundEmail, ticket, memberId) {
       processedAt: new Date(),
     },
   });
+
+  // Download and store any file attachments from Resend, linked to this comment
+  if (emailId && isStorageConfigured()) {
+    try {
+      await downloadAndStoreAttachments(emailId, ticket.id, client.id, comment.id);
+    } catch (attErr) {
+      console.error('[InboundEmail] Error downloading reply attachments:', attErr);
+    }
+  }
 
   // Auto-update ticket status to IN_PROGRESS when client replies via email
   await prisma.supportTicket.update({

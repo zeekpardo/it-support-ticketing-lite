@@ -83,7 +83,7 @@ export async function processInboundEmail(payload) {
   try {
     // Check if this is a reply to an existing ticket (email threading)
     if (inReplyTo) {
-      const handled = await handleEmailReply(inboundEmail, inReplyTo);
+      const handled = await handleEmailReply(inboundEmail, inReplyTo, email_id);
       if (handled) {
         console.log('[InboundEmail] Processed as reply to existing ticket');
         return;
@@ -102,8 +102,9 @@ export async function processInboundEmail(payload) {
       } catch {
         referencedIds = references.split(/\s+/).filter(Boolean);
       }
+      console.log('[InboundEmail] Checking References IDs:', referencedIds);
       for (const refId of referencedIds.reverse()) {
-        const handled = await handleEmailReply(inboundEmail, refId);
+        const handled = await handleEmailReply(inboundEmail, refId, email_id);
         if (handled) {
           console.log('[InboundEmail] Processed as reply via References header');
           return;
@@ -112,7 +113,7 @@ export async function processInboundEmail(payload) {
     }
 
     // Last resort: sender is a known participant on an existing ticket
-    const handledByParticipant = await handleReplyAsParticipant(inboundEmail);
+    const handledByParticipant = await handleReplyAsParticipant(inboundEmail, email_id);
     if (handledByParticipant) {
       console.log('[InboundEmail] Processed as reply via participant fallback');
       return;

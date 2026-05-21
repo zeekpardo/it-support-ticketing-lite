@@ -5,8 +5,9 @@ import { uploadFile, generateAttachmentKey, isStorageConfigured } from '../lib/s
  * Download attachments from Resend and upload to S3 bucket.
  * Creates TicketAttachment records for each file.
  * Returns a Map of contentId → s3Key for inline images (used for CID replacement in HTML).
+ * Optional commentId links attachments to a specific comment (for email replies).
  */
-export async function downloadAndStoreAttachments(emailId, ticketId, uploadedById) {
+export async function downloadAndStoreAttachments(emailId, ticketId, uploadedById, commentId = null) {
   const apiKey = process.env.RESEND_API_KEY;
   const cidToS3Map = new Map();
   if (!apiKey) return cidToS3Map;
@@ -51,6 +52,7 @@ export async function downloadAndStoreAttachments(emailId, ticketId, uploadedByI
         await prisma.ticketAttachment.create({
           data: {
             ticketId,
+            commentId: commentId || null,
             fileName: att.filename || 'attachment',
             fileSize: att.size || buffer.length,
             fileType: att.content_type || 'application/octet-stream',
