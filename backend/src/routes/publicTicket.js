@@ -9,6 +9,7 @@ import { createTicketAttachments } from '../utils/entityHelpers.js';
 import { uploadAttachments } from '../middleware/upload.js';
 import { withUpload } from '../middleware/asyncHandler.js';
 import { createNotification } from '../services/notificationService.js';
+import { sanitizeCommentHtml } from '../utils/htmlSanitizer.js';
 
 const router = express.Router();
 
@@ -54,7 +55,7 @@ router.get('/:token', asyncHandler(async (req, res) => {
 
 // POST /:token — Submit ticket
 router.post('/:token', asyncHandler(async (req, res) => {
-  const { firstName, lastName, email, subject, description, priorityLevel: rawPriority } = req.body;
+  const { firstName, lastName, email, subject, description, descriptionHtml: rawDescriptionHtml, priorityLevel: rawPriority } = req.body;
   const VALID_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
   const priorityLevel = VALID_PRIORITIES.includes(rawPriority) ? rawPriority : 'MEDIUM';
 
@@ -156,6 +157,7 @@ router.post('/:token', asyncHandler(async (req, res) => {
       requestType: 'GENERAL_SUPPORT',
       priorityLevel,
       description,
+      descriptionHtml: rawDescriptionHtml ? sanitizeCommentHtml(rawDescriptionHtml) : null,
       dueDate,
     },
   });

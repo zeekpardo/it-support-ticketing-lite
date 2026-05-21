@@ -102,6 +102,7 @@ export default function PublicTicketForm() {
       email: data.email,
       subject: data.subject,
       description: data.description,
+      descriptionHtml: data.descriptionHtml,
       priorityLevel: data.priorityLevel,
     })
   }

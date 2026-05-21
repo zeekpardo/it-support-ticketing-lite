@@ -8,6 +8,7 @@ import { createNotification } from '../../services/notificationService.js';
 import { sendTicketSubmittedEmail, getOrgBranding } from '../../lib/email/index.js';
 import { sanitizeUrl } from '../../utils/sanitize.js';
 import { resolveS3ImageUrls, resolveAttachmentUrl } from '../../utils/resolveS3Urls.js';
+import { sanitizeCommentHtml } from '../../utils/htmlSanitizer.js';
 import {
   USER_SELECT, USER_SELECT_BRIEF, MEMBER_WITH_USER, MEMBER_WITH_USER_BRIEF,
   MEMBER_WITH_ROLE_AND_USER, INBOX_SELECT_BRIEF, STAGE_SELECT,
@@ -128,7 +129,7 @@ router.get('/:id', requireStaff, asyncHandler(async (req, res) => {
 router.post('/', requireStaff, asyncHandler(async (req, res) => {
   const {
     inboxId, clientId, firstName, lastName, email, phone,
-    subject, requestType, priorityLevel, description,
+    subject, requestType, priorityLevel, description, descriptionHtml: rawDescriptionHtml,
     screenRecordingLink, dueDate, stageId,
   } = req.body;
 
@@ -210,6 +211,7 @@ router.post('/', requireStaff, asyncHandler(async (req, res) => {
       requestType: requestType || 'GENERAL_INQUIRY',
       priorityLevel: priorityLevel || 'MEDIUM',
       description,
+      descriptionHtml: rawDescriptionHtml ? sanitizeCommentHtml(rawDescriptionHtml) : null,
       screenRecordingLink: sanitizeUrl(screenRecordingLink, 'screenRecordingLink'),
       dueDate: calculatedDueDate,
     },

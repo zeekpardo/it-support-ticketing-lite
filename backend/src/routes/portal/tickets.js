@@ -10,6 +10,7 @@ import { createNotification } from '../../services/notificationService.js';
 import { INBOX_SELECT_BRIEF, MEMBER_WITH_USER_BRIEF, MEMBER_WITH_ROLE_AND_USER_BRIEF } from '../../utils/prismaFragments.js';
 import { uploadFile, generateAttachmentKey, isStorageConfigured } from '../../lib/storage.js';
 import { resolveS3ImageUrls, resolveAttachmentUrl } from '../../utils/resolveS3Urls.js';
+import { sanitizeCommentHtml } from '../../utils/htmlSanitizer.js';
 
 const router = express.Router();
 
@@ -112,6 +113,7 @@ router.post('/', asyncHandler(async (req, res) => {
     requestType,
     priorityLevel,
     description,
+    descriptionHtml: rawDescriptionHtml,
     screenRecordingLink
   } = req.body;
 
@@ -183,6 +185,7 @@ router.post('/', asyncHandler(async (req, res) => {
       requestType: requestType || 'GENERAL_SUPPORT',
       priorityLevel: effectivePriority,
       description,
+      descriptionHtml: rawDescriptionHtml ? sanitizeCommentHtml(rawDescriptionHtml) : null,
       screenRecordingLink: sanitizeUrl(screenRecordingLink, 'screenRecordingLink'),
       dueDate
     },

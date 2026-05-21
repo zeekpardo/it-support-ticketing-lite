@@ -97,6 +97,7 @@ export async function createTicket(data: {
   requestType?: string
   priorityLevel?: string
   description: string
+  descriptionHtml?: string
   screenRecordingLink?: string
   dueDate?: string
 }) {

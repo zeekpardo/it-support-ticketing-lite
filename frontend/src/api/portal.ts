@@ -36,6 +36,7 @@ export async function submitPortalTicket(data: {
   requestType?: string
   priorityLevel?: string
   description: string
+  descriptionHtml?: string
   screenRecordingLink?: string
 }) {
   return request<any>('/portal/tickets', {

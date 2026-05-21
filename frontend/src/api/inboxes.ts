@@ -174,6 +174,7 @@ export async function submitPublicTicket(token: string, data: {
   email: string
   subject: string
   description: string
+  descriptionHtml?: string
   priorityLevel?: string
 }) {
   return publicRequest<{ success: boolean; ticketId: string }>(`/public/submit/${token}`, {

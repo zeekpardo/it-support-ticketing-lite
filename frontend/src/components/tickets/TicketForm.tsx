@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Select } from '../ui/select'
-import { Textarea } from '../ui/textarea'
+import { RichTextEditor } from '../ui/rich-text-editor'
+import type { RichTextEditorRef } from '../ui/rich-text-editor'
 import { Field, FieldGroup, Label, Description } from '../ui/fieldset'
 import { FileUpload } from '../ui/file-upload'
 
@@ -16,6 +17,7 @@ interface TicketFormData {
   requestType: string
   priorityLevel: string
   description: string
+  descriptionHtml?: string
   screenRecordingLink: string
 }
 
@@ -70,7 +72,9 @@ export function TicketForm({
   const autoSelectedInboxId = inboxes.length === 1 ? inboxes[0].id : undefined
   const effectiveInboxId = preselectedInboxId || autoSelectedInboxId
 
-  const [formData, setFormData] = useState<TicketFormData>({
+  const editorRef = useRef<RichTextEditorRef>(null)
+
+  const [formData, setFormData] = useState<Omit<TicketFormData, 'description' | 'descriptionHtml'>>({
     inboxId: effectiveInboxId || initialData?.inboxId || '',
     firstName: initialData?.firstName || '',
     lastName: initialData?.lastName || '',
@@ -79,7 +83,6 @@ export function TicketForm({
     subject: initialData?.subject || '',
     requestType: initialData?.requestType || 'GENERAL_SUPPORT',
     priorityLevel: initialData?.priorityLevel || 'MEDIUM',
-    description: initialData?.description || '',
     screenRecordingLink: initialData?.screenRecordingLink || ''
   })
 
@@ -102,8 +105,11 @@ export function TicketForm({
     e.preventDefault()
     setError(null)
 
+    const description = editorRef.current?.getText()?.trim() || ''
+    const descriptionHtml = editorRef.current?.isEmpty() ? '' : (editorRef.current?.getHTML() || '')
+
     // Validate required fields
-    if (!formData.inboxId || !formData.subject || !formData.description) {
+    if (!formData.inboxId || !formData.subject || !description) {
       setError('Please fill in all required fields')
       return
     }
@@ -117,17 +123,19 @@ export function TicketForm({
     setSubmitting(true)
     try {
       // Only include contact fields if they're shown
-      const submitData = showContactFields
-        ? formData
+      const submitData: TicketFormData = showContactFields
+        ? { ...formData, description, descriptionHtml: descriptionHtml || undefined }
         : {
             inboxId: formData.inboxId,
+            firstName: '', lastName: '', email: '', phone: '',
             subject: formData.subject,
             requestType: formData.requestType,
             priorityLevel: formData.priorityLevel,
-            description: formData.description,
+            description,
+            descriptionHtml: descriptionHtml || undefined,
             screenRecordingLink: formData.screenRecordingLink
           }
-      const result = await onSubmit(submitData as TicketFormData)
+      const result = await onSubmit(submitData)
 
       // Upload attachments if any were selected
       if (attachmentFiles.length > 0 && onUploadAttachments && result?.id) {
@@ -269,12 +277,11 @@ export function TicketForm({
           <Field>
             <Label>Describe Issue *</Label>
             <Description>Describe the issue with as much information and detail as possible</Description>
-            <Textarea
-              value={formData.description}
-              onChange={e => handleChange('description', e.target.value)}
-              rows={5}
+            <RichTextEditor
+              ref={editorRef}
               placeholder="Please provide details about your issue..."
-              required
+              initialContent={initialData?.description}
+              disabled={submitting || isLoading}
             />
           </Field>
 
