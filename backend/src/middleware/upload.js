@@ -60,6 +60,13 @@ export const uploadAttachments = multer({
   }
 }).array('attachments', 5); // Up to 5 files
 
+// === PUBLIC FORM ATTACHMENT UPLOAD (permissive — type filtering done in handler) ===
+export const uploadPublicFormFiles = multer({
+  storage: memoryStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB per file
+  fileFilter: (req, file, cb) => cb(null, true), // accept all; handler filters
+}).array('attachments', 5);
+
 // === ORG LOGO UPLOAD ===
 export const uploadLogo = multer({
   storage: memoryStorage,

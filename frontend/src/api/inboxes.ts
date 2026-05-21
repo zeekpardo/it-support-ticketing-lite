@@ -234,11 +234,18 @@ export async function submitOrgFormTicket(token: string, data: {
   description: string
   priorityLevel?: string
   screenRecordingLink?: string
+  files?: File[]
 }) {
-  return publicRequest<{ success: boolean; ticketId: string }>(`/public/org-form/${token}`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  })
+  const formData = new FormData()
+  formData.append('firstName', data.firstName)
+  formData.append('lastName', data.lastName)
+  formData.append('email', data.email)
+  formData.append('subject', data.subject)
+  formData.append('description', data.description)
+  if (data.priorityLevel) formData.append('priorityLevel', data.priorityLevel)
+  if (data.screenRecordingLink) formData.append('screenRecordingLink', data.screenRecordingLink)
+  data.files?.forEach(file => formData.append('attachments', file))
+  return publicUpload<{ success: boolean; ticketId: string }>(`/public/org-form/${token}`, formData)
 }
 
 export async function uploadOrgFormAttachments(token: string, ticketId: string, files: File[]) {

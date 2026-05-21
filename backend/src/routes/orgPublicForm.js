@@ -7,7 +7,7 @@ import { NotFoundError, ValidationError } from '../utils/errors.js';
 import { resolveFileUrl } from '../lib/storage.js';
 import { markPublicTicketEmail, consumePublicTicketContext, sendPublicTicketConfirmationEmail, getOrgBranding, getFrontendUrl } from '../lib/email/index.js';
 import { createTicketAttachments } from '../utils/entityHelpers.js';
-import { uploadAttachments } from '../middleware/upload.js';
+import { uploadAttachments, uploadPublicFormFiles } from '../middleware/upload.js';
 import { createNotification } from '../services/notificationService.js';
 
 const generateId = () => crypto.randomBytes(16).toString('hex');
@@ -152,8 +152,8 @@ publicRouter.get('/:token', asyncHandler(async (req, res) => {
   });
 }));
 
-// POST /api/public/org-form/:token — Submit ticket
-publicRouter.post('/:token', asyncHandler(async (req, res) => {
+// POST /api/public/org-form/:token — Submit ticket (accepts multipart with optional file attachments)
+publicRouter.post('/:token', withUpload(uploadPublicFormFiles, async (req, res) => {
   const { firstName, lastName, email, subject, description, priorityLevel: rawPriority, screenRecordingLink } = req.body;
   const VALID_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
   const priorityLevel = VALID_PRIORITIES.includes(rawPriority) ? rawPriority : 'MEDIUM';
@@ -255,6 +255,16 @@ publicRouter.post('/:token', asyncHandler(async (req, res) => {
       dueDate,
     },
   });
+
+  // Upload any attached files
+  if (req.files && req.files.length > 0) {
+    try {
+      await createTicketAttachments(ticket.id, memberId, req.files);
+      console.log('[FormAttachment] Stored', req.files.length, 'attachment(s) for ticket:', ticket.id);
+    } catch (attErr) {
+      console.error('[FormAttachment] Error uploading attachments:', attErr.message);
+    }
+  }
 
   // Send confirmation email with magic link
   const branding = await getOrgBranding(orgId);

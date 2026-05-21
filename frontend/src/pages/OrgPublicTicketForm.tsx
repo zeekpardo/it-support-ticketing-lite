@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
-import { getOrgFormInfo, submitOrgFormTicket, uploadOrgFormAttachments } from '../api/inboxes'
+import { getOrgFormInfo, submitOrgFormTicket } from '../api/inboxes'
 import { Heading } from '@/components/ui/heading'
 import { Text } from '@/components/ui/text'
 import { Button } from '@/components/ui/button'
@@ -87,7 +87,7 @@ export default function OrgPublicTicketForm() {
 
     setSubmitting(true)
     try {
-      const result = await submitOrgFormTicket(token!, {
+      await submitOrgFormTicket(token!, {
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
@@ -95,12 +95,8 @@ export default function OrgPublicTicketForm() {
         description: formData.description,
         priorityLevel: formData.priorityLevel,
         screenRecordingLink: formData.screenRecordingLink || undefined,
+        files: attachmentFiles.length > 0 ? attachmentFiles : undefined,
       })
-
-      // Upload attachments if any
-      if (attachmentFiles.length > 0 && result.ticketId) {
-        await uploadOrgFormAttachments(token!, result.ticketId, attachmentFiles)
-      }
 
       setStatus('submitted')
     } catch (err) {
