@@ -80,8 +80,8 @@ export async function createTicketFromEmail(inboundEmail, emailRule, attachments
     cidToS3Map = await downloadAndStoreAttachments(emailId, ticket.id, client.id);
   }
 
-  // Process HTML body with inline image references resolved
-  if (htmlBody && cidToS3Map.size > 0) {
+  // Process HTML body: resolve CID inline images and sanitize
+  if (htmlBody) {
     const descriptionHtml = sanitizeEmailHtml(htmlBody, cidToS3Map);
     if (descriptionHtml) {
       await prisma.supportTicket.update({

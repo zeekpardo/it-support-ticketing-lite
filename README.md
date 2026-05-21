@@ -1,33 +1,70 @@
 # Groovi Support
 
-A multi-tenant support ticket management application with team management, project tracking, and reporting capabilities.
+A multi-tenant support ticket management platform with email-based ticketing, client portal, software access management, and team collaboration tools.
 
 ## Features
 
-- **Timer & Manual Entry**: Start/stop timer or log time manually
-- **Multi-tenant Organizations**: Create and manage multiple organizations
-- **Team Management**: Invite members, assign roles (Owner, Admin, Member)
-- **Project Management**: Create and organize projects with codes and client names
-- **Reports & Export**: View summaries by project/user/date, export to CSV
-- **Role-based Access**:
-  - **Members**: Log own time, view own reports
-  - **Admins**: Manage projects, view all team time
-  - **Owners**: Full control including member management
+### Ticket Management
+- **Inboxes** — Organize tickets by team or topic; assign default staff, stages, and SLA due dates per inbox
+- **Kanban Stages** — Drag-and-drop ticket pipeline with customizable stages per inbox
+- **Priority & Status** — Four priority levels (Low, Medium, High, Urgent) with auto-calculated due dates; status tracking (New, In Progress, Waiting, Review, Resolved)
+- **Assignment** — Assign tickets to staff members with in-app and email notifications on assignment
+- **Time Entries** — Log billable time directly on tickets
+- **Attachments** — File uploads stored in S3-compatible storage
+- **Internal Comments** — Private notes visible only to staff; public comments visible to clients
+
+### Email-Based Ticketing
+- **Inbound Email** — Receive emails via Resend webhooks; auto-create tickets or thread replies onto existing tickets
+- **Email Rules** — Route inbound emails to inboxes by exact address, sender domain, or catch-all
+- **Reply Threading** — Full RFC 5322 threading (`Message-ID`, `In-Reply-To`, `References`); handles Outlook and Gmail reply chains
+- **Auto-Reply** — Configurable per-inbox auto-reply sent when a new ticket is created via email
+- **Outbound Emails** — Threaded reply emails to clients when staff comments on a ticket
+- **Custom Email Domains** — Send from your own domain via Resend domain verification
+
+### Client Portal
+- **Magic Link Auth** — Passwordless login for clients via email link (no account creation required)
+- **Ticket Submission** — Public intake form per organization; clients can also submit via the portal
+- **Client Ticket View** — Clients see their own tickets, comment history, and status
+- **Software Access Requests** — Clients can request access to software managed by the team
+
+### Software Access Management
+- **Software Catalog** — Maintain a catalog of software tools organized by category
+- **Inbox Software** — Assign software to inboxes; designate admins responsible for access
+- **Access Requests** — Clients request access; admins approve or deny with notification
+- **Renewal Notifications** — Track software renewal dates with automated reminders
+
+### Notifications
+- **In-App Notifications** — Real-time bell notifications for ticket assignments, new replies, mentions, and access requests
+- **Email Notifications** — Email alerts for assignees when clients reply via email or portal
+
+### Organization & Team
+- **Multi-Tenancy** — Fully isolated organizations; each with their own inboxes, members, and settings
+- **Roles** — Four roles: Owner, Manager, Staff, Client — with scoped access controls
+- **Invitations** — Invite staff by email with optional inbox pre-assignment
+- **Branding** — Custom logo and colors per organization (applied to client-facing emails and portal)
+- **Reports** — Time entry and ticket reports scoped by inbox, staff member, or date range
+
+### Super Admin
+- **Platform Admin Panel** — Manage all organizations, impersonate users, and configure system-wide settings
 
 ## Tech Stack
 
 ### Backend
-- **Node.js + Express** - REST API
-- **Prisma ORM** - Database access with SQLite
-- **Better Auth** - Authentication with organization plugin
-- **Railway** - Deployment platform
+- **Node.js 22+ + Express** — REST API
+- **Prisma ORM + PostgreSQL** — Database (Railway Postgres)
+- **Better Auth** — Authentication with organization and magic link plugins
+- **Resend** — Transactional email and inbound email webhooks
+- **AWS S3 / S3-compatible** — File and attachment storage
 
 ### Frontend
-- **React 18** + TypeScript
-- **Vite** - Build tool
-- **Tailwind CSS v4** - Styling
-- **Catalyst UI** - Component library
-- **React Router** - Navigation
+- **React 18 + TypeScript**
+- **Vite** — Build tool
+- **Tailwind CSS v4** — Styling
+- **React Router** — Navigation
+
+### Infrastructure
+- **Railway** — Two services: backend API + frontend static site
+- **Resend** — Email delivery and inbound routing
 
 ## Project Structure
 
@@ -35,57 +72,76 @@ A multi-tenant support ticket management application with team management, proje
 timetracking/
 ├── backend/
 │   ├── prisma/
-│   │   └── schema.prisma      # Database schema
+│   │   └── schema.prisma          # Database schema
 │   ├── src/
-│   │   ├── index.js           # Express app
+│   │   ├── index.js               # Express app entry point
 │   │   ├── lib/
-│   │   │   └── auth.js        # Better Auth config
+│   │   │   ├── auth.js            # Better Auth config + Prisma client
+│   │   │   └── email/
+│   │   │       ├── client.js      # Resend email sender
+│   │   │       ├── threading.js   # Message-ID generation + References chain
+│   │   │       ├── templates.js   # Email HTML templates
+│   │   │       ├── branding.js    # Per-org branding helpers
+│   │   │       ├── index.js       # Public email API
+│   │   │       └── mailers/       # Specific email senders (ticket, software, auth)
 │   │   ├── middleware/
-│   │   │   └── auth.js        # Auth middleware
+│   │   │   ├── auth.js            # requireStaff, requireAdmin, etc.
+│   │   │   └── asyncHandler.js
 │   │   ├── routes/
-│   │   │   ├── timeEntries.js # Time entry CRUD
-│   │   │   ├── projects.js    # Project management
-│   │   │   └── reports.js     # Reports & export
+│   │   │   ├── tickets/           # Ticket CRUD, comments, attachments, time entries
+│   │   │   ├── inboxes.js         # Inbox management
+│   │   │   ├── email-rules.js     # Email routing rules
+│   │   │   ├── email-domains.js   # Custom domain setup
+│   │   │   ├── members.js         # Team member management
+│   │   │   ├── notifications.js   # In-app notifications
+│   │   │   ├── portal/            # Client portal routes
+│   │   │   ├── inbox-software.js  # Software catalog per inbox
+│   │   │   ├── branding.js        # Org branding settings
+│   │   │   ├── reports.js         # Time & ticket reports
+│   │   │   ├── webhooks/          # Resend inbound email webhook
+│   │   │   └── superAdmin.js      # Platform admin routes
+│   │   ├── services/
+│   │   │   ├── inboundEmailService.js   # Webhook processing + threading logic
+│   │   │   ├── emailReplyHandler.js     # Reply-to-comment matching
+│   │   │   ├── ticketFromEmailFactory.js # New ticket creation from email
+│   │   │   ├── emailRuleMatcher.js      # Inbox routing rule matching
+│   │   │   ├── notificationService.js   # In-app + email notifications
+│   │   │   └── emailParticipantManager.js # CC/To participant tracking
 │   │   └── utils/
-│   │       └── csv.js         # CSV generation
-│   ├── package.json
-│   └── .env
+│   └── package.json
 ├── frontend/
 │   ├── src/
-│   │   ├── components/        # Reusable components
-│   │   │   ├── ui/           # Catalyst UI components
-│   │   │   ├── Layout.tsx
-│   │   │   ├── Timer.tsx
-│   │   │   └── ...
-│   │   ├── context/          # React contexts
-│   │   ├── pages/            # Page components
-│   │   ├── api/              # API client
-│   │   └── lib/              # Auth client
-│   ├── package.json
-│   └── vite.config.ts
+│   │   ├── pages/                 # Page components
+│   │   ├── components/            # Shared UI components
+│   │   ├── context/               # React contexts (auth, org)
+│   │   └── api/                   # API client helpers
+│   └── package.json
 └── README.md
 ```
 
 ## Getting Started
 
 ### Prerequisites
-- Node.js 18+
-- npm or yarn
+- Node.js 22+
+- PostgreSQL database
+- Resend account (for email)
+- S3-compatible storage (for attachments)
 
 ### Backend Setup
 
 ```bash
 cd backend
 
-# Install dependencies
 npm install
 
-# Create .env file
+# Copy and configure environment variables
 cp .env.example .env
-# Edit .env with your settings
 
-# Initialize database
+# Push schema to database
 npx prisma db push
+
+# (Optional) Seed initial data
+npm run db:seed
 
 # Start development server
 npm run dev
@@ -96,202 +152,92 @@ npm run dev
 ```bash
 cd frontend
 
-# Install dependencies
 npm install
 
-# Start development server
 npm run dev
 ```
 
-The app will be available at http://localhost:5173
+The app runs at `http://localhost:5173` with the backend at `http://localhost:3001`.
 
 ## Environment Variables
 
-### Backend (.env)
-```
-DATABASE_URL="file:./dev.db"
+### Backend
+
+```env
+# Database
+DATABASE_URL="postgresql://user:pass@host:5432/dbname"
+
+# Auth
 BETTER_AUTH_SECRET="your-secret-key-min-32-characters"
-BETTER_AUTH_URL="http://localhost:3001"
+BETTER_AUTH_URL="https://api.yourdomain.com"
+FRONTEND_URL="https://app.yourdomain.com"
+
+# Email (Resend)
+RESEND_API_KEY="re_..."
+FROM_EMAIL="Groovi Support <support@yourdomain.com>"
+EMAIL_DOMAIN="yourdomain.com"
+
+# Client portal base URL (for magic links)
+BASE_DOMAIN="yourdomain.com"
+
+# Storage (S3-compatible)
+AWS_ACCESS_KEY_ID="..."
+AWS_SECRET_ACCESS_KEY="..."
+AWS_REGION="us-east-1"
+AWS_S3_BUCKET="your-bucket"
+AWS_S3_ENDPOINT="https://..."   # optional, for non-AWS providers
+
+NODE_ENV="production"
 PORT=3001
-FRONTEND_URL="http://localhost:5173"
 ```
 
-### Frontend (.env)
+### Frontend
+
+```env
+VITE_API_URL="https://api.yourdomain.com"
 ```
-VITE_API_URL="http://localhost:3001"
-```
 
-In development, the frontend proxies API requests to the backend automatically via Vite config.
+## Email Setup (Resend)
 
-## API Endpoints
-
-### Authentication (handled by Better Auth)
-- `POST /api/auth/sign-up/email` - Register
-- `POST /api/auth/sign-in/email` - Login
-- `POST /api/auth/sign-out` - Logout
-
-### Time Entries
-- `GET /api/time-entries` - List entries
-- `POST /api/time-entries` - Create entry
-- `PUT /api/time-entries/:id` - Update entry
-- `DELETE /api/time-entries/:id` - Delete entry
-- `POST /api/time-entries/:id/stop` - Stop timer
-
-### Projects
-- `GET /api/projects` - List projects
-- `POST /api/projects` - Create project
-- `PUT /api/projects/:id` - Update project
-- `DELETE /api/projects/:id` - Delete/archive project
-
-### Reports
-- `GET /api/reports/summary` - Get summary report
-- `GET /api/reports/export` - Export to CSV
-- `GET /api/reports/billing` - Billing report
+1. **Add your domain** in Resend → Domains and verify DNS records
+2. **Configure inbound routing** — Point your MX records to Resend's inbound servers and register a webhook pointing to `https://api.yourdomain.com/api/webhooks/inbound-email`
+3. **Create email rules** in the app (Settings → Email Rules) to route inbound emails to the correct inbox:
+   - `EXACT_ADDRESS` — Match a specific recipient address (e.g. `support@yourdomain.com`)
+   - `DOMAIN` — Match all emails from a sender domain
+   - `CATCH_ALL` — Fallback for any unmatched inbound email
+4. Set `FROM_EMAIL` to an address on your verified Resend domain
 
 ## Deployment on Railway
 
-This app is configured for deployment on Railway as two separate services.
+Two services — backend and frontend — deployed from the same GitHub repository.
 
-### ⚠️ Important: Custom Domain Setup (Recommended)
+### Backend Service
+- Root directory: `backend`
+- Start command: `npm run start` (runs `prisma generate && prisma db push && node src/index.js`)
+- Add a **PostgreSQL** database; Railway injects `DATABASE_URL` automatically
+- Set all backend environment variables listed above
 
-For production deployments, using a custom domain is **highly recommended** to avoid third-party cookie blocking issues. Modern browsers (especially Chrome) block third-party cookies by default, which breaks authentication when frontend and backend are on different Railway-provided domains.
+### Frontend Service
+- Root directory: `frontend`
+- Build command: `npm run build`
+- Publish directory: `dist`
+- Set `VITE_API_URL` to your backend's public URL
 
-**Custom Domain Benefits:**
-- ✅ First-party cookies work reliably across all browsers
-- ✅ More secure cookie settings (SameSite=Lax instead of None)
-- ✅ Professional URLs for your application
-- ✅ No authentication issues
+### Custom Domains (Required for Auth)
 
-**Example Custom Domain Setup:**
+Modern browsers block third-party cookies, which breaks authentication when frontend and backend are on different domains. Use subdomains of the same root domain:
+
 - Frontend: `app.yourdomain.com`
 - Backend: `api.yourdomain.com`
 
-Since both services share the same root domain, cookies are treated as first-party.
+Add custom domains in each Railway service under Settings → Networking → Custom Domain, then update your DNS with the provided CNAME records.
 
-### Option A: Deploy via Railway Dashboard (Recommended)
+### Super Admin Access
 
-#### 1. Deploy Backend
-
-1. Go to [railway.app](https://railway.app) and create a new project
-2. Click "New Service" → "GitHub Repo" and select this repository
-3. Set the **Root Directory** to `backend`
-4. Add a **Postgres database** (recommended) or use SQLite with a volume
-5. Configure environment variables:
-   ```
-   DATABASE_URL         → (auto-provided if using Railway Postgres)
-   BETTER_AUTH_SECRET   → (generate a secure 32+ char string)
-   BETTER_AUTH_URL      → https://api.yourdomain.com (or Railway URL temporarily)
-   FRONTEND_URL         → https://app.yourdomain.com (or Railway URL temporarily)
-   NODE_ENV             → production
-   ```
-6. **Add Custom Domain** (Settings → Networking → Custom Domain):
-   - Enter `api.yourdomain.com`
-   - Add the CNAME record to your DNS provider as shown
-   - Wait 5-15 minutes for SSL provisioning
-7. Deploy and note the generated URL
-
-#### 2. Deploy Frontend
-
-1. In the same project, click "New Service" → "GitHub Repo"
-2. Set the **Root Directory** to `frontend`
-3. Configure environment variables:
-   ```
-   VITE_API_URL → https://api.yourdomain.com (or Railway URL temporarily)
-   ```
-4. **Add Custom Domain** (Settings → Networking → Custom Domain):
-   - Enter `app.yourdomain.com`
-   - Add the CNAME record to your DNS provider
-   - Wait for SSL provisioning
-5. Deploy
-
-### Option B: Deploy via Railway CLI
-
-```bash
-# Install Railway CLI
-npm install -g @railway/cli
-
-# Login
-railway login
-
-# Create project
-railway init
-
-# Deploy backend
-cd backend
-railway link
-railway up
-
-# Deploy frontend (in separate service)
-cd ../frontend
-railway link
-railway up
-```
-
-### Database Options
-
-**PostgreSQL (Recommended for production):**
-- Add a Postgres database in Railway dashboard
-- Railway auto-injects `DATABASE_URL`
-- Update your Prisma schema provider from `sqlite` to `postgresql`
-
-**SQLite with Volume:**
-- Add a volume mounted at `/data`
-- Set `DATABASE_URL="file:/data/prod.db"`
-- Note: SQLite has limitations for concurrent connections
-
-### Post-Deployment
-
-#### With Custom Domains:
-1. Once SSL certificates are provisioned (5-15 minutes), update environment variables:
-   - Backend: `BETTER_AUTH_URL=https://api.yourdomain.com`, `FRONTEND_URL=https://app.yourdomain.com`
-   - Frontend: `VITE_API_URL=https://api.yourdomain.com`
-2. Redeploy both services
-3. Access your app at `https://app.yourdomain.com`
-
-#### Without Custom Domains (Testing Only):
-1. Update `BETTER_AUTH_URL` to match your backend's Railway URL
-2. Update `FRONTEND_URL` to match your frontend's Railway URL
-3. Update `VITE_API_URL` in frontend to match backend URL
-4. Redeploy both services
-5. **Note:** You may experience authentication issues due to browser third-party cookie blocking
-
-### Troubleshooting
-
-#### Authentication 401 Errors
-**Symptom:** Getting 401 Unauthorized when creating organization or accessing API
-
-**Solutions:**
-1. **Use Custom Domain (Recommended):** Configure custom domains as described above
-2. **Verify Cookie Settings:** Check browser DevTools → Application → Cookies to see if session cookies are being set
-3. **Check Environment Variables:**
-   - Backend `FRONTEND_URL` must match the URL you're accessing the app from
-   - Frontend `VITE_API_URL` must point to the backend
-   - `NODE_ENV=production` must be set in backend
-4. **Browser Cookie Settings:** If testing without custom domain, temporarily allow all cookies in Chrome
-
-#### SSL Certificate Not Provisioning
-- Wait 15-30 minutes for Railway to provision SSL certificates
-- Verify DNS records are correctly pointing to Railway (use `dig yourdomain.com`)
-- Check Railway service logs for SSL provisioning status
-
-### Creating a Super Admin
-
-To access the super admin panel (`/super-admin`), update a user's role in the database:
+Grant super admin access by setting a user's role in the database:
 
 ```sql
-UPDATE "User" SET role = 'admin' WHERE email = 'your@email.com';
+UPDATE "user" SET role = 'admin' WHERE email = 'your@email.com';
 ```
 
-Or using the provided script:
-```bash
-cd backend
-DATABASE_URL="your-database-url" node make-admin.js
-```
-
-## Future Enhancements
-
-- [ ] Chrome extension for quick time tracking
-- [ ] Hourly rate configuration per project
-- [ ] Invoice generation
-- [ ] Integrations (Slack, calendar)
-- [ ] Mobile app
+The super admin panel is available at `/super-admin`.

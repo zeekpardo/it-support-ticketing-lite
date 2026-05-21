@@ -1,5 +1,5 @@
 import { prisma } from '../lib/auth.js';
-import { sanitizeEmailBody } from '../utils/htmlSanitizer.js';
+import { sanitizeEmailBody, sanitizeEmailHtml } from '../utils/htmlSanitizer.js';
 import { findOrCreateClient, parseFullName } from './emailParticipantManager.js';
 import { sendCommentNotifications } from './notificationService.js';
 
@@ -82,6 +82,7 @@ export async function handleEmailReply(inboundEmail, inReplyToMessageId) {
 
   // Sanitize content
   const content = sanitizeEmailBody(inboundEmail.htmlBody || inboundEmail.textBody || '');
+  const contentHtml = inboundEmail.htmlBody ? sanitizeEmailHtml(inboundEmail.htmlBody) : null;
 
   // Create comment
   const comment = await prisma.ticketComment.create({
@@ -89,6 +90,7 @@ export async function handleEmailReply(inboundEmail, inReplyToMessageId) {
       ticketId: ticket.id,
       authorId: client.id,
       content,
+      contentHtml,
       isInternal: false, // Client comments are always public
     },
   });
@@ -157,12 +159,14 @@ async function handleParticipantReply(inboundEmail, ticket, memberId) {
   }
 
   const content = sanitizeEmailBody(inboundEmail.htmlBody || inboundEmail.textBody || '');
+  const contentHtml = inboundEmail.htmlBody ? sanitizeEmailHtml(inboundEmail.htmlBody) : null;
 
   const comment = await prisma.ticketComment.create({
     data: {
       ticketId: ticket.id,
       authorId: client.id,
       content,
+      contentHtml,
       isInternal: false,
     },
   });
