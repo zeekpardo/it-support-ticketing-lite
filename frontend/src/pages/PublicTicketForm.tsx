@@ -96,7 +96,7 @@ export default function PublicTicketForm() {
       }
     }
 
-    return submitPublicTicket(token!, {
+    const result = await submitPublicTicket(token!, {
       firstName: data.firstName,
       lastName: data.lastName,
       email: data.email,
@@ -105,6 +105,8 @@ export default function PublicTicketForm() {
       descriptionHtml: data.descriptionHtml,
       priorityLevel: data.priorityLevel,
     })
+    // Normalize so TicketForm can find the ID to upload attachments
+    return { ...result, id: result.ticketId }
   }
 
   return (
