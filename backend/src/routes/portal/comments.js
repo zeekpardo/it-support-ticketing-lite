@@ -69,6 +69,7 @@ router.post('/:id/messages', withUpload(uploadAttachments, async (req, res) => {
       contentHtml,
       isInternal: false,
       organizationId: req.organization.id,
+      attachments,
     });
   } catch (notifError) {
     console.error('Error sending comment notifications:', notifError);

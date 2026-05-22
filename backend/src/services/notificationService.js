@@ -240,6 +240,7 @@ export async function sendCommentNotifications(prisma, {
   contentHtml,
   isInternal,
   organizationId,
+  attachments = [],
 }) {
   const branding = await getOrgBranding(organizationId);
 
@@ -299,6 +300,7 @@ export async function sendCommentNotifications(prisma, {
               branding,
               organizationId,
               projectId: ticket.inboxId,
+              attachments,
             });
           }
         }
@@ -365,6 +367,7 @@ export async function sendCommentNotifications(prisma, {
           branding,
           organizationId,
           projectId: ticket.inboxId,
+          attachments,
         });
       }
     }

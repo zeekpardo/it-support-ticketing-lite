@@ -80,6 +80,21 @@ export async function getPresignedUrl(key, expiresIn = 3600) {
  *
  * @param {string} key - S3 object key
  */
+/**
+ * Download a file from S3 and return it as a Buffer.
+ */
+export async function downloadFile(key) {
+  const client = getS3Client();
+  if (!client) throw new Error('S3 storage not configured');
+
+  const response = await client.send(new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key }));
+  const chunks = [];
+  for await (const chunk of response.Body) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
 export async function deleteFile(key) {
   const client = getS3Client();
   if (!client) return;

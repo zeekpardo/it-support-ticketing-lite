@@ -80,6 +80,7 @@ router.post('/:id/comments', requireStaff, withUpload(uploadAttachments, async (
       contentHtml,
       isInternal,
       organizationId: req.organization.id,
+      attachments,
     });
   } catch (notifError) {
     console.error('Error sending comment notifications:', notifError);

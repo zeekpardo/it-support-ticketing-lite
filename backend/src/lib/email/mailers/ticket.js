@@ -5,8 +5,10 @@ import { buildHtmlEmail, buildTextEmail, baseTemplate } from '../templates.js';
 import { buildThreadingChain, storeOutboundEmail } from '../threading.js';
 import { getFromAddress } from '../../../services/emailDomainService.js';
 import { resolveS3ImageUrls } from '../../../utils/resolveS3Urls.js';
+import { downloadFile } from '../../storage.js';
 
 const EMAIL_IMAGE_TTL = 7 * 24 * 3600; // 7 days — long enough for emails to be read
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; // skip attachments over 10 MB
 
 /**
  * Resolve custom sender for an org/inbox.
@@ -333,7 +335,7 @@ export async function sendPublicTicketConfirmationEmail({ to, recipientName, inb
 // ==========================================
 
 export async function sendThreadedTicketReply({
-  ticketId, to, recipientName, ticketSubject, commentContent, commentContentHtml, commentId, branding = {}, organizationId, projectId
+  ticketId, to, recipientName, ticketSubject, commentContent, commentContentHtml, commentId, branding = {}, organizationId, projectId, attachments = []
 }) {
   const sender = await resolveSender(organizationId, projectId);
   const { text: displayText, html: displayHtml } = prepareCommentContent(commentContent, commentContentHtml);
@@ -353,6 +355,22 @@ export async function sendThreadedTicketReply({
       email.toLowerCase() !== to.toLowerCase() &&
       !email.toLowerCase().endsWith(`@${EMAIL_DOMAIN}`)
     );
+
+  // Download S3 attachments and include them in the email
+  const emailAttachments = [];
+  for (const att of attachments) {
+    if (!att.fileUrl?.startsWith('s3:')) continue;
+    if (att.fileSize > MAX_ATTACHMENT_BYTES) {
+      console.warn('[Email] Skipping oversized attachment:', att.fileName, att.fileSize);
+      continue;
+    }
+    try {
+      const buffer = await downloadFile(att.fileUrl.slice(3));
+      emailAttachments.push({ filename: att.fileName, content: buffer.toString('base64') });
+    } catch (err) {
+      console.error('[Email] Failed to download attachment for email:', att.fileName, err.message);
+    }
+  }
 
   const result = await sendEmail({
     to,
@@ -374,6 +392,7 @@ export async function sendThreadedTicketReply({
       greeting: recipientName,
       paragraphs: [displayText],
     }),
+    attachments: emailAttachments.length > 0 ? emailAttachments : undefined,
   });
 
   if (result.success && !result.mock) {

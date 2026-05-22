@@ -53,7 +53,7 @@ export async function getFrontendUrl(organizationId) {
 /**
  * Send an email using Resend with optional threading headers
  */
-export async function sendEmail({ to, cc, subject, html, text, messageId, references, inReplyTo, from: customFrom, fromName }) {
+export async function sendEmail({ to, cc, subject, html, text, messageId, references, inReplyTo, from: customFrom, fromName, attachments }) {
   if (!process.env.RESEND_API_KEY) {
     console.log('[Email] No RESEND_API_KEY set, logging email instead:');
     console.log({ to, cc, subject, text: text?.substring(0, 200), messageId });
@@ -81,7 +81,8 @@ export async function sendEmail({ to, cc, subject, html, text, messageId, refere
       subject,
       html,
       text,
-      ...(Object.keys(headers).length > 0 && { headers })
+      ...(Object.keys(headers).length > 0 && { headers }),
+      ...(attachments && attachments.length > 0 && { attachments }),
     });
 
     if (error) {
