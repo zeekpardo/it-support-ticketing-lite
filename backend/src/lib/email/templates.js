@@ -11,7 +11,9 @@ import { APP_NAME } from './client.js';
  */
 export function baseTemplate(content, branding = {}) {
   const appName = branding.appName || APP_NAME;
-  const logoHtml = branding.logoUrl
+  // Skip pre-signed S3 URLs — they expire and trigger domain mismatch warnings
+  const isPresigned = branding.logoUrl?.includes('X-Amz-') || branding.logoUrl?.includes('x-amz-');
+  const logoHtml = (branding.logoUrl && !isPresigned)
     ? `<img src="${branding.logoUrl}" alt="${escapeHtml(appName)}" style="max-height: 40px; margin-bottom: 20px;" />`
     : '';
 

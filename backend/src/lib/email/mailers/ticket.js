@@ -4,6 +4,9 @@ import { sendEmail, EMAIL_DOMAIN, getFrontendUrl } from '../client.js';
 import { buildHtmlEmail, buildTextEmail, baseTemplate } from '../templates.js';
 import { buildThreadingChain, storeOutboundEmail } from '../threading.js';
 import { getFromAddress } from '../../../services/emailDomainService.js';
+import { resolveS3ImageUrls } from '../../../utils/resolveS3Urls.js';
+
+const EMAIL_IMAGE_TTL = 7 * 24 * 3600; // 7 days — long enough for emails to be read
 
 /**
  * Resolve custom sender for an org/inbox.
@@ -99,6 +102,7 @@ export async function sendTicketCommentEmail({ to, recipientName, authorName, ti
   const sender = await resolveSender(organizationId, projectId);
   const ticketUrl = await getTicketUrl(ticketId, isPortal, organizationId);
   const { text: displayText, html: displayHtml } = prepareCommentContent(commentContent, commentContentHtml);
+  const resolvedHtml = displayHtml ? await resolveS3ImageUrls(displayHtml, EMAIL_IMAGE_TTL) : null;
 
   return sendEmail({
     to,
@@ -108,8 +112,8 @@ export async function sendTicketCommentEmail({ to, recipientName, authorName, ti
     html: buildHtmlEmail({
       greeting: recipientName,
       paragraphs: [`<strong>${escapeHtml(authorName)}</strong> commented on the ticket:`],
-      quote: displayHtml
-        ? { content: displayHtml, isHtml: true }
+      quote: resolvedHtml
+        ? { content: resolvedHtml, isHtml: true }
         : { content: displayText },
       button: { text: 'View Ticket', url: ticketUrl },
       branding,
@@ -153,6 +157,7 @@ export async function sendMentionEmail({ to, recipientName, authorName, ticketSu
   const sender = await resolveSender(organizationId, projectId);
   const ticketUrl = await getTicketUrl(ticketId, isPortal, organizationId);
   const { text: displayText, html: displayHtml } = prepareCommentContent(commentContent, commentContentHtml);
+  const resolvedHtml = displayHtml ? await resolveS3ImageUrls(displayHtml, EMAIL_IMAGE_TTL) : null;
 
   return sendEmail({
     to,
@@ -162,8 +167,8 @@ export async function sendMentionEmail({ to, recipientName, authorName, ticketSu
     html: buildHtmlEmail({
       greeting: recipientName,
       paragraphs: [`<strong>${escapeHtml(authorName)}</strong> mentioned you in a comment:`],
-      quote: displayHtml
-        ? { content: displayHtml, borderColor: '#8b5cf6', isHtml: true }
+      quote: resolvedHtml
+        ? { content: resolvedHtml, borderColor: '#8b5cf6', isHtml: true }
         : { content: displayText, borderColor: '#8b5cf6' },
       button: { text: 'View Ticket', url: ticketUrl },
       branding,
@@ -332,6 +337,7 @@ export async function sendThreadedTicketReply({
 }) {
   const sender = await resolveSender(organizationId, projectId);
   const { text: displayText, html: displayHtml } = prepareCommentContent(commentContent, commentContentHtml);
+  const resolvedHtml = displayHtml ? await resolveS3ImageUrls(displayHtml, EMAIL_IMAGE_TTL) : null;
   const { messageId, references, inReplyTo } = await buildThreadingChain(ticketId, { type: 'reply', domain: sender?.domain });
 
   // Get all email participants for this ticket (CC them on the reply)
@@ -359,8 +365,8 @@ export async function sendThreadedTicketReply({
     inReplyTo,
     html: buildHtmlEmail({
       greeting: recipientName,
-      paragraphs: displayHtml
-        ? [{ html: displayHtml }]
+      paragraphs: resolvedHtml
+        ? [{ html: resolvedHtml }]
         : [escapeHtml(displayText)],
       branding,
     }),
