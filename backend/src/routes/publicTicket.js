@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { prisma, auth } from '../lib/auth.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
-import { resolveFileUrl } from '../lib/storage.js';
+import { resolveFileUrl, uploadFile, generateStorageKey, isStorageConfigured } from '../lib/storage.js';
 import { markPublicTicketEmail, consumePublicTicketContext, sendPublicTicketConfirmationEmail, getOrgBranding, getFrontendUrl } from '../lib/email/index.js';
 import { createTicketAttachments } from '../utils/entityHelpers.js';
 import { uploadAttachments } from '../middleware/upload.js';
@@ -249,6 +249,29 @@ router.post('/:token/attachments/:ticketId', withUpload(uploadAttachments, async
   );
 
   res.status(201).json(attachments);
+}));
+
+// POST /:token/description-image — Upload inline image for new ticket description (no ticket ID yet)
+import multer from 'multer';
+const uploadDescriptionImage = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    allowed.includes(file.mimetype) ? cb(null, true) : cb(new Error('Only JPEG, PNG, GIF, and WebP images are allowed'));
+  },
+}).single('image');
+
+router.post('/:token/description-image', withUpload(uploadDescriptionImage, async (req, res) => {
+  if (!req.file) throw new ValidationError('No image provided');
+  if (!isStorageConfigured()) throw new ValidationError('File storage is not configured');
+
+  await findInboxByToken(req.params.token);
+
+  const key = generateStorageKey('inline-images', req.file.originalname);
+  await uploadFile(req.file.buffer, key, req.file.mimetype);
+
+  res.status(201).json({ key });
 }));
 
 export default router;

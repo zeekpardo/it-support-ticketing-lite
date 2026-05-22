@@ -71,6 +71,12 @@ export async function uploadPortalInlineImage(ticketId: string, file: File) {
   return upload<{ key: string }>(`/portal/tickets/${ticketId}/inline-image`, formData)
 }
 
+export async function uploadPortalDescriptionImage(file: File) {
+  const formData = new FormData()
+  formData.append('image', file)
+  return upload<{ key: string }>(`/portal/tickets/description-image`, formData)
+}
+
 export async function getPortalTicketMentionableMembers(ticketId: string) {
   return request<Array<{
     id: string

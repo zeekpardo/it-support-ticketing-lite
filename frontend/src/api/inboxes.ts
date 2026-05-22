@@ -189,6 +189,12 @@ export async function uploadPublicTicketAttachments(token: string, ticketId: str
   return publicUpload<any[]>(`/public/submit/${token}/attachments/${ticketId}`, formData)
 }
 
+export async function uploadPublicTicketDescriptionImage(token: string, file: File) {
+  const formData = new FormData()
+  formData.append('image', file)
+  return publicUpload<{ key: string }>(`/public/submit/${token}/description-image`, formData)
+}
+
 // ==========================================
 // Organization Public Form (admin)
 // ==========================================

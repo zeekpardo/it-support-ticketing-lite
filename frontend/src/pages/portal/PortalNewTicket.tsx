@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useOrganization } from '../../context/OrganizationContext'
 import { api } from '../../api/client'
+import { uploadPortalDescriptionImage } from '../../api/portal'
 import { TicketForm } from '../../components/tickets'
 import { Heading } from '@/components/ui/heading'
 import { Text } from '@/components/ui/text'
@@ -112,6 +113,7 @@ export default function PortalNewTicket() {
           showContactFields={false}
           showAttachments={true}
           onUploadAttachments={(ticketId, files) => api.uploadPortalTicketAttachments(ticketId, files)}
+          onInlineImageUpload={uploadPortalDescriptionImage}
           onSuccess={(ticket) => navigate(`/portal/tickets/${ticket.id}`)}
         />
       </div>

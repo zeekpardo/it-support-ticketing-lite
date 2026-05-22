@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Select } from '../ui/select'
@@ -37,6 +37,7 @@ interface TicketFormProps {
   preselectedInboxId?: string
   showAttachments?: boolean
   onUploadAttachments?: (ticketId: string, files: File[]) => Promise<any>
+  onInlineImageUpload?: (file: File) => Promise<{ key: string }>
   onSuccess?: (ticket: any) => void
 }
 
@@ -66,6 +67,7 @@ export function TicketForm({
   preselectedInboxId,
   showAttachments = false,
   onUploadAttachments,
+  onInlineImageUpload,
   onSuccess
 }: TicketFormProps) {
   // Auto-select inbox if only one is available
@@ -73,6 +75,19 @@ export function TicketForm({
   const effectiveInboxId = preselectedInboxId || autoSelectedInboxId
 
   const editorRef = useRef<RichTextEditorRef>(null)
+  const inlineImageMap = useRef<Map<string, string>>(new Map())
+
+  const handleImageUpload = useCallback(async (file: File): Promise<string | null> => {
+    if (!onInlineImageUpload) return null
+    try {
+      const { key } = await onInlineImageUpload(file)
+      const blobUrl = URL.createObjectURL(file)
+      inlineImageMap.current.set(blobUrl, `s3:${key}`)
+      return blobUrl
+    } catch {
+      return null
+    }
+  }, [onInlineImageUpload])
 
   const [formData, setFormData] = useState<Omit<TicketFormData, 'description' | 'descriptionHtml'>>({
     inboxId: effectiveInboxId || initialData?.inboxId || '',
@@ -106,7 +121,12 @@ export function TicketForm({
     setError(null)
 
     const description = editorRef.current?.getText()?.trim() || ''
-    const descriptionHtml = editorRef.current?.isEmpty() ? '' : (editorRef.current?.getHTML() || '')
+    let descriptionHtml = editorRef.current?.isEmpty() ? '' : (editorRef.current?.getHTML() || '')
+    // Replace blob URLs with s3: keys before submitting
+    for (const [blobUrl, s3Key] of inlineImageMap.current.entries()) {
+      descriptionHtml = descriptionHtml.replace(blobUrl, s3Key)
+    }
+    inlineImageMap.current.clear()
 
     // Validate required fields
     if (!formData.inboxId || !formData.subject || !description) {
@@ -282,6 +302,7 @@ export function TicketForm({
               placeholder="Please provide details about your issue..."
               initialContent={initialData?.description}
               disabled={submitting || isLoading}
+              onImageUpload={onInlineImageUpload ? handleImageUpload : undefined}
             />
           </Field>
 

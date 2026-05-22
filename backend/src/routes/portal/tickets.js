@@ -8,7 +8,7 @@ import { createTicketAttachments } from '../../utils/entityHelpers.js';
 import { sanitizeUrl } from '../../utils/sanitize.js';
 import { createNotification } from '../../services/notificationService.js';
 import { INBOX_SELECT_BRIEF, MEMBER_WITH_USER_BRIEF, MEMBER_WITH_ROLE_AND_USER_BRIEF } from '../../utils/prismaFragments.js';
-import { uploadFile, generateAttachmentKey, isStorageConfigured } from '../../lib/storage.js';
+import { uploadFile, generateAttachmentKey, generateStorageKey, isStorageConfigured } from '../../lib/storage.js';
 import { resolveS3ImageUrls, resolveAttachmentUrl } from '../../utils/resolveS3Urls.js';
 import { sanitizeCommentHtml } from '../../utils/htmlSanitizer.js';
 
@@ -307,6 +307,17 @@ router.post('/:id/inline-image', withUpload(uploadInlineImage, async (req, res) 
       isInline: true,
     },
   });
+
+  res.status(201).json({ key });
+}));
+
+// Upload inline image for a new ticket description (no ticket ID yet)
+router.post('/description-image', withUpload(uploadInlineImage, async (req, res) => {
+  if (!req.file) throw new ValidationError('No image provided');
+  if (!isStorageConfigured()) throw new ValidationError('File storage is not configured');
+
+  const key = generateStorageKey('inline-images', req.file.originalname);
+  await uploadFile(req.file.buffer, key, req.file.mimetype);
 
   res.status(201).json({ key });
 }));

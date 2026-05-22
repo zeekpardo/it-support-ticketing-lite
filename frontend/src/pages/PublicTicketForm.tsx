@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
-import { getPublicFormInfo, submitPublicTicket, uploadPublicTicketAttachments } from '../api/inboxes'
+import { getPublicFormInfo, submitPublicTicket, uploadPublicTicketAttachments, uploadPublicTicketDescriptionImage } from '../api/inboxes'
 import { TicketForm } from '../components/tickets/TicketForm'
 import { Heading } from '@/components/ui/heading'
 import { Text } from '@/components/ui/text'
@@ -131,6 +131,7 @@ export default function PublicTicketForm() {
             showPriority={true}
             showAttachments={true}
             onUploadAttachments={(ticketId, files) => uploadPublicTicketAttachments(token!, ticketId, files)}
+            onInlineImageUpload={(file) => uploadPublicTicketDescriptionImage(token!, file)}
             preselectedInboxId={info!.inboxId}
             onSuccess={() => setStatus('submitted')}
           />
