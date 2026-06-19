@@ -151,7 +151,7 @@ export default function Reports() {
 
   // Edit/delete modal state
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null)
-  const [editForm, setEditForm] = useState({ taskName: '', startTime: '', endTime: '', notes: '' })
+  const [editForm, setEditForm] = useState({ taskName: '', startTime: '', endTime: '', durationMins: 0, notes: '' })
   const [deletingEntry, setDeletingEntry] = useState<TimeEntry | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -279,23 +279,34 @@ export default function Reports() {
   }
 
   const openEdit = (entry: TimeEntry) => {
+    const duration = entry.durationMins || 0
     setEditForm({
       taskName: entry.taskName,
-      startTime: entry.startTime.slice(0, 16), // datetime-local format
+      startTime: entry.startTime.slice(0, 16),
       endTime: entry.endTime ? entry.endTime.slice(0, 16) : '',
+      durationMins: duration,
       notes: entry.notes || '',
     })
     setEditingEntry(entry)
+  }
+
+  const updateEditDuration = (startTime: string, endTime: string) => {
+    if (startTime && endTime) {
+      return Math.max(0, Math.round((new Date(endTime).getTime() - new Date(startTime).getTime()) / 60000))
+    }
+    return editForm.durationMins
   }
 
   const handleSaveEdit = async () => {
     if (!editingEntry) return
     setSaving(true)
     try {
+      const start = new Date(editForm.startTime)
+      const end = new Date(start.getTime() + editForm.durationMins * 60000)
       await api.updateTimeEntry(editingEntry.id, {
         taskName: editForm.taskName,
-        startTime: new Date(editForm.startTime).toISOString(),
-        endTime: editForm.endTime ? new Date(editForm.endTime).toISOString() : undefined,
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
         notes: editForm.notes || undefined,
       })
       setEditingEntry(null)
@@ -721,11 +732,34 @@ export default function Reports() {
               />
             </Field>
             <Field>
+              <Label>Duration (minutes)</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  type="number"
+                  min="0"
+                  value={editForm.durationMins}
+                  onChange={(e) => {
+                    const mins = Math.max(0, parseInt(e.target.value) || 0)
+                    const newEnd = editForm.startTime
+                      ? new Date(new Date(editForm.startTime).getTime() + mins * 60000).toISOString().slice(0, 16)
+                      : editForm.endTime
+                    setEditForm({ ...editForm, durationMins: mins, endTime: newEnd })
+                  }}
+                  className="w-28"
+                />
+                <Text className="text-sm text-zinc-500">{formatDuration(editForm.durationMins)}</Text>
+              </div>
+            </Field>
+            <Field>
               <Label>Start Time</Label>
               <Input
                 type="datetime-local"
                 value={editForm.startTime}
-                onChange={(e) => setEditForm({ ...editForm, startTime: e.target.value })}
+                onChange={(e) => {
+                  const newStart = e.target.value
+                  const duration = updateEditDuration(newStart, editForm.endTime)
+                  setEditForm({ ...editForm, startTime: newStart, durationMins: duration })
+                }}
               />
             </Field>
             <Field>
@@ -733,7 +767,11 @@ export default function Reports() {
               <Input
                 type="datetime-local"
                 value={editForm.endTime}
-                onChange={(e) => setEditForm({ ...editForm, endTime: e.target.value })}
+                onChange={(e) => {
+                  const newEnd = e.target.value
+                  const duration = updateEditDuration(editForm.startTime, newEnd)
+                  setEditForm({ ...editForm, endTime: newEnd, durationMins: duration })
+                }}
               />
             </Field>
             <Field>
