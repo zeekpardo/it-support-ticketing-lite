@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useOrganization } from '../context/OrganizationContext'
-import { useAuth } from '../context/AuthContext'
 import { api } from '../api/client'
 import { formatDuration } from '../utils/time'
 import { Heading, Subheading } from '@/components/ui/heading'
@@ -37,6 +36,7 @@ interface ReportSummary {
     inbox?: { id: string; name: string; inboxCode: string }
     user?: { id: string; name: string; email: string }
     date?: string
+    hourlyRate?: number | null
     totalMinutes: number
     totalHours: number
     entryCount: number
@@ -52,6 +52,7 @@ interface Inbox {
 interface StaffMember {
   id: string
   role: string
+  hourlyRate: number | null
   user: { id: string; name: string; email: string }
 }
 
@@ -124,7 +125,6 @@ function groupEntriesByTicket(entries: TimeEntry[]): TicketGroup[] {
 
 export default function Reports() {
   const { currentOrg, isAdmin } = useOrganization()
-  const { isSuperAdmin } = useAuth()
   const [report, setReport] = useState<ReportSummary | null>(null)
   const [inboxes, setInboxes] = useState<Inbox[]>([])
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
@@ -146,8 +146,8 @@ export default function Reports() {
   // Expandable ticket groups within a user
   const [expandedTicketId, setExpandedTicketId] = useState<string | null>(null)
 
-  // Billing
-  const [hourlyRate, setHourlyRate] = useState<number>(0)
+  // Billing - per-user rates from staff members
+  const [userRates, setUserRates] = useState<Record<string, number | null>>({})
 
   // Edit/delete modal state
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null)
@@ -185,6 +185,9 @@ export default function Reports() {
     try {
       const data = await api.getStaffMembers()
       setStaffMembers(data)
+      const rates: Record<string, number | null> = {}
+      data.forEach((m) => { rates[m.user.id] = m.hourlyRate })
+      setUserRates(rates)
     } catch (error) {
       console.error('Failed to load staff members:', error)
     }
@@ -319,6 +322,17 @@ export default function Reports() {
       console.error('Failed to delete entry:', error)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleRateChange = async (uid: string, rate: number | null) => {
+    setUserRates((prev) => ({ ...prev, [uid]: rate }))
+    const member = staffMembers.find((m) => m.user.id === uid)
+    if (!member) return
+    try {
+      await api.updateStaffHourlyRate(member.id, rate)
+    } catch (error) {
+      console.error('Failed to update hourly rate:', error)
     }
   }
 
@@ -624,66 +638,70 @@ export default function Reports() {
       )}
 
       {/* Billing Section (admin only) */}
-      {isAdmin && report && report.data.length > 0 && (
+      {isAdmin && report && report.data.length > 0 && groupBy === 'user' && (
         <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-800 dark:ring-white/10">
-          <div className="flex items-center justify-between">
-            <Subheading>Billing Summary</Subheading>
-            <Field className="flex items-center gap-2">
-              <Label className="whitespace-nowrap">Hourly Rate ($)</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={hourlyRate || ''}
-                onChange={(e) => setHourlyRate(parseFloat(e.target.value) || 0)}
-                className="w-28"
-                placeholder="0.00"
-              />
-            </Field>
-          </div>
+          <Subheading>Billing Summary</Subheading>
 
           <div className="mt-4">
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableHeader>
-                    {groupBy === 'user' ? 'User' : groupBy === 'inbox' ? 'Inbox' : 'Date'}
-                  </TableHeader>
+                  <TableHeader>User</TableHeader>
                   <TableHeader>Hours</TableHeader>
-                  {hourlyRate > 0 && <TableHeader>Amount</TableHeader>}
+                  <TableHeader>Rate ($/hr)</TableHeader>
+                  <TableHeader>Amount</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {report.data.map((row, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">
-                      {groupBy === 'user' && row.user?.name}
-                      {groupBy === 'inbox' && row.inbox && (
-                        <>
-                          <Badge color="blue" className="mr-2">{row.inbox.inboxCode}</Badge>
-                          {row.inbox.name}
-                        </>
-                      )}
-                      {groupBy === 'date' && row.date}
-                    </TableCell>
-                    <TableCell className="font-mono">{row.totalHours}h</TableCell>
-                    {hourlyRate > 0 && (
-                      <TableCell className="font-mono">
-                        ${(row.totalHours * hourlyRate).toFixed(2)}
+                {report.data.map((row, index) => {
+                  const uid = row.user?.id
+                  const rate = uid ? (userRates[uid] ?? row.hourlyRate ?? null) : null
+                  const amount = rate && row.totalHours ? Math.round(row.totalHours * rate * 100) / 100 : null
+
+                  return (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">{row.user?.name}</TableCell>
+                      <TableCell className="font-mono">{row.totalHours}h</TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={rate ?? ''}
+                          onChange={(e) => {
+                            if (!uid) return
+                            const val = e.target.value ? parseFloat(e.target.value) : null
+                            handleRateChange(uid, val)
+                          }}
+                          className="w-24"
+                          placeholder="0.00"
+                        />
                       </TableCell>
-                    )}
-                  </TableRow>
-                ))}
+                      <TableCell className="font-mono">
+                        {amount !== null ? `$${amount.toFixed(2)}` : '-'}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
                 {/* Total row */}
-                <TableRow className="border-t-2 border-zinc-300 font-bold dark:border-zinc-600">
-                  <TableCell>Total</TableCell>
-                  <TableCell className="font-mono">{report.summary.totalHours}h</TableCell>
-                  {hourlyRate > 0 && (
-                    <TableCell className="font-mono">
-                      ${(report.summary.totalHours * hourlyRate).toFixed(2)}
-                    </TableCell>
-                  )}
-                </TableRow>
+                {(() => {
+                  const grandTotal = report.data.reduce((sum, row) => {
+                    const uid = row.user?.id
+                    const rate = uid ? (userRates[uid] ?? row.hourlyRate ?? 0) : 0
+                    return sum + row.totalHours * (rate || 0)
+                  }, 0)
+
+                  return (
+                    <TableRow className="border-t-2 border-zinc-300 font-bold dark:border-zinc-600">
+                      <TableCell>Total</TableCell>
+                      <TableCell className="font-mono">{report.summary.totalHours}h</TableCell>
+                      <TableCell></TableCell>
+                      <TableCell className="font-mono">
+                        {grandTotal > 0 ? `$${(Math.round(grandTotal * 100) / 100).toFixed(2)}` : '-'}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })()}
               </TableBody>
             </Table>
           </div>

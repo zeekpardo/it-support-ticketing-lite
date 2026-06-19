@@ -134,6 +134,7 @@ model Member {
   userId         String       @map("user_id")
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   role           String // "owner", "admin", "member", "client"
+  hourlyRate     Float?       @map("hourly_rate")
   createdAt      DateTime     @default(now()) @map("created_at")
 
   // Ticket relations

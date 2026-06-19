@@ -34,8 +34,21 @@ export async function getStaffMembers() {
   return request<Array<{
     id: string
     role: string
+    hourlyRate: number | null
     user: { id: string; name: string; email: string }
   }>>('/members/staff')
+}
+
+export async function updateStaffHourlyRate(memberId: string, hourlyRate: number | null) {
+  return request<{
+    id: string
+    role: string
+    hourlyRate: number | null
+    user: { id: string; name: string; email: string }
+  }>(`/members/staff/${memberId}/rate`, {
+    method: 'PATCH',
+    body: JSON.stringify({ hourlyRate })
+  })
 }
 
 export async function getClients() {

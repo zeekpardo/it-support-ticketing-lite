@@ -78,11 +78,19 @@ router.get('/summary', asyncHandler(async (req, res) => {
       delete g.users;
     });
   } else if (groupBy === 'user') {
+    // Fetch hourly rates for all staff in this org
+    const members = await prisma.member.findMany({
+      where: { organizationId: req.organization.id },
+      select: { userId: true, hourlyRate: true }
+    });
+    const rateByUserId = Object.fromEntries(members.map(m => [m.userId, m.hourlyRate]));
+
     entries.forEach(entry => {
       const key = entry.userId;
       if (!grouped[key]) {
         grouped[key] = {
           user: entry.user,
+          hourlyRate: rateByUserId[entry.userId] || null,
           totalMinutes: 0,
           entryCount: 0,
           inboxes: new Set()

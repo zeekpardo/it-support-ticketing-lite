@@ -259,6 +259,35 @@ router.get('/staff', authenticate, requireOrganization, requireStaff, asyncHandl
   res.json(staff);
 }));
 
+// Update a staff member's hourly rate
+// PATCH /api/members/staff/:memberId/rate
+router.patch('/staff/:memberId/rate', authenticate, requireOrganization, requireAdmin, asyncHandler(async (req, res) => {
+  const { memberId } = req.params;
+  const { hourlyRate } = req.body;
+
+  if (hourlyRate !== null && (typeof hourlyRate !== 'number' || hourlyRate < 0)) {
+    throw new ValidationError('Hourly rate must be a non-negative number or null');
+  }
+
+  const member = await prisma.member.findFirst({
+    where: {
+      id: memberId,
+      organizationId: req.organization.id,
+      role: { in: ['owner', 'manager', 'member'] }
+    }
+  });
+
+  if (!member) throw new NotFoundError('Staff member not found');
+
+  const updated = await prisma.member.update({
+    where: { id: memberId },
+    data: { hourlyRate },
+    include: { user: { select: USER_SELECT } }
+  });
+
+  res.json(updated);
+}));
+
 // Get a single client with their tickets and software access
 // GET /api/members/clients/:memberId
 router.get('/clients/:memberId', authenticate, requireOrganization, requireAdmin, asyncHandler(async (req, res) => {

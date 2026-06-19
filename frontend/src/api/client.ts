@@ -153,6 +153,7 @@ class ApiClient {
   // === Members ===
   createUserAndAddToOrg = membersApi.createUserAndAddToOrg
   getStaffMembers = membersApi.getStaffMembers
+  updateStaffHourlyRate = membersApi.updateStaffHourlyRate
   getClients = membersApi.getClients
   getClientDetail = membersApi.getClientDetail
   updateClient = membersApi.updateClient
