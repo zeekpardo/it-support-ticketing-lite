@@ -202,7 +202,7 @@ export const auth = betterAuth({
           void sendMagicLinkEmail({ email, url });
         }
       },
-      expiresIn: 300 // 5 minutes
+      expiresIn: 60 * 60 * 24 // 24 hours
     }),
 
     // Admin plugin for super admin features

@@ -35,14 +35,15 @@ router.get('/', asyncHandler(async (req, res) => {
   if (startDate || endDate) {
     where.startTime = {};
     if (startDate) where.startTime.gte = new Date(startDate);
-    if (endDate) where.startTime.lte = new Date(endDate);
+    if (endDate) where.startTime.lte = new Date(endDate + 'T23:59:59.999Z');
   }
 
   const entries = await prisma.timeEntry.findMany({
     where,
     include: {
       inbox: { select: INBOX_SELECT_BRIEF },
-      user: { select: USER_SELECT }
+      user: { select: USER_SELECT },
+      ticket: { select: { id: true, subject: true, inboxId: true } }
     },
     orderBy: { startTime: 'desc' }
   });
