@@ -18,6 +18,7 @@ import {
   sendTicketSubmittedEmail,
   sendNewTicketAssignedEmail,
   sendRenewalReminderEmail,
+  sendBillingThresholdEmail,
 } from '../lib/email/index.js';
 
 export const NOTIFICATION_TYPES = {
@@ -268,6 +269,32 @@ export const NOTIFICATION_TYPES = {
       organizationId: data.organizationId,
       projectId: data.inboxId,
     }),
+  },
+
+  // Time tracking alerts
+  BILLING_THRESHOLD_REACHED: {
+    key: 'billing_threshold_reached',
+    title: () => 'Billing threshold reached',
+    message: (data) => `${data.userName} has reached $${data.amount} in billable hours for ${data.month}`,
+    link: () => '/reports',
+    icon: 'billing',
+    sendEmail: (recipient, data) => sendBillingThresholdEmail({
+      to: recipient.email,
+      recipientName: recipient.name,
+      userName: data.userName,
+      amount: data.amount,
+      month: data.month,
+      branding: data.branding || {},
+      organizationId: data.organizationId,
+    }),
+  },
+
+  LONG_TIME_ENTRY: {
+    key: 'long_time_entry',
+    title: () => 'Long time entry logged',
+    message: (data) => `${data.userName} logged ${data.duration} on "${data.taskName}"`,
+    link: () => '/reports',
+    icon: 'time',
   },
 };
 

@@ -46,3 +46,8 @@ export {
   sendAccessStatusEmail,
   sendRenewalReminderEmail,
 } from './mailers/software.js';
+
+// Billing mailers
+export {
+  sendBillingThresholdEmail,
+} from './mailers/billing.js';

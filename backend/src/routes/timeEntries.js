@@ -5,8 +5,106 @@ import { asyncHandler } from '../middleware/asyncHandler.js';
 import { NotFoundError, ValidationError, ForbiddenError } from '../utils/errors.js';
 import { findTimeEntryOrFail } from '../utils/entityHelpers.js';
 import { INBOX_SELECT_BRIEF, USER_SELECT } from '../utils/prismaFragments.js';
+import { notifyMultiple } from '../services/notificationService.js';
 
 const router = express.Router();
+
+const BILLING_THRESHOLD = 500;
+const LONG_ENTRY_MINS = 20;
+
+/**
+ * Check time entry alerts (fire-and-forget after response is sent)
+ * - Notifies admins if a single entry exceeds 20 minutes
+ * - Notifies admins if a user crosses $500 in billable hours for the month
+ */
+async function checkTimeEntryAlerts(entry, organizationId) {
+  try {
+    // Get the user's name
+    const user = await prisma.user.findUnique({
+      where: { id: entry.userId },
+      select: { name: true }
+    });
+    const userName = user?.name || 'Unknown';
+
+    // Find admin/owner members for notifications
+    const admins = await prisma.member.findMany({
+      where: {
+        organizationId,
+        role: { in: ['owner', 'manager'] }
+      },
+      select: { id: true, userId: true }
+    });
+    if (admins.length === 0) return;
+
+    const adminIds = admins.map(a => a.id);
+
+    // 1. Long entry check (> 20 minutes)
+    if (entry.durationMins && entry.durationMins > LONG_ENTRY_MINS) {
+      const hours = Math.floor(entry.durationMins / 60);
+      const mins = entry.durationMins % 60;
+      const duration = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+
+      await notifyMultiple(prisma, {
+        type: 'LONG_TIME_ENTRY',
+        recipientIds: adminIds,
+        organizationId,
+        data: { userName, duration, taskName: entry.taskName },
+        entityType: 'time_entry',
+        entityId: entry.id,
+        sendEmail: false,
+      });
+    }
+
+    // 2. Billing threshold check ($500/month)
+    const membership = await prisma.member.findFirst({
+      where: { organizationId, userId: entry.userId },
+      select: { hourlyRate: true }
+    });
+
+    if (!membership?.hourlyRate || !entry.durationMins) return;
+
+    const rate = membership.hourlyRate;
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    // Get total minutes for this user this month (completed entries only)
+    const monthEntries = await prisma.timeEntry.aggregate({
+      where: {
+        userId: entry.userId,
+        organizationId,
+        isRunning: false,
+        startTime: { gte: monthStart, lte: monthEnd },
+      },
+      _sum: { durationMins: true }
+    });
+
+    const totalMinutes = monthEntries._sum.durationMins || 0;
+    const currentAmount = Math.round(totalMinutes / 60 * rate * 100) / 100;
+    const previousAmount = Math.round((totalMinutes - entry.durationMins) / 60 * rate * 100) / 100;
+
+    // Only alert if this entry caused the threshold to be crossed
+    if (previousAmount < BILLING_THRESHOLD && currentAmount >= BILLING_THRESHOLD) {
+      const monthName = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+      await notifyMultiple(prisma, {
+        type: 'BILLING_THRESHOLD_REACHED',
+        recipientIds: adminIds,
+        organizationId,
+        data: {
+          userName,
+          amount: currentAmount.toFixed(2),
+          month: monthName,
+        },
+        entityType: 'time_entry',
+        entityId: entry.id,
+        sendEmail: true,
+      });
+    }
+  } catch (error) {
+    console.error('[TimeEntryAlerts] Error checking alerts:', error);
+  }
+}
 
 // All routes require authentication and organization context
 router.use(authenticate);
@@ -130,6 +228,11 @@ router.post('/', asyncHandler(async (req, res) => {
   });
 
   res.status(201).json(entry);
+
+  // Fire-and-forget alert checks
+  if (!isRunning && durationMins) {
+    checkTimeEntryAlerts(entry, req.organization.id).catch(() => {});
+  }
 }));
 
 // Update time entry
@@ -228,6 +331,9 @@ router.post('/:id/stop', asyncHandler(async (req, res) => {
   });
 
   res.json(updated);
+
+  // Fire-and-forget alert checks
+  checkTimeEntryAlerts(updated, req.organization.id).catch(() => {});
 }));
 
 // Get currently running timer for user
